@@ -1,4 +1,5 @@
 <script lang="ts">
+	import Sidebar from '../lib/Sidebar.svelte';
 	import type { PageServerData } from './$types';
 	import type { DataEntry, EntryDefinition } from './proxy+page.server';
 	export let data: PageServerData;
@@ -22,24 +23,30 @@
 	}
 </script>
 
-<ul>
-	{#each data.data as item}
-		<li>
-			<button class:selected={item.name === selectedItem?.name} on:click={() => selectItem(item)}
-				>{item.name}</button
-			>
-		</li>
-	{/each}
-</ul>
-
-{#if selectedItem}
-	<h2>{selectedItem.name}</h2>
-	{#await selectedItem.content}
-		<div>loading...</div>
-	{:then content}
-		<pre>{content}</pre>
-	{/await}
-{/if}
+<div class="grid">
+	<Sidebar class="grid-cols-1">
+		<ul>
+			{#each data.data as item}
+				<li>
+					<button
+						class:selected={item.name === selectedItem?.name}
+						on:click={() => selectItem(item)}>{item.name}</button
+					>
+				</li>
+			{/each}
+		</ul>
+	</Sidebar>
+	<div class="grid-cols-5">
+		{#if selectedItem}
+			<h2>{selectedItem.name}</h2>
+			{#await selectedItem.content}
+				<div>loading...</div>
+			{:then content}
+				<pre>{content}</pre>
+			{/await}
+		{/if}
+	</div>
+</div>
 
 <style>
 	.selected {
