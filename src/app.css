@@ -1,0 +1,13 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Smooth scroll on href */
+html {
+	scroll-behavior: smooth;
+}
+
+body,
+html {
+	min-height: 100vh;
+}

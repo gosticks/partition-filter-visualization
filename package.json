@@ -34,8 +34,10 @@
 	"type": "module",
 	"dependencies": {
 		"@sveltejs/adapter-static": "^2.0.2",
+		"@types/papaparse": "^5.3.7",
 		"autoprefixer": "^10.4.14",
 		"feather-icons": "^4.29.0",
+		"papaparse": "^5.4.1",
 		"postcss": "^8.4.24",
 		"sass": "^1.63.6",
 		"svelte-feather-icons": "^4.0.1",

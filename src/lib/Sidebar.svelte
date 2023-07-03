@@ -1,50 +1,37 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { writable } from 'svelte/store';
+	import { Theme, appSettingsStore, toggleThemeMode, updateTheme } from '../store/SettingsStore';
 
 	let className: string | undefined = '';
 	export { className as class };
 
-	const theme = writable('light'); // Initial theme
-
-	// Switch theme function
-	function toggleTheme() {
-		theme.update((currentTheme) => (currentTheme === 'light' ? 'dark' : 'light'));
-	}
+	let theme: Theme;
 
 	onMount(() => {
-		// Check for previously saved theme in local storage
-		// const savedTheme = localStorage.getItem('theme');
-		// if (savedTheme) {
-		// 	theme.set(savedTheme);
-		// }
+		appSettingsStore.subscribe((value) => {
+			theme = value.theme;
+		});
 	});
-
-	$: {
-		// Save the current theme to local storage
-		// localStorage.setItem('theme', $theme);
-	}
 </script>
 
 <div class="sidebar {className} {theme}">
 	<div class="p-4">
-		<!-- Sidebar content goes here -->
-		<slot />
+		<div>
+			<!-- Sidebar content goes here -->
+			<slot />
+		</div>
 
 		<div class="flex items-center mt-4">
 			<label for="themeToggle" class="flex items-center cursor-pointer">
 				<span class="mr-2">Dark Mode</span>
-				<input
-					type="checkbox"
-					id="themeToggle"
-					class="hidden"
-					on:change={toggleTheme}
-					checked={$theme === 'dark'}
-				/>
+				<input type="checkbox" id="themeToggle" class="hidden" on:change={toggleThemeMode} />
 				<span class="relative inline-block w-10 h-6 transition bg-gray-300 rounded-full">
 					<span
 						class="absolute top-0 left-0 w-6 h-6 transition transform bg-white rounded-full shadow-md"
-						style="transform: translateX({$theme === 'dark' ? 'calc(100% - 0.75rem)' : '0'})"
+						style="transform: translateX({$appSettingsStore.theme === Theme.Dark
+							? 'calc(100% - 0.75rem)'
+							: '0'})"
 					/>
 				</span>
 				<span class="ml-2">Light Mode</span>
@@ -55,8 +42,8 @@
 
 <style>
 	.sidebar {
-		width: 200px;
 		height: 100vh;
+		overflow-y: scroll;
 		transition: background-color 0.3s, color 0.3s;
 	}
 
