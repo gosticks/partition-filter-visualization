@@ -196,13 +196,11 @@
 		renderer.dispose();
 	});
 
-	let mousePosition: Vector2 | undefined = undefined;
+	let mousePosition: Vector2 = new Vector2(0, 0);
 
 	function onHover(event: MouseEvent) {
-		mousePosition = new Vector2(
-			(event.clientX / renderer.domElement.clientWidth) * 2 - 1,
-			-(event.clientY / renderer.domElement.clientHeight) * 2 + 1.0
-		);
+		mousePosition.x = (event.clientX / renderer.domElement.clientWidth) * 2 - 1;
+		mousePosition.y = -(event.clientY / renderer.domElement.clientHeight) * 2 + 1.0;
 	}
 
 	function clearScene() {
@@ -219,6 +217,11 @@
 
 	const barGap = 15;
 
+	// Define your colors
+	let color1 = new Color('#F0F624');
+	let color2 = new Color('#C5407D');
+	let color3 = new Color('#15078A');
+
 	function createBarChart() {
 		let maxBarHeight = 0;
 
@@ -229,32 +232,48 @@
 		let positionZ = 0;
 		let positionX = 0;
 
-		// TODO: adjust data for now only mock
-		for (let k = 0; k < data.length; k++) {
-			positionX = 0;
-			for (let i = 0; i < data.length; i++) {
-				let currentBarHeight = 0;
+		// compute max values for scaling
+		for (let x = 0; x < data.length; x++) {
+			maxBarHeight = Math.max(
+				maxBarHeight,
+				data[x].reduce((a, b) => a + b, 0)
+			);
+		}
 
-				for (let j = 0; j < data[i].length; j++) {
-					const barHeight = data[i][j] * barHeightScale;
+		// TODO: adjust data for now only mock
+		for (let z = 0; z < data.length; z++) {
+			positionX = 0;
+
+			for (let x = 0; x < data.length; x++) {
+				let currentBarHeight = 0;
+				const xProgress = x / data.length;
+				const baseColor = color1.clone().lerp(color2, xProgress);
+
+				for (let y = 0; y < data[x].length; y++) {
+					const barHeight = data[x][y] * barHeightScale;
 					console.log(barHeight);
 					const geometry = new BoxGeometry(barWidth, barHeight, barWidth);
 					const material = new MeshLambertMaterial({
-						color: Math.random() * 0xffffff
+						color: baseColor.clone().lerp(color3, currentBarHeight / maxBarHeight),
+						transparent: true
 					});
+					if (currentBarHeight > 100) {
+						material.opacity = 0.05;
+					}
 					const bar = new Mesh(geometry, material);
 
 					bar.userData = {
-						data: data[i][j],
-						x: k,
-						y: i,
-						z: j
+						data: data[x][y],
+						x: x,
+						y: y,
+						z: z
 					};
 
 					bar.position.x = positionX;
 					bar.position.y = currentBarHeight + barHeight / 2 + 2;
 					bar.position.z = positionZ;
 					currentBarHeight += barHeight;
+
 					group.add(bar);
 				}
 
