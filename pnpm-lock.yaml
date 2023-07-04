@@ -41,6 +41,9 @@ dependencies:
   three:
     specifier: ^0.154.0
     version: 0.154.0
+  three.meshline:
+    specifier: ^1.4.0
+    version: 1.4.0
 
 devDependencies:
   '@playwright/test':
@@ -2056,6 +2059,10 @@ packages:
     resolution: {integrity: sha512-RVZSIV5IG10Hk3enotrhvz0T9em6cyHBLkH/YAZuKqd8hRkKhSfCGIcP2KUY0EPxndzANBmNllzWPwak+bheSw==}
     dependencies:
       any-promise: 1.3.0
+    dev: false
+
+  /three.meshline@1.4.0:
+    resolution: {integrity: sha512-A8IsiMrWP8zmHisGDAJ76ZD7t/dOF/oCe/FUKNE6Bu01ZYEx8N6IlU/1Plb2aOZtAuWM2A8s8qS3hvY0OFuvOw==}
     dev: false
 
   /three@0.154.0:

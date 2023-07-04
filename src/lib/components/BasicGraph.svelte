@@ -37,8 +37,7 @@
 	import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer';
 	import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass';
 	import { OutlinePass } from 'three/examples/jsm/postprocessing/OutlinePass';
-	import { ShaderPass } from 'three/examples/jsm/postprocessing/ShaderPass';
-	import { FXAAShader } from 'three/examples/jsm/shaders/FXAAShader';
+	import { MeshLine, MeshLineMaterial } from 'three.meshline';
 
 	export let data: Array<Array<number>> = [[]];
 
@@ -93,8 +92,6 @@
 		scene.add(camera);
 	}
 
-	let hoveredObjects: Array<Object3D> = [];
-
 	onMount(() => {
 		if (!browser) {
 			return;
@@ -133,11 +130,6 @@
 
 		createBarChart();
 
-		// Add the axis indicator to the scene
-		const axisIndicator = createAxisIndicator(50);
-		axisIndicator.position.set(-25, -20, -25);
-		scene.add(axisIndicator);
-
 		stats = new Stats();
 		stats.showPanel(1);
 		statsElement.appendChild(stats.dom);
@@ -145,6 +137,7 @@
 		// Animation loop
 		const animate = () => {
 			if (!barGroup) {
+				createBarChart();
 				return;
 			}
 
@@ -154,7 +147,6 @@
 			if (mousePosition) {
 				// Handle selection
 				raycaster.setFromCamera(mousePosition, camera);
-				// console.log(mouse);
 
 				const intersections = raycaster.intersectObjects(barGroup.children, true);
 
@@ -176,7 +168,7 @@
 	beforeUpdate(() => {
 		console.log('beforeUpdate');
 		// Clear the scene before updating
-		clearScene();
+		// clearScene();
 	});
 
 	afterUpdate(() => {
@@ -205,13 +197,13 @@
 
 	function clearScene() {
 		console.log('clearScene');
-		return;
 		if (!scene) {
 			return;
 		}
-
-		while (scene.children.length > 0) {
-			scene.remove(scene.children[0]);
+		if (barGroup) {
+			barGroup.clear();
+			scene.remove(barGroup);
+			barGroup = undefined;
 		}
 	}
 
@@ -223,6 +215,9 @@
 	let color3 = new Color('#15078A');
 
 	function createBarChart() {
+		// Remove the previous bar chart
+		clearScene();
+
 		let maxBarHeight = 0;
 
 		let barWidth = (containerElement.clientWidth * 0.4) / data.length - barGap * 2;
@@ -251,7 +246,6 @@
 
 				for (let y = 0; y < data[x].length; y++) {
 					const barHeight = data[x][y] * barHeightScale;
-					console.log(barHeight);
 					const geometry = new BoxGeometry(barWidth, barHeight, barWidth);
 					const material = new MeshLambertMaterial({
 						color: baseColor.clone().lerp(color3, currentBarHeight / maxBarHeight),
@@ -290,15 +284,20 @@
 
 		scene.add(group);
 
-		if (barGroup) {
-			scene.remove(barGroup);
-		}
-
 		barGroup = group;
+
+		// Draw axis indicator
+		const axisIndicator = createAxisIndicator(Math.max(positionX, positionZ) * 1.5);
+		axisIndicator.position.set(
+			group.position.x - barWidth / 2 - 5 / 2,
+			group.position.y,
+			group.position.z - barWidth / 2 - 5 / 2
+		);
+		scene.add(axisIndicator);
 	}
 
 	// Create the axis indicator
-	function createAxisIndicator(size: number) {
+	function createAxisIndicator(size: number, lineWidth: number = 5) {
 		const xAxisGeometry = new BufferGeometry().setFromPoints([
 			new Vector3(0, 0, 0),
 			new Vector3(size, 0, 0)
@@ -313,22 +312,32 @@
 			new Vector3(0, 0, size)
 		]);
 
-		const xAxisMaterial = new LineBasicMaterial({
-			color: 0xff0000,
-			linewidth: 10,
-			linecap: 'round'
+		const xAxisMaterial = new MeshLineMaterial({ color: 0xeeeeee, lineWidth });
+		const yAxisMaterial = new MeshLineMaterial({
+			color: 0xeeeeee,
+			lineWidth
 		});
-		const yAxisMaterial = new LineBasicMaterial({ color: 0x00ff00 });
-		const zAxisMaterial = new LineBasicMaterial({ color: 0x0000ff });
+		const zAxisMaterial = new MeshLineMaterial({
+			color: 0xeeeeee,
+			lineWidth
+		});
 
-		const xAxis = new Line(xAxisGeometry, xAxisMaterial);
-		const yAxis = new Line(yAxisGeometry, yAxisMaterial);
-		const zAxis = new Line(zAxisGeometry, zAxisMaterial);
+		const xAxis = new MeshLine();
+		xAxis.setGeometry(xAxisGeometry);
+		const xAxisMesh = new Mesh(xAxis.geometry, xAxisMaterial);
+
+		const yAxis = new MeshLine();
+		yAxis.setGeometry(yAxisGeometry);
+		const yAxisMesh = new Mesh(yAxis.geometry, yAxisMaterial);
+
+		const zAxis = new MeshLine();
+		zAxis.setGeometry(zAxisGeometry);
+		const zAxisMesh = new Mesh(zAxis.geometry, zAxisMaterial);
 
 		const axisIndicator = new Object3D();
-		axisIndicator.add(xAxis);
-		axisIndicator.add(yAxis);
-		axisIndicator.add(zAxis);
+		axisIndicator.add(xAxisMesh);
+		axisIndicator.add(yAxisMesh);
+		axisIndicator.add(zAxisMesh);
 
 		return axisIndicator;
 	}
