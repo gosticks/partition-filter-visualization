@@ -52,11 +52,7 @@
 </script>
 
 <div class="relative {className}" bind:this={popoverElement}>
-	<Button
-		class="flex items-center justify-between gap-2 {buttonClass}"
-		on:click={toggleDropdown}
-		{disabled}
-	>
+	<Button class="flex items-center justify-between gap-2 {buttonClass}" on:click={toggleDropdown}>
 		<slot name="button" />
 		{#if isOpen}
 			<ChevronDownIcon />
