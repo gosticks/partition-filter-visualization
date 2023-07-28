@@ -10,12 +10,19 @@ interface BarRendererOptions {
 	barWidth: number;
 	barDepth: number;
 	barGap: number;
+
+	// TODO: think about naming
+	cols: number;
+	rows: number;
 }
 
 const defaultBarRendererOptions: BarRendererOptions = {
-	barWidth: 1,
-	barDepth: 1,
-	barGap: 0.1
+	barWidth: 0.15,
+	barDepth: 0.15,
+	barGap: 0.05,
+
+	cols: 10,
+	rows: 10
 };
 
 // Define your colors
@@ -23,15 +30,20 @@ const color1 = new THREE.Color('#F0F624');
 const color2 = new THREE.Color('#C5407D');
 const color3 = new THREE.Color('#15078A');
 
-const dataColorizer = (value: number, dataIndex: Vector3, axisProgress: Vector3): THREE.Color => {
+const dataColorizer = (dataIndex: Vector3, axisProgress: Vector3): THREE.Color => {
 	const xColor = color1.clone().lerp(color2, axisProgress.x);
 	return xColor.lerp(color3, axisProgress.y);
 };
 
 export class BarRenderer extends GraphRenderer<BarData> {
-	private barGroup: THREE.Group;
+	private barGroup?: THREE.Group;
 	private options: BarRendererOptions;
 	private size: THREE.Vector3 = new THREE.Vector3(0, 0, 0);
+
+	// Getter for all bar blocks managed by the renderer
+	get bars(): THREE.Object3D[] {
+		return this.barGroup?.children ?? [];
+	}
 
 	constructor(
 		public scene: THREE.Scene,
@@ -44,23 +56,28 @@ export class BarRenderer extends GraphRenderer<BarData> {
 			...defaultBarRendererOptions,
 			...options
 		};
-
-		this.barGroup = new THREE.Group();
-		this.scene.add(this.barGroup);
 	}
 
 	destroy(): void {
-		this.scene.remove(this.barGroup);
+		if (this.barGroup) {
+			this.scene.remove(this.barGroup);
+		}
 	}
 
 	setScale(scale: THREE.Vector3): void {
 		this.size = scale;
-		this.barGroup.scale.copy(scale);
+		this.barGroup?.scale.copy(scale);
+	}
+
+	getIntersections(raycaster: THREE.Raycaster): THREE.Intersection[] {
+		return raycaster.intersectObjects(this.bars, true);
 	}
 
 	updateWithData(data: BarData) {
-		// Clear group
-		this.barGroup.children = [];
+		if (this.barGroup) {
+			this.scene.remove(this.barGroup);
+		}
+		const barGroup = new THREE.Group();
 
 		// Compute min and max values
 		let maxBarHeight = -Infinity;
@@ -76,10 +93,23 @@ export class BarRenderer extends GraphRenderer<BarData> {
 			)
 		);
 
+		console.log(maxBarHeight);
+
+		const relBarSize = Math.min(
+			(1 - this.options.barGap) / this.options.cols,
+			(1 - this.options.barGap) / this.options.rows
+		);
+
+		const relGapSize = Math.min(
+			this.options.barGap / this.options.cols,
+			this.options.barGap / this.options.rows
+		);
+
 		// Iterate over input data and create bars
 		for (let z = 0; z < data.data.length; z++) {
 			for (let x = 0; x < data.data[z].length; x++) {
 				let currentBarHeight = 0;
+
 				for (let y = 0; y < data.data[z][x].length; y++) {
 					const value = data.data[z][x][y];
 
@@ -89,45 +119,43 @@ export class BarRenderer extends GraphRenderer<BarData> {
 					}
 
 					const color = dataColorizer(
-						value,
 						new THREE.Vector3(x, y, z),
-						new THREE.Vector3(
-							x / data.data[z][x].length,
-							y / data.data[z].length,
-							z / data.data.length
-						)
+						new THREE.Vector3(x / this.options.rows, value / maxBarHeight, z / this.options.cols)
 					);
 
 					const barSegmentHeight = value / maxBarHeight;
 
 					// Create bar
 					const bar = this.createBarSegment(
+						relBarSize,
 						// Scale bar to 0 to 1 range
 						barSegmentHeight,
-						this.options.barWidth,
-						this.options.barDepth,
+						relBarSize,
 						color
 					);
 
 					// Position bar
 					bar.position.set(
-						this.options.barWidth / 2 + x * (this.options.barWidth + this.options.barGap),
+						relBarSize / 2 + x * (relBarSize + relGapSize),
 						currentBarHeight + barSegmentHeight / 2,
-						this.options.barDepth / 2 + z * (this.options.barWidth + this.options.barGap)
+						relBarSize / 2 + z * (relBarSize + relGapSize)
 					);
 
 					currentBarHeight += barSegmentHeight;
 
 					// Add bar to group
-					this.barGroup.add(bar);
+					barGroup.add(bar);
 				}
 			}
 		}
+		this.barGroup = barGroup;
+		this.barGroup.scale.copy(this.size);
+		this.scene.add(barGroup);
 	}
 
 	private createBarSegment(
-		height: number,
 		width: number,
+		height: number,
 		depth: number,
 		color: THREE.Color
 	): THREE.Mesh {

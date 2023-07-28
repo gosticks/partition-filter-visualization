@@ -1,15 +1,16 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { writable } from 'svelte/store';
-	import { Theme, appSettingsStore, toggleThemeMode, updateTheme } from '../store/SettingsStore';
+	import { Theme, toggleThemeMode, useSettingsStore } from '../store/SettingsStore';
 
 	let className: string | undefined = '';
 	export { className as class };
 
 	let theme: Theme;
 
+	let store = useSettingsStore();
+
 	onMount(() => {
-		appSettingsStore.subscribe((value) => {
+		store.subscribe((value) => {
 			theme = value.theme;
 		});
 	});
@@ -29,7 +30,7 @@
 				<span class="relative inline-block w-10 h-6 transition bg-gray-300 rounded-full">
 					<span
 						class="absolute top-0 left-0 w-6 h-6 transition transform bg-white rounded-full shadow-md"
-						style="transform: translateX({$appSettingsStore.theme === Theme.Dark
+						style="transform: translateX({$store.theme === Theme.Dark
 							? 'calc(100% - 0.75rem)'
 							: '0'})"
 					/>

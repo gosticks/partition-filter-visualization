@@ -33,6 +33,7 @@
 	},
 	"type": "module",
 	"dependencies": {
+		"@duckdb/duckdb-wasm": "^1.27.0",
 		"@sveltejs/adapter-static": "^2.0.2",
 		"@types/papaparse": "^5.3.7",
 		"@types/three": "^0.152.1",
@@ -45,6 +46,7 @@
 		"svelte-feather-icons": "^4.0.1",
 		"tailwindcss": "^3.3.2",
 		"three": "^0.154.0",
-		"three.meshline": "^1.4.0"
+		"three.meshline": "^1.4.0",
+		"web-worker": "^1.2.0"
 	}
 }

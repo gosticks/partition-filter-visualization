@@ -1,4 +1,4 @@
-export abstract class GraphRenderer<T> {
+export abstract class GraphRenderer<T = unknown> {
 	constructor(public scene: THREE.Scene, public camera: THREE.Camera) {}
 
 	abstract destroy(): void;
@@ -8,4 +8,6 @@ export abstract class GraphRenderer<T> {
 	 * @param data
 	 */
 	abstract updateWithData(data: T): void;
+
+	abstract getIntersections(raycaster: THREE.Raycaster): THREE.Intersection[];
 }

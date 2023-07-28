@@ -6,40 +6,31 @@
 		Scene,
 		PerspectiveCamera,
 		WebGLRenderer,
-		BoxGeometry,
-		MeshBasicMaterial,
-		Mesh,
-		Color,
 		AmbientLight,
-		MeshLambertMaterial,
-		MeshPhongMaterial,
 		DirectionalLight,
 		Group,
-		Light,
-		PointLight,
 		Vector2,
 		Vector3,
 		OrthographicCamera,
 		Camera,
-		MeshStandardMaterial,
 		Object3D,
-		LineBasicMaterial,
-		BufferGeometry,
-		BufferAttribute,
-		Line,
-		DoubleSide,
-		Raycaster,
-		ShaderMaterial,
-		type Intersection
+		Raycaster
 	} from 'three';
+	import * as THREE from 'three';
 
 	import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls';
 	import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer';
 	import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass';
 	import { OutlinePass } from 'three/examples/jsm/postprocessing/OutlinePass';
-	import { MeshLine, MeshLineMaterial } from 'three.meshline';
+	import { AxisRenderer } from '$lib/rendering/AxisRenderer';
+	import { BarRenderer } from '$lib/rendering/BarRenderer';
+	import { PlainRenderer } from '$lib/rendering/PlainRenderer';
 
-	export let data: Array<Array<number>> = [[]];
+	export let onHover: (position: Vector2, object?: Object3D) => void = () => {};
+
+	export let data: Array<Array<Array<number>>> = [[[]]];
+
+	// let displatFilter: ;
 
 	let containerElement: HTMLDivElement;
 	let statsElement: HTMLDivElement;
@@ -53,13 +44,14 @@
 	let composer: EffectComposer;
 	let stats: Stats;
 
-	let barGroup: Group | undefined = undefined;
+	let dataRenderer: PlainRenderer;
+	let axisRenderer: AxisRenderer;
 
 	function setupControls() {
 		controls = new OrbitControls(camera, renderer.domElement);
-		controls.rotateSpeed = 0.4;
-		controls.zoomSpeed = 0.3;
-		controls.panSpeed = 0;
+		controls.rotateSpeed = 1;
+		controls.zoomSpeed = 1;
+		controls.panSpeed = 1;
 
 		controls.enableDamping = true;
 		controls.dampingFactor = 0.1;
@@ -71,16 +63,18 @@
 
 		scene.add(new AmbientLight(0xffffff, 0.5));
 
+		const cameraField = Math.max(containerElement.clientWidth, containerElement.clientHeight) * 2;
+
 		camera = new OrthographicCamera(
 			containerElement.clientWidth / -2,
 			containerElement.clientWidth / 2,
 			containerElement.clientHeight / 2,
 			containerElement.clientHeight / -2,
-			-1000,
-			1000
+			-cameraField,
+			cameraField
 		);
 
-		camera.position.z = 500;
+		camera.position.z = 1000;
 
 		// Add directional light pointing from camera
 		const light = new DirectionalLight(0xffffff, 1);
@@ -92,10 +86,27 @@
 		scene.add(camera);
 	}
 
+	function windowResizeHandler(evt: UIEvent) {
+		if (camera instanceof OrthographicCamera) {
+			camera.left = containerElement.clientWidth / -2;
+			camera.right = containerElement.clientWidth / 2;
+			camera.top = containerElement.clientHeight / 2;
+			camera.bottom = containerElement.clientHeight / -2;
+			camera.updateProjectionMatrix();
+		} else if (camera instanceof PerspectiveCamera) {
+			camera.aspect = containerElement.clientWidth / containerElement.clientHeight;
+			camera.updateProjectionMatrix();
+		}
+
+		renderer.setSize(containerElement.clientWidth, containerElement.clientHeight);
+		composer.setSize(containerElement.clientWidth, containerElement.clientHeight);
+	}
+
 	onMount(() => {
 		if (!browser) {
 			return;
 		}
+
 		setupScene();
 
 		renderer = new WebGLRenderer({ antialias: true, alpha: true });
@@ -103,6 +114,9 @@
 		renderer.setClearColor(0x000000, 0);
 		renderer.setSize(containerElement.clientWidth, containerElement.clientHeight);
 		containerElement.appendChild(renderer.domElement);
+
+		const width = containerElement.clientWidth;
+		const height = containerElement.clientHeight;
 
 		composer = new EffectComposer(renderer);
 
@@ -126,21 +140,29 @@
 
 		setupControls();
 
-		raycaster = new Raycaster();
+		dataRenderer = new PlainRenderer(scene, camera);
+		dataRenderer.setScale(new Vector3(width, width, width));
+		dataRenderer.updateWithData({ data });
+		axisRenderer = new AxisRenderer(scene, {
+			size: new Vector3(width, height, width),
+			labelScale: width / 25
+		});
+		axisRenderer.render();
 
-		createBarChart();
+		raycaster = new Raycaster();
 
 		stats = new Stats();
 		stats.showPanel(1);
 		statsElement.appendChild(stats.dom);
 
+		const size = width * 2;
+		const divisions = (width * 2) / 100;
+
+		const gridHelper = new THREE.GridHelper(size, divisions);
+		scene.add(gridHelper);
+
 		// Animation loop
 		const animate = () => {
-			if (!barGroup) {
-				createBarChart();
-				return;
-			}
-
 			controls.update();
 			stats.begin();
 
@@ -148,12 +170,14 @@
 				// Handle selection
 				raycaster.setFromCamera(mousePosition, camera);
 
-				const intersections = raycaster.intersectObjects(barGroup.children, true);
+				const intersections = dataRenderer.getIntersections(raycaster);
 
 				if (intersections.length === 0) {
 					outlinePass.selectedObjects = [];
+					onHover(mouseClientPosition, undefined);
 				} else {
 					outlinePass.selectedObjects = [intersections[0].object];
+					onHover(mouseClientPosition, intersections[0].object);
 				}
 			}
 
@@ -162,20 +186,36 @@
 
 			requestAnimationFrame(animate);
 		};
+
+		// Setup resize handler
+		window.addEventListener('resize', windowResizeHandler);
+
 		animate();
+	});
+
+	onDestroy(() => {
+		if (!browser) {
+			return;
+		}
+
+		window.removeEventListener('resize', windowResizeHandler);
 	});
 
 	beforeUpdate(() => {
 		console.log('beforeUpdate');
 		// Clear the scene before updating
-		// clearScene();
+		clearScene();
 	});
 
 	afterUpdate(() => {
 		console.log('afterUpdate');
 
+		console.log('data', data);
+
 		// Re-create the bar chart when data is updated
-		createBarChart();
+		dataRenderer.updateWithData({
+			data: data
+		});
 	});
 
 	onDestroy(() => {
@@ -189,10 +229,15 @@
 	});
 
 	let mousePosition: Vector2 = new Vector2(0, 0);
+	let mouseClientPosition: Vector2 = new Vector2(0, 0);
 
-	function onHover(event: MouseEvent) {
-		mousePosition.x = (event.clientX / renderer.domElement.clientWidth) * 2 - 1;
-		mousePosition.y = -(event.clientY / renderer.domElement.clientHeight) * 2 + 1.0;
+	function handleHover(event: MouseEvent) {
+		const bounds = containerElement.getBoundingClientRect();
+		mouseClientPosition.x = event.clientX - bounds.left;
+		mouseClientPosition.y = event.clientY - bounds.top;
+
+		mousePosition.x = (mouseClientPosition.x / bounds.width) * 2 - 1;
+		mousePosition.y = -(mouseClientPosition.y / bounds.height) * 2 + 1.0;
 	}
 
 	function clearScene() {
@@ -200,154 +245,14 @@
 		if (!scene) {
 			return;
 		}
-		if (barGroup) {
-			barGroup.clear();
-			scene.remove(barGroup);
-			barGroup = undefined;
-		}
-	}
-
-	const barGap = 15;
-
-	// Define your colors
-	let color1 = new Color('#F0F624');
-	let color2 = new Color('#C5407D');
-	let color3 = new Color('#15078A');
-
-	function createBarChart() {
-		// Remove the previous bar chart
-		clearScene();
-
-		let maxBarHeight = 0;
-
-		let barWidth = (containerElement.clientWidth * 0.4) / data.length - barGap * 2;
-		let barHeightScale = 10;
-
-		const group = new Group();
-		let positionZ = 0;
-		let positionX = 0;
-
-		// compute max values for scaling
-		for (let x = 0; x < data.length; x++) {
-			maxBarHeight = Math.max(
-				maxBarHeight,
-				data[x].reduce((a, b) => a + b, 0)
-			);
-		}
-
-		// TODO: adjust data for now only mock
-		for (let z = 0; z < data.length; z++) {
-			positionX = 0;
-
-			for (let x = 0; x < data.length; x++) {
-				let currentBarHeight = 0;
-				const xProgress = x / data.length;
-				const baseColor = color1.clone().lerp(color2, xProgress);
-
-				for (let y = 0; y < data[x].length; y++) {
-					const barHeight = data[x][y] * barHeightScale;
-					const geometry = new BoxGeometry(barWidth, barHeight, barWidth);
-					const material = new MeshLambertMaterial({
-						color: baseColor.clone().lerp(color3, currentBarHeight / maxBarHeight),
-						transparent: true
-					});
-					if (currentBarHeight > 100) {
-						material.opacity = 0.05;
-					}
-					const bar = new Mesh(geometry, material);
-
-					bar.userData = {
-						data: data[x][y],
-						x: x,
-						y: y,
-						z: z
-					};
-
-					bar.position.x = positionX;
-					bar.position.y = currentBarHeight + barHeight / 2 + 2;
-					bar.position.z = positionZ;
-					currentBarHeight += barHeight;
-
-					group.add(bar);
-				}
-
-				maxBarHeight = Math.max(maxBarHeight, currentBarHeight);
-				positionX += barWidth + barGap;
-			}
-
-			positionZ += barWidth + barGap;
-		}
-		// Move group to center
-		group.position.x = -positionX / 2;
-		group.position.y = -maxBarHeight / 2;
-		group.position.z = -positionZ / 2;
-
-		scene.add(group);
-
-		barGroup = group;
-
-		// Draw axis indicator
-		const axisIndicator = createAxisIndicator(Math.max(positionX, positionZ) * 1.5);
-		axisIndicator.position.set(
-			group.position.x - barWidth / 2 - 5 / 2,
-			group.position.y,
-			group.position.z - barWidth / 2 - 5 / 2
-		);
-		scene.add(axisIndicator);
-	}
-
-	// Create the axis indicator
-	function createAxisIndicator(size: number, lineWidth: number = 5) {
-		const xAxisGeometry = new BufferGeometry().setFromPoints([
-			new Vector3(0, 0, 0),
-			new Vector3(size, 0, 0)
-		]);
-
-		const yAxisGeometry = new BufferGeometry().setFromPoints([
-			new Vector3(0, 0, 0),
-			new Vector3(0, size, 0)
-		]);
-		const zAxisGeometry = new BufferGeometry().setFromPoints([
-			new Vector3(0, 0, 0),
-			new Vector3(0, 0, size)
-		]);
-
-		const xAxisMaterial = new MeshLineMaterial({ color: 0xeeeeee, lineWidth });
-		const yAxisMaterial = new MeshLineMaterial({
-			color: 0xeeeeee,
-			lineWidth
-		});
-		const zAxisMaterial = new MeshLineMaterial({
-			color: 0xeeeeee,
-			lineWidth
-		});
-
-		const xAxis = new MeshLine();
-		xAxis.setGeometry(xAxisGeometry);
-		const xAxisMesh = new Mesh(xAxis.geometry, xAxisMaterial);
-
-		const yAxis = new MeshLine();
-		yAxis.setGeometry(yAxisGeometry);
-		const yAxisMesh = new Mesh(yAxis.geometry, yAxisMaterial);
-
-		const zAxis = new MeshLine();
-		zAxis.setGeometry(zAxisGeometry);
-		const zAxisMesh = new Mesh(zAxis.geometry, zAxisMaterial);
-
-		const axisIndicator = new Object3D();
-		axisIndicator.add(xAxisMesh);
-		axisIndicator.add(yAxisMesh);
-		axisIndicator.add(zAxisMesh);
-
-		return axisIndicator;
 	}
 </script>
 
 <div class="relative w-full">
 	<div
 		bind:this={containerElement}
-		on:mousemove={onHover}
-		class="bar-chart-container w-full aspect-square isolate"
+		on:mousemove={handleHover}
+		class="bar-chart-container w-full aspect-square overflow-hidden isolate"
 	/>
 	<div class="stats absolute isolate top-0 left-0" bind:this={statsElement} />
 </div>
