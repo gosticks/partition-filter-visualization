@@ -3,24 +3,24 @@ import { GraphRenderer } from './GraphRenderer';
 import { DataPlaneShapeMaterial } from './materials/DataPlaneMaterial';
 import { DataPlaneShapeGeometry } from './geometry/DataPlaneGeometry';
 
-interface PlainData {
+interface PlaneData {
 	data: number[][][];
 }
 
-interface PlainRendererOptions {
+interface PlaneRendererOptions {
 	// TODO: think about naming
 	cols: number;
 	rows: number;
 }
 
-const defaultRendererOptions: PlainRendererOptions = {
+const defaultRendererOptions: PlaneRendererOptions = {
 	cols: 10,
 	rows: 10
 };
 
-export class PlainRenderer extends GraphRenderer<PlainData> {
+export class PlaneRenderer extends GraphRenderer<PlaneData> {
 	private group?: THREE.Group;
-	private options: PlainRendererOptions;
+	private options: PlaneRendererOptions;
 	private size: THREE.Vector3 = new THREE.Vector3(0, 0, 0);
 
 	// Getter for all bar blocks managed by the renderer
@@ -31,7 +31,7 @@ export class PlainRenderer extends GraphRenderer<PlainData> {
 	constructor(
 		public scene: THREE.Scene,
 		public camera: THREE.Camera,
-		options: Partial<PlainRendererOptions> = {}
+		options: Partial<PlaneRendererOptions> = {}
 	) {
 		super(scene, camera);
 
@@ -56,7 +56,7 @@ export class PlainRenderer extends GraphRenderer<PlainData> {
 		return raycaster.intersectObjects(this.bars, true);
 	}
 
-	updateWithData(data: PlainData) {
+	updateWithData(data: PlaneData) {
 		if (this.group) {
 			this.scene.remove(this.group);
 		}

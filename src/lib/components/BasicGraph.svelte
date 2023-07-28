@@ -24,7 +24,7 @@
 	import { OutlinePass } from 'three/examples/jsm/postprocessing/OutlinePass';
 	import { AxisRenderer } from '$lib/rendering/AxisRenderer';
 	import { BarRenderer } from '$lib/rendering/BarRenderer';
-	import { PlainRenderer } from '$lib/rendering/PlainRenderer';
+	import { PlaneRenderer } from '$lib/rendering/PlaneRenderer';
 
 	export let onHover: (position: Vector2, object?: Object3D) => void = () => {};
 
@@ -44,7 +44,7 @@
 	let composer: EffectComposer;
 	let stats: Stats;
 
-	let dataRenderer: PlainRenderer;
+	let dataRenderer: PlaneRenderer;
 	let axisRenderer: AxisRenderer;
 
 	function setupControls() {
@@ -140,7 +140,7 @@
 
 		setupControls();
 
-		dataRenderer = new PlainRenderer(scene, camera);
+		dataRenderer = new PlaneRenderer(scene, camera);
 		dataRenderer.setScale(new Vector3(width, width, width));
 		dataRenderer.updateWithData({ data });
 		axisRenderer = new AxisRenderer(scene, {
