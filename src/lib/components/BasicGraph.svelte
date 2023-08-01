@@ -1,21 +1,11 @@
-<script lang="ts">
+<script lang="ts" generics="Data extends unknown">
+	import type { DataPlaneShapeMaterial } from '$lib/rendering/materials/DataPlaneMaterial';
+
+	import type { GraphRenderer } from '$lib/rendering/GraphRenderer';
+
 	import { browser } from '$app/environment';
 	import Stats from 'stats.js';
 	import { onMount, afterUpdate, beforeUpdate, onDestroy } from 'svelte';
-	import {
-		Scene,
-		PerspectiveCamera,
-		WebGLRenderer,
-		AmbientLight,
-		DirectionalLight,
-		Group,
-		Vector2,
-		Vector3,
-		OrthographicCamera,
-		Camera,
-		Object3D,
-		Raycaster
-	} from 'three';
 	import * as THREE from 'three';
 
 	import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls';
@@ -23,28 +13,31 @@
 	import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass';
 	import { OutlinePass } from 'three/examples/jsm/postprocessing/OutlinePass';
 	import { AxisRenderer } from '$lib/rendering/AxisRenderer';
-	import { BarRenderer } from '$lib/rendering/BarRenderer';
-	import { PlaneRenderer } from '$lib/rendering/PlaneRenderer';
 
-	export let onHover: (position: Vector2, object?: Object3D) => void = () => {};
+	export let onHover: (position: THREE.Vector2, object?: THREE.Object3D) => void = () => {};
 
-	export let data: Array<Array<Array<number>>> = [[[]]];
+	export let data: Data;
+	// Internal data copy to check for changes
+	let _data: Data;
 
 	// let displatFilter: ;
 
 	let containerElement: HTMLDivElement;
 	let statsElement: HTMLDivElement;
 
-	let scene: Scene;
-	let camera: Camera;
-	let renderer: WebGLRenderer;
+	let scene: THREE.Scene;
+	let camera: THREE.Camera;
+	let renderer: THREE.WebGLRenderer;
 	let controls: OrbitControls;
-	let raycaster: Raycaster;
+	let raycaster: THREE.Raycaster;
 	let outlinePass: OutlinePass;
 	let composer: EffectComposer;
 	let stats: Stats;
 
-	let dataRenderer: PlaneRenderer;
+	export let dataRenderer: GraphRenderer<Data> | undefined;
+	// Internal data renderer copy to check for changes
+	let _dataRenderer: typeof dataRenderer;
+
 	let axisRenderer: AxisRenderer;
 
 	function setupControls() {
@@ -59,13 +52,13 @@
 
 	function setupScene() {
 		// Initialize Three.js scene, camera, and renderer
-		scene = new Scene();
+		scene = new THREE.Scene();
 
-		scene.add(new AmbientLight(0xffffff, 0.5));
+		scene.add(new THREE.AmbientLight(0xffffff, 0.5));
 
 		const cameraField = Math.max(containerElement.clientWidth, containerElement.clientHeight) * 2;
 
-		camera = new OrthographicCamera(
+		camera = new THREE.OrthographicCamera(
 			containerElement.clientWidth / -2,
 			containerElement.clientWidth / 2,
 			containerElement.clientHeight / 2,
@@ -75,9 +68,11 @@
 		);
 
 		camera.position.z = 1000;
+		camera.position.x = 1000;
+		camera.position.y = 1000;
 
 		// Add directional light pointing from camera
-		const light = new DirectionalLight(0xffffff, 1);
+		const light = new THREE.DirectionalLight(0xffffff, 1);
 		// const light = new PointLight(0xffffff, 1, 1000);
 		light.position.set(0, 200, 500);
 		light.lookAt(0, 0, 0);
@@ -87,18 +82,19 @@
 	}
 
 	function windowResizeHandler(evt: UIEvent) {
-		if (camera instanceof OrthographicCamera) {
+		if (camera instanceof THREE.OrthographicCamera) {
 			camera.left = containerElement.clientWidth / -2;
 			camera.right = containerElement.clientWidth / 2;
 			camera.top = containerElement.clientHeight / 2;
 			camera.bottom = containerElement.clientHeight / -2;
 			camera.updateProjectionMatrix();
-		} else if (camera instanceof PerspectiveCamera) {
+		} else if (camera instanceof THREE.PerspectiveCamera) {
 			camera.aspect = containerElement.clientWidth / containerElement.clientHeight;
 			camera.updateProjectionMatrix();
 		}
 
 		renderer.setSize(containerElement.clientWidth, containerElement.clientHeight);
+		outlinePass.setSize(containerElement.clientWidth, containerElement.clientHeight);
 		composer.setSize(containerElement.clientWidth, containerElement.clientHeight);
 	}
 
@@ -109,7 +105,7 @@
 
 		setupScene();
 
-		renderer = new WebGLRenderer({ antialias: true, alpha: true });
+		renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
 		renderer.setPixelRatio(window.devicePixelRatio || 1);
 		renderer.setClearColor(0x000000, 0);
 		renderer.setSize(containerElement.clientWidth, containerElement.clientHeight);
@@ -126,7 +122,7 @@
 
 		// Outline/Hover handling
 		outlinePass = new OutlinePass(
-			new Vector2(containerElement.clientWidth, containerElement.clientHeight),
+			new THREE.Vector2(containerElement.clientWidth, containerElement.clientHeight),
 			scene,
 			camera
 		);
@@ -140,16 +136,13 @@
 
 		setupControls();
 
-		dataRenderer = new PlaneRenderer(scene, camera);
-		dataRenderer.setScale(new Vector3(width, width, width));
-		dataRenderer.updateWithData({ data });
 		axisRenderer = new AxisRenderer(scene, {
-			size: new Vector3(width, height, width),
+			size: new THREE.Vector3(width, height, width),
 			labelScale: width / 25
 		});
 		axisRenderer.render();
 
-		raycaster = new Raycaster();
+		raycaster = new THREE.Raycaster();
 
 		stats = new Stats();
 		stats.showPanel(1);
@@ -166,7 +159,7 @@
 			controls.update();
 			stats.begin();
 
-			if (mousePosition) {
+			if (mousePosition && dataRenderer) {
 				// Handle selection
 				raycaster.setFromCamera(mousePosition, camera);
 
@@ -202,20 +195,22 @@
 	});
 
 	beforeUpdate(() => {
-		console.log('beforeUpdate');
-		// Clear the scene before updating
-		clearScene();
+		if (_dataRenderer !== dataRenderer) {
+			// Handle renderer changes
+			dataRenderer?.setup(scene, camera);
+			const width = containerElement.clientWidth;
+			dataRenderer?.setScale(new THREE.Vector3(width, width, width));
+			dataRenderer?.updateWithData(data);
+
+			_dataRenderer = dataRenderer!;
+		} else if (_data !== data) {
+			// Handle data only changes
+			dataRenderer?.updateWithData(data);
+		}
 	});
 
 	afterUpdate(() => {
-		console.log('afterUpdate');
-
-		console.log('data', data);
-
-		// Re-create the bar chart when data is updated
-		dataRenderer.updateWithData({
-			data: data
-		});
+		console.log('afterUpdate', { dataRenderer, data });
 	});
 
 	onDestroy(() => {
@@ -228,8 +223,8 @@
 		renderer.dispose();
 	});
 
-	let mousePosition: Vector2 = new Vector2(0, 0);
-	let mouseClientPosition: Vector2 = new Vector2(0, 0);
+	let mousePosition: THREE.Vector2 = new THREE.Vector2(0, 0);
+	let mouseClientPosition: THREE.Vector2 = new THREE.Vector2(0, 0);
 
 	function handleHover(event: MouseEvent) {
 		const bounds = containerElement.getBoundingClientRect();
@@ -240,6 +235,23 @@
 		mousePosition.y = -(mouseClientPosition.y / bounds.height) * 2 + 1.0;
 	}
 
+	function handleClick(event: MouseEvent) {
+		if (outlinePass.selectedObjects.length === 0) {
+			return;
+		}
+
+		const obj = outlinePass.selectedObjects[0];
+
+		if (obj instanceof THREE.Mesh) {
+			const material = obj.material as DataPlaneShapeMaterial;
+			if (material.opacity < 0.6) {
+				material.setOpacity(0.95);
+			} else {
+				material.setOpacity(0.1);
+			}
+		}
+	}
+
 	function clearScene() {
 		console.log('clearScene');
 		if (!scene) {
@@ -248,11 +260,12 @@
 	}
 </script>
 
-<div class="relative w-full">
+<div class="relative w-full h-full">
 	<div
 		bind:this={containerElement}
 		on:mousemove={handleHover}
-		class="bar-chart-container w-full aspect-square overflow-hidden isolate"
+		on:click={handleClick}
+		class="bar-chart-container w-full h-full overflow-hidden isolate"
 	/>
 	<div class="stats absolute isolate top-0 left-0" bind:this={statsElement} />
 </div>

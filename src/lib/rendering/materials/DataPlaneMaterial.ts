@@ -37,7 +37,7 @@ export class DataPlaneShapeMaterial extends THREE.ShaderMaterial {
 
 	// Define the fragment shader that uses the y-coordinate to color
 	static fragmentShader = `
-	uniform float time;
+	uniform float opacity;
 	uniform vec3 colorA;
 	uniform vec3 colorB;
 	uniform vec3 lightPosition;
@@ -50,26 +50,31 @@ export class DataPlaneShapeMaterial extends THREE.ShaderMaterial {
 		// Use the y-coordinate to determine the color
 		vec3 color = mix(colorA, colorB, y);
 
-		// // ambient
-		// float ambientStrength = 0.95;
-		// vec3 ambient = ambientStrength * color;
+		// ambient
+		float ambientStrength = 0.90;
+		vec3 ambient = ambientStrength * color;
 
-		// // diffuse
-		// vec3 norm = normalize(vNormal);
-		// vec3 lightDir = normalize(lightPosition - vViewPosition);
-		// float diff = max(dot(norm, lightDir), 0.0);
-		// vec3 diffuse = diff * color;
+		// diffuse
+		vec3 norm = normalize(vNormal);
+		vec3 lightDir = normalize(lightPosition - vViewPosition);
+		float diff = max(dot(norm, lightDir), 0.0);
+		vec3 diffuse = diff * color;
 
-		// // specular
-		// float specularStrength = 0.05;
-		// vec3 viewDir = normalize(-vViewPosition);
-		// vec3 reflectDir = reflect(-lightDir, norm);
-		// float spec = pow(max(dot(viewDir, reflectDir), 0.0), 32.0);
-		// vec3 specular = specularStrength * spec * color;
+		// specular
+		float specularStrength = 0.25;
+		vec3 viewDir = normalize(-vViewPosition);
+		vec3 reflectDir = reflect(-lightDir, norm);
+		float spec = pow(max(dot(viewDir, reflectDir), 0.0), 32.0);
+		vec3 specular = specularStrength * spec * color;
 
-		// vec3 result = (ambient + diffuse + specular);
-		gl_FragColor = vec4(color, 1.0);
+		vec3 result = (ambient + diffuse + specular);
+		gl_FragColor = vec4(result, opacity);
 	}`;
+
+	setOpacity(value: number) {
+		this.opacity = value;
+		this.uniforms.opacity.value = value;
+	}
 
 	constructor(
 		colorA: THREE.Color = color2,
@@ -90,7 +95,7 @@ export class DataPlaneShapeMaterial extends THREE.ShaderMaterial {
 				{
 					colorA: { value: colorA },
 					colorB: { value: colorB },
-					time: { value: 0 }
+					opacity: { value: options.opacity ?? 1 }
 				}
 			])
 		});

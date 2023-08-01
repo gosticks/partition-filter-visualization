@@ -28,6 +28,7 @@ export class DataPlaneShapeGeometry extends THREE.BufferGeometry {
 
 		if (normalized) {
 			this.normalizedData = data;
+			this.previousNormalizedData = previousData;
 		} else {
 			// Find max value and normalize all values to be between 0 and 1
 			let maxValue = -Infinity;
@@ -56,7 +57,6 @@ export class DataPlaneShapeGeometry extends THREE.BufferGeometry {
 				throw new Error('Previous data has different dimensions');
 			}
 		}
-
 		this.computeGeometry();
 	}
 
@@ -110,12 +110,16 @@ export class DataPlaneShapeGeometry extends THREE.BufferGeometry {
 
 		const hasBottomLayer = this.previousNormalizedData !== undefined;
 
+		const polyindicesPerPlane = numPolygons * 3;
+
+		console.log('create geo');
+
 		// Add all points to the geometry
 		for (let z = 0; z < depth; z++) {
 			for (let x = 0; x < width; x++) {
 				const pointIdx = z * width + x;
 				const vertexIdx = pointIdx * bufferElementSize;
-				const indexIdx = (z * width + x) * 6;
+				const indexIdx = (z * (width - 1) + x) * 6;
 
 				// Add top plane coordinates
 				vertices[vertexIdx] = (x / width) * 2.0 - 1.0; //x
@@ -133,16 +137,6 @@ export class DataPlaneShapeGeometry extends THREE.BufferGeometry {
 					continue;
 				}
 
-				// Skip if value is 0
-				// if (
-				// 	highestValues[z][x] === 0 &&
-				// 	highestValues[z][x + 1] === 0 &&
-				// 	highestValues[z + 1][x] === 0 &&
-				// 	highestValues[z + 1][x + 1] === 0
-				// ) {
-				// 	continue;
-				// }
-
 				// Add top plane indices
 				indices[indexIdx] = pointIdx + width;
 				indices[indexIdx + 1] = pointIdx + 1;
@@ -153,13 +147,13 @@ export class DataPlaneShapeGeometry extends THREE.BufferGeometry {
 				indices[indexIdx + 5] = pointIdx + 1;
 
 				// Add bottom plane indices
-				indices[indexIdx + numPolygons * 3] = pointIdx + pointsPerPlane;
-				indices[indexIdx + numPolygons * 3 + 1] = pointIdx + 1 + pointsPerPlane;
-				indices[indexIdx + numPolygons * 3 + 2] = pointIdx + width + pointsPerPlane;
+				indices[indexIdx + polyindicesPerPlane] = indices[indexIdx] + pointsPerPlane;
+				indices[indexIdx + polyindicesPerPlane + 1] = indices[indexIdx + 1] + pointsPerPlane;
+				indices[indexIdx + polyindicesPerPlane + 2] = indices[indexIdx + 2] + pointsPerPlane;
 
-				indices[indexIdx + numPolygons * 3 + 3] = pointIdx + 1 + pointsPerPlane;
-				indices[indexIdx + numPolygons * 3 + 4] = pointIdx + width + 1 + pointsPerPlane;
-				indices[indexIdx + numPolygons * 3 + 5] = pointIdx + width + pointsPerPlane;
+				indices[indexIdx + polyindicesPerPlane + 3] = indices[indexIdx + 3] + pointsPerPlane;
+				indices[indexIdx + polyindicesPerPlane + 4] = indices[indexIdx + 4] + pointsPerPlane;
+				indices[indexIdx + polyindicesPerPlane + 5] = indices[indexIdx + 5] + pointsPerPlane;
 			}
 		}
 
@@ -198,24 +192,22 @@ export class DataPlaneShapeGeometry extends THREE.BufferGeometry {
 			const indexIdx = sideWallIdxOffset + z * 6;
 
 			// Draw left wall
-			indices[indexIdx] = pointsPerPlane + z * width;
-			indices[indexIdx + 1] = z * width + width;
-			indices[indexIdx * 2] = z * width;
+			indices[indexIdx] = z * width;
+			indices[indexIdx + 1] = (z + 1) * width;
+			indices[indexIdx + 2] = pointsPerPlane + z * width;
 
-			console.log({ x: indices[indexIdx], y: indices[indexIdx + 1], z: indices[indexIdx + 2] });
+			indices[indexIdx + 3] = (z + 1) * width;
+			indices[indexIdx + 4] = pointsPerPlane + (z + 1) * width;
+			indices[indexIdx + 5] = pointsPerPlane + z * width;
 
-			// indices[indexIdx + 3] = z * width + width;
-			// indices[indexIdx + 4] = pointsPerPlane + z * width + width;
-			// indices[indexIdx + 5] = pointsPerPlane + z * width;
+			const rightWallIdx = sideWallIdxOffset + (depth - 1 + z) * 6;
+			indices[rightWallIdx] = z * width + width - 1;
+			indices[rightWallIdx + 1] = z * width + width - 1 + width;
+			indices[rightWallIdx + 2] = pointsPerPlane + z * width + width - 1;
 
-			// const rightWallIdx = sideWallIdxOffset + (depth - 1 + z) * 6;
-			// indices[rightWallIdx] = z * width + width - 1;
-			// indices[rightWallIdx + 1] = z * width + width - 1 + width;
-			// indices[rightWallIdx + 2] = pointsPerPlane + z * width + width - 1;
-
-			// indices[rightWallIdx + 3] = z * width + width - 1 + width;
-			// indices[rightWallIdx + 4] = pointsPerPlane + z * width + width - 1 + width;
-			// indices[rightWallIdx + 5] = pointsPerPlane + z * width + width - 1;
+			indices[rightWallIdx + 3] = z * width + width - 1 + width;
+			indices[rightWallIdx + 4] = pointsPerPlane + z * width + width - 1 + width;
+			indices[rightWallIdx + 5] = pointsPerPlane + z * width + width - 1;
 		}
 
 		this.setAttribute(

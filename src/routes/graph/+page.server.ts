@@ -45,6 +45,8 @@ export const load: Load = async ({ params }) => {
 		// load defintiion info
 		const info: EntryDefinition = (await definitions[path]()) as EntryDefinition;
 
+		console.log(info.name);
+
 		const entry = {
 			name: info.name,
 			// FIXME: just a temporary hack to get the filter name -> add this value to test output

@@ -45,13 +45,8 @@ export class BarRenderer extends GraphRenderer<BarData> {
 		return this.barGroup?.children ?? [];
 	}
 
-	constructor(
-		public scene: THREE.Scene,
-		public camera: THREE.Camera,
-		options: Partial<BarRendererOptions> = {}
-	) {
-		super(scene, camera);
-
+	constructor(options: Partial<BarRendererOptions> = {}) {
+		super();
 		this.options = {
 			...defaultBarRendererOptions,
 			...options
@@ -60,7 +55,7 @@ export class BarRenderer extends GraphRenderer<BarData> {
 
 	destroy(): void {
 		if (this.barGroup) {
-			this.scene.remove(this.barGroup);
+			this.scene?.remove(this.barGroup);
 		}
 	}
 
@@ -69,13 +64,17 @@ export class BarRenderer extends GraphRenderer<BarData> {
 		this.barGroup?.scale.copy(scale);
 	}
 
+	setup(scene: THREE.Scene, camera: THREE.Camera): void {
+		super.setup(scene, camera);
+	}
+
 	getIntersections(raycaster: THREE.Raycaster): THREE.Intersection[] {
 		return raycaster.intersectObjects(this.bars, true);
 	}
 
 	updateWithData(data: BarData) {
 		if (this.barGroup) {
-			this.scene.remove(this.barGroup);
+			this.scene?.remove(this.barGroup);
 		}
 		const barGroup = new THREE.Group();
 
@@ -150,7 +149,7 @@ export class BarRenderer extends GraphRenderer<BarData> {
 		}
 		this.barGroup = barGroup;
 		this.barGroup.scale.copy(this.size);
-		this.scene.add(barGroup);
+		this.scene?.add(barGroup);
 	}
 
 	private createBarSegment(

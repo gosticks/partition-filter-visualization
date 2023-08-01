@@ -1,7 +1,13 @@
 export abstract class GraphRenderer<T = unknown> {
-	constructor(public scene: THREE.Scene, public camera: THREE.Camera) {}
+	public scene: THREE.Scene | undefined = undefined;
+	public camera: THREE.Camera | undefined = undefined;
 
 	abstract destroy(): void;
+
+	setup(scene: THREE.Scene, camera: THREE.Camera) {
+		this.scene = scene;
+		this.camera = camera;
+	}
 
 	/**
 	 * Used to update rendering based on data changes
@@ -10,4 +16,6 @@ export abstract class GraphRenderer<T = unknown> {
 	abstract updateWithData(data: T): void;
 
 	abstract getIntersections(raycaster: THREE.Raycaster): THREE.Intersection[];
+
+	abstract setScale(scale: THREE.Vector3): void;
 }

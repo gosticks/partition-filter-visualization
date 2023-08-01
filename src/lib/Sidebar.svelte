@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { Theme, toggleThemeMode, useSettingsStore } from '../store/SettingsStore';
+	import { Theme, toggleThemeMode, useSettingsStore } from '$lib/store/SettingsStore';
 
 	let className: string | undefined = '';
 	export { className as class };

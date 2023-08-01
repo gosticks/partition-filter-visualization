@@ -19,7 +19,7 @@
 </script>
 
 <div class="min-h-screen relative isolate max-h-screen max-w-full">
-	<main class="p-4">
+	<main>
 		<slot />
 	</main>
 </div>
