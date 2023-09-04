@@ -1,6 +1,3 @@
-import duckdbWasm from '@duckdb/duckdb-wasm/dist/duckdb-mvp.wasm?url';
-import duckdbWorker from '@duckdb/duckdb-wasm/dist/duckdb-browser-mvp.worker.js?worker';
-
 import { writable, get } from 'svelte/store';
 import { dataStoreLoadExtension } from './loadActions';
 import type { IDataStore, TableSchema } from './types';
@@ -14,7 +11,6 @@ const _baseStore = () => {
 		isLoading: false,
 		sharedConnection: null,
 		tables: {},
-		commonFilterOptions: {},
 		combinedSchema: {},
 		previousQueries: []
 	});
@@ -37,6 +33,14 @@ const _baseStore = () => {
 		}
 
 		setIsLoading(true);
+
+		// Dynamically import duckdb wasm
+		const duckdbWasm = await import('@duckdb/duckdb-wasm/dist/duckdb-mvp.wasm?url').then(
+			(m) => m.default
+		);
+		const duckdbWorker = await import(
+			'@duckdb/duckdb-wasm/dist/duckdb-browser-mvp.worker.js?worker'
+		).then((m) => m.default);
 
 		// Instantiate worker
 		const logger = new ConsoleLogger(LogLevel.WARNING);

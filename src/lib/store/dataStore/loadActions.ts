@@ -2,7 +2,7 @@ import { get, type Writable } from 'svelte/store';
 import type { FilterEntry } from '$routes/graph/+page.server';
 import type { BaseStoreType } from './DataStore';
 import type { FilterOptions, IDataStore, ITableEntry, TableSchema } from './types';
-import { DuckDBDataProtocol } from '@duckdb/duckdb-wasm';
+import type { DuckDBDataProtocol } from '@duckdb/duckdb-wasm';
 
 const filterQueryFields: string[] = [
 	'family',
@@ -169,20 +169,12 @@ export const dataStoreLoadExtension = (store: BaseStoreType, dataStore: Writable
 	 * @param onlyCheckFields Only check these fields
 	 * @returns a list of common filter options
 	 * @example
-	 * const commonFilterOptions = computeCombinedTableSchema(['family', 'mode', 'vectorization']);
+	 * const commonSchema = computeCombinedTableSchema(['family', 'mode', 'vectorization']);
 	 * // commonFilterOptions = {
-	 * // 	family: {
-	 * // 		type: 'string',
-	 * // 		values: ['bloom', 'btree', 'hash', 'skiplist']
-	 * // 	},
-	 * // 	mode: {
-	 * // 		type: 'string',
-	 * // 		values: ['Naive64', 'Blocked64']
-	 * // 	},
-	 * // 	vectorization: {
-	 * // 		type: 'string',
-	 * // 		values: ['scalar', 'sse', 'avx2', 'avx512']
-	 * // 	}
+	 * // 	family: "string",
+	 * // 	mode: "string",
+	 * // 	vectorization: "string"
+	 * //   fpr: "number"
 	 * // }
 	 *
 	 **/
