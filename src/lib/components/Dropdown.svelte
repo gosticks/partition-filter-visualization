@@ -64,7 +64,7 @@
 	{#if isOpen}
 		<div
 			transition:fadeSlide={{ duration: 100 }}
-			class="z-10 overflow-hidden origin-top-left absolute left-0 mt-2 w-56 rounded-xl shadow-xl bg-white ring-1 max-h-[250px] overflow-y-auto ring-black ring-opacity-5 focus:outline-none"
+			class="z-10 overflow-hidden origin-top-left absolute left-0 mt-2 w-56 rounded-xl shadow-2xl shadow-background-700 dark:shadow-background-950 bg-background-50 dark:bg-background-800 max-h-[250px] overflow-y-auto ring-1 ring-background-900/5 dark:ring-background-950/5"
 		>
 			<div role="none">
 				<slot name="content" />

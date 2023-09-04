@@ -2,6 +2,8 @@ export abstract class GraphRenderer<T = unknown> {
 	public scene: THREE.Scene | undefined = undefined;
 	public camera: THREE.Camera | undefined = undefined;
 
+	public onDataPointSelected: ((point?: THREE.Vector3) => void) | undefined = undefined;
+
 	abstract destroy(): void;
 
 	setup(scene: THREE.Scene, camera: THREE.Camera) {

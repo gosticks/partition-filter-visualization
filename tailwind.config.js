@@ -14,7 +14,8 @@ export default {
 			colors: {
 				primary: colors.blue,
 				secondary: colors.gray,
-				accent: colors.orange
+				accent: colors.orange,
+				background: colors.gray
 			}
 		}
 	},

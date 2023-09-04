@@ -18,14 +18,13 @@
 	// add on select action
 	export let onSelect: (selected: T[]) => void | undefined;
 
-	let buttonText = labelForSelection();
+	let selectionLabel = labelForSelection();
 
 	function internalOnSelect(value: T) {
 		if (singular) {
 			selected = [value];
 			onSelect?.(selected);
 
-			buttonText = labelForSelection();
 			return;
 		}
 
@@ -34,20 +33,19 @@
 		} else {
 			selected = [...selected, value];
 		}
+		selectionLabel = labelForSelection();
+
 		onSelect?.(selected);
-		buttonText = labelForSelection();
 	}
 
 	function clearAll() {
 		selected = [];
 		onSelect?.(selected);
-		buttonText = labelForSelection();
 	}
 
 	function selectAll() {
 		selected = options.map((o) => o.value);
 		onSelect?.(selected);
-		buttonText = labelForSelection();
 	}
 
 	// Computes the button text based on current selection
@@ -69,15 +67,17 @@
 </script>
 
 <div class="flex flex-col">
-	{#if label !== undefined}<div class="font-bold text-sm px-4 pb-1 text-secondary-500">
+	{#if label !== undefined}<div
+			class="font-bold text-sm px-4 pb-1 text-secondary-500 dark:text-secondary-400"
+		>
 			{label}
 		</div>{/if}
-	<Dropdown buttonClass="w-full" {isOpen} {disabled}>
+	<Dropdown buttonClass="w-full" {isOpen} disabled={!(options && options.length > 0) || disabled}>
 		<span slot="button">
 			{#if $$slots.default}
 				<slot />
 			{:else}
-				<span class="text-sm">{buttonText}</span>
+				<span class="text-sm">{selectionLabel}</span>
 			{/if}
 		</span>
 
@@ -85,10 +85,10 @@
 			<ul>
 				{#each options as { label, value }, i}
 					{@const isSelected = selected.includes(value)}
-					<li class="border-spacing-1 border-b last:border-b-0">
+					<li class="border-spacing-1 border-b dark:border-background-800 last:border-b-0">
 						<button
 							on:click={() => internalOnSelect(value)}
-							class="p-4 hover:bg-secondary-200 w-full text-left flex gap-4"
+							class="p-4 hover:bg-secondary-200 dark:hover:bg-secondary-700 w-full text-left flex gap-4"
 						>
 							<div class="w-6">
 								{#if singular}

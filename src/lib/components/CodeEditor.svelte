@@ -1,7 +1,8 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
+	import { onMount, onDestroy } from 'svelte';
 	import type { editor } from 'monaco-editor';
 	import { browser } from '$app/environment';
+	import { settingsStore } from '$lib/store/SettingsStore';
 
 	let editorContainer: HTMLDivElement;
 	export let editor: editor.IStandaloneCodeEditor;
@@ -10,6 +11,12 @@
 
 	let className: string | undefined = undefined;
 	export { className as class };
+
+	let settingsUnsubscriber = settingsStore.subscribe((value) => {
+		editor?.updateOptions({
+			theme: value.theme === 'dark' ? 'vs-dark' : 'vs-light'
+		});
+	});
 
 	onMount(async () => {
 		if (!browser) return;
@@ -32,14 +39,17 @@
 
 		const monaco = await import('monaco-editor');
 
-		const languageSupport = await import('monaco-sql-languages/out/esm/sql/sql.contribution');
-		console.log(languageSupport);
+		// const languageSupport = await import('monaco-sql-languages/out/esm/sql/sql.contribution');
 
 		editor = monaco.editor.create(editorContainer, {
 			value: initialCode,
-			language: 'sql'
-			// theme: 'vs-dark'
+			language: 'sql',
+			theme: $settingsStore.theme === 'dark' ? 'vs-dark' : 'vs-light'
 		});
+	});
+
+	onDestroy(() => {
+		settingsUnsubscriber();
 	});
 </script>
 

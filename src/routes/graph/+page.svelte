@@ -1,143 +1,118 @@
 <script lang="ts">
 	import type { PageServerData } from './$types';
-	import type { DataEntry, EntryDefinition, FilterEntry } from './proxy+page.server';
 	import Button from '$lib/components/Button.svelte';
 	import DropdownSelect from '$lib/components/DropdownSelect.svelte';
 	import BasicGraph from '$lib/components/BasicGraph.svelte';
 	import LoadingOverlay from '$lib/components/LoadingOverlay.svelte';
 	import type { Vector2 } from 'three';
-	import {
-		getFiltersOptions,
-		loadCSV,
-		rewriteEntries,
-		useDataStore,
-		type FilterOptions,
-		type TableSchema,
-		getTableSchema
-	} from '$lib/store/DataStore';
+	import { dataStore } from '$lib/store/dataStore/DataStore';
 	import { browser } from '$app/environment';
 	import { onMount } from 'svelte';
 	import Card from '$lib/components/Card.svelte';
 	import Dialog from '$lib/components/Dialog.svelte';
-	import { PlaneRenderer } from '$lib/rendering/PlaneRenderer';
-	import type { GraphRenderer } from '$lib/rendering/GraphRenderer';
 	import QueryEditor from '$lib/components/QueryEditor.svelte';
-	import Dropdown from '$lib/components/Dropdown.svelte';
-	import Slider from '$lib/components/Slider.svelte';
-
-	export let isLoading = false;
+	import FilterSidebar from '$lib/components/FilterSidebar.svelte';
+	import GridBackground from '$lib/components/GridBackground.svelte';
+	import MessageCard from '$lib/components/MessageCard.svelte';
+	import DropZone from '$lib/components/DropZone.svelte';
+	import filterStore, { type IFilterStoreGraphOptions } from '$lib/store/FilterStore';
 
 	export let data: PageServerData;
 
-	let filterOptions: FilterOptions | undefined = undefined;
+	onMount(async () => {
+		if (!browser) return;
 
-	let selectedFilterOptions: FilterOptions = {};
-	let tableSchema: TableSchema | undefined = undefined;
-	let xAxisKey: string | undefined = undefined;
-	let zAxisKey: string | undefined = undefined;
-	// List of possible test sizes (e.g. 10, 100, 1000, 10000)
+		// Pass possible db options to the filter sidebar
+		filterStore.setPreloadedTables(data.filters);
 
-	let filterData: number[][][] = [
-		[
-			[3, 4, 5, 6],
-			[3, 4, 15, 6],
-			[3, 4, 8, 6],
-			[3, 4, 5, 12]
-		],
-		[
-			[4, 5, 6, 7],
-			[4, 5, 20, 7],
-			[4, 5, 6, 7],
-			[4, 5, 6, 15]
-		]
-	];
+		// Restore filter options from query parameters
+		const url = new URL(location.href);
+		const selectedTable = url.searchParams.get('table');
+		const filter = url.searchParams.get('filter');
 
-	let dataRenderer: GraphRenderer | undefined = undefined;
+		if (selectedTable && data.filters[selectedTable]) {
+			console.log('Loading table', selectedTable);
+			await dataStore.loadEntries([data.filters[selectedTable]]);
+		}
 
-	let db = useDataStore();
-	onMount(() => {
-		db.subscribe((v) => {
-			console.log('Data store updated', v);
-		});
-		dataRenderer = new PlaneRenderer();
+		if (filter) {
+			console.log('Loading filter', filter);
+			try {
+				const filterOptions = JSON.parse(atob(filter)) as IFilterStoreGraphOptions;
+				console.log('Loading filter options', filterOptions);
+				await filterStore.setGraphOptions(filterOptions);
+			} catch (error) {
+				console.error('Failed to load filter options', error);
+			}
+		}
 
 		console.log('Mounting graph page', data);
 	});
 
 	let hoverPosition: Vector2 | undefined = undefined;
 
-	async function onFilterSelect(selected: FilterEntry[]) {
-		isLoading = true;
-
-		// Load all CSV files matching the selected filters
-		// const loading = Promise.all(
-		// 	selectedFilters.flatMap((filter) =>
-		// 		filter.entries.map((entry) => {
-
-		// 			const csvUrl = new URL(entry.dataUrl, location.href).href;
-		// 			console.log({ csvUrl, filter, entry });
-		// 			return loadCSV(csvUrl, filter.name);
-		// 		})
-		// 	)
-		// );
-
-		const items = [2, 3]; //, 3, 8, 9, 10, 11];
-		for (const idx of items) {
-			const href = new URL(data.filters['bloom'].entries[idx].dataUrl, location.href).href;
-			try {
-				await loadCSV(href, 'bloom');
-			} catch (e) {
-				console.error(`Failed to load CSV ${href}:`, e);
-			}
-		}
-		try {
-			await rewriteEntries('bloom');
-			const filters = await getFiltersOptions('bloom');
-			const schema = await getTableSchema('bloom');
-			console.log('Filters:', filters);
-			filterOptions = filters;
-			tableSchema = schema;
-		} catch (e) {
-			console.error('Failed to rewrite bloom entries:', e);
-		}
-
-		isLoading = false;
+	function filesDropped(files: FileList) {
+		dataStore.loadEntriesFromFileList(files);
 	}
 
-	async function onVisualize() {
-		// Query data and translate it into something whe can query
-		// getTiledData('bloom', xAxisKey!, zAxisKey!, 100).then((data) => {
-		// 	console.log(data);
-		// 	console.log(data[0]['fpr']);
-		// });
+	function onHover(position: Vector2, object?: THREE.Object3D) {
+		hoverPosition = position;
 	}
-
-	const sliderDisplay = (filterName: string) => {
-		switch (filterName) {
-			case 'size':
-				return (value: number) => `${(value / 1024 / 1024).toFixed(3)} MB`;
-			default:
-				return (value: number) => `${value}`;
-		}
-	};
 </script>
 
 <div>
 	<div class="relative">
-		<div class="lg:flex w-full">
-			<div class="flex-grow flex-shrink">
-				<div class="h-screen">
+		<div class="h-screen w-full">
+			{#if $filterStore.filterRenderer}
+				<div class="flex-grow flex-shrink">
 					<BasicGraph
-						data={{ data: filterData, scaleY: 25 }}
-						{dataRenderer}
-						onHover={(obj, pos) => {
-							// hoverPosition = pos;
-						}}
+						data={$filterStore.filterRenderer.data}
+						dataRenderer={$filterStore.filterRenderer.renderer}
+						{onHover}
 					/>
+					{#if $filterStore.selectedPoint && hoverPosition}
+						<div
+							class="absolute pointer-events-none"
+							style={`left: ${hoverPosition.x}px; top: ${hoverPosition.y}px;`}
+						>
+							<Card title="TEST">{$filterStore.selectedPoint.toArray()}</Card>
+						</div>
+					{/if}
 				</div>
-			</div>
+			{:else}
+				<GridBackground />
+			{/if}
+			{#if Object.keys($dataStore.tables).length === 0}
+				<div class="h-full w-full flex flex-col gap-10 justify-center items-center">
+					<MessageCard>
+						<h2 class="text-2xl font-bold mb-5">Please select filter family</h2>
+						<p class="mb-2">from filter data provided by us</p>
+						<DropdownSelect
+							onSelect={(options) => {
+								dataStore.loadEntries(options);
+							}}
+							options={$filterStore.preloadedTables}
+						/>
+						<div class="flex mt-5 mb-5 items-center justify-center">
+							<div class="border-t dark:border-background-700 w-full" />
+							<div class="mx-4 opacity-50">OR</div>
+							<div class="border-t w-full dark:border-background-700" />
+						</div>
+						<p class="mb-2">your own dataset in CSV format</p>
+						<DropZone onFileDropped={filesDropped} />
+					</MessageCard>
+				</div>
+			{/if}
 		</div>
-		<div class="absolute right-4 top-4 w-96">
+		<FilterSidebar />
+		<div class="fixed bottom-5 left-5">
+			<Dialog large>
+				<Button slot="trigger" color="secondary" size="lg">SQL Editor</Button>
+				<svelte:fragment slot="title">SQL Query Editor</svelte:fragment>
+				<QueryEditor />
+			</Dialog>
+		</div>
+		<!-- <div class="absolute right-4 pt-4 t-0 bottom-0 w-96 min-h-screen overflow-y-auto">
 			<Card title="Filter Family">
 				<DropdownSelect
 					onSelect={onFilterSelect}
@@ -158,7 +133,7 @@
 											label={filterName}
 											onSelect={(selected) => {
 												selectedFilterOptions[filterName] = {
-													value: selected,
+													options: selected,
 													type: filter.type
 												};
 											}}
@@ -175,7 +150,7 @@
 											diplayFunction={sliderDisplay(filterName)}
 											onInput={(value) => {
 												selectedFilterOptions[filterName] = {
-													value: [value],
+													options: [value],
 													type: filter.type
 												};
 											}}
@@ -218,6 +193,20 @@
 									value: key
 								}))}
 						/>
+						<DropdownSelect
+							label={'Y Axis'}
+							singular
+							onSelect={(selected) => {
+								console.log(selected);
+								yAxisKey = selected.length > 0 ? selected[0] : undefined;
+							}}
+							options={Object.entries(tableSchema)
+								.filter(([_, value]) => value === 'number')
+								.map(([key]) => ({
+									label: key,
+									value: key
+								}))}
+						/>
 					</div>
 					<Button color="primary" size="lg" on:click={onVisualize}>Visualize</Button>
 				</Card>
@@ -229,13 +218,8 @@
 					<QueryEditor />
 				</Dialog>
 			</Card>
-		</div>
-		{#if hoverPosition}
-			<div class="absolute border-t-2 mt-6" style="left: {hoverPosition.x}; top: {hoverPosition.y}">
-				<h2>Hovering over {hoverPosition}</h2>
-			</div>
-		{/if}
-		{#if isLoading}
+		</div> -->
+		{#if $filterStore.isLoading || $dataStore.isLoading}
 			<LoadingOverlay isLoading={true} />
 		{/if}
 	</div>

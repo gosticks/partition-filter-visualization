@@ -12,20 +12,20 @@
 	function classForSize() {
 		switch (size) {
 			case 'sm':
-				return 'px-2.5 py-1.5 text-xs';
+				return 'px-2.5 py-1.5 text-xs shadow-sm rounded-md';
 			case 'md':
-				return 'px-4 py-2 text-sm';
+				return 'px-4 py-2 text-sm shadow-mg rounded-lg';
 			case 'lg':
-				return 'px-4 py-2 text-base';
+				return 'px-4 py-2 text-base shadow-lg rounded-xl';
 		}
 	}
 
 	function classForColors(): string {
 		switch (color) {
 			case 'primary':
-				return 'text-white bg-primary-600 hover:bg-primary-700 ';
+				return 'text-white bg-primary-600 hover:bg-primary-700 border-primary-700 hover:border-primary-700';
 			case 'secondary':
-				return 'text-secondary-600 bg-white hover:bg-secondary-50 hover:bg-gray-50';
+				return 'text-secondary-600 dark:text-background-50 bg-white border-secondary-300 dark:border-background-950 dark:bg-background-900 hover:bg-gray-50 dark:hover:bg-background-800 dark:hover:border-background-900';
 		}
 	}
 
@@ -40,7 +40,7 @@
 <button
 	{disabled}
 	on:click
-	class="inline-flex justify-between items-center {classForDisabledState()} {classForColors()} {classForSize()} border rounded-xl shadow-sm font-medium focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 {className ??
+	class="inline-flex justify-between items-center border {classForDisabledState()} {classForColors()} {classForSize()}  font-medium focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 {className ??
 		''}"
 >
 	<slot name="leading" />

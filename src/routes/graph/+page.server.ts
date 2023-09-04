@@ -1,5 +1,6 @@
 // Fetch all available data entries
 
+import { base } from '$app/paths';
 import type { Load } from '@sveltejs/kit';
 
 export type DataEntry = {
@@ -14,7 +15,7 @@ export type EntryDefinition = {
 	name: string;
 	iterations: number;
 	preprocess: string;
-	fixutre: string;
+	fixture: string;
 	generator: string;
 	// FIXME: add missing fields maybe generate even
 };
@@ -45,15 +46,15 @@ export const load: Load = async ({ params }) => {
 		// load defintiion info
 		const info: EntryDefinition = (await definitions[path]()) as EntryDefinition;
 
-		console.log(info.name);
+		// console.log(info.name);
 
 		const entry = {
 			name: info.name,
 			// FIXME: just a temporary hack to get the filter name -> add this value to test output
 			filterName: info.name.split(' ')[0],
-			fixture: info.fixutre,
-			infoUrl: `/datasets/${filter}/${name}.json`,
-			dataUrl: `/datasets/${filter}/${name}.csv`
+			fixture: info.fixture,
+			infoUrl: `${base}/datasets/${filter}/${name}.json`,
+			dataUrl: `${base}/datasets/${filter}/${name}.csv`
 		};
 
 		dataEntries.push(entry);

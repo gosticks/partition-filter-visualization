@@ -9,11 +9,13 @@
 	class:visible={isLoading}
 	transition:fade
 >
-	<div class="fixed inset-0 bg-gray-800 opacity-75" />
-	<div class="bg-white rounded-lg p-4 z-20 shadow-lg">
+	<div class="fixed inset-0 bg-gray-800 dark:bg-gray-950 opacity-75" />
+	<div
+		class="bg-white dark:bg-background-900 text-gray-500 dark:text-gray-100 rounded-lg p-4 z-20 shadow-lg"
+	>
 		<div class="flex items-center mb-4">
 			<svg
-				class="animate-spin mr-2 h-5 w-5 text-gray-700"
+				class="animate-spin mr-2 h-5 w-5 text-gray-700 dark:text-gray-200"
 				xmlns="http://www.w3.org/2000/svg"
 				fill="none"
 				viewBox="0 0 24 24"
@@ -25,9 +27,9 @@
 					d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
 				/>
 			</svg>
-			<span class="text-gray-700">Loading...</span>
+			<span>Loading...</span>
 		</div>
-		<p class="text-gray-500">Please wait while the content is being loaded.</p>
+		<p>Please wait while the content is being loaded.</p>
 	</div>
 </div>
 

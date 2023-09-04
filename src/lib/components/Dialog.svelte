@@ -43,12 +43,12 @@
 	<div
 		role="dialog"
 		transition:fade={{ duration: 100 }}
-		class="modal-overlay fixed top-0 bottom-0 left-0 right-0 w-full h-full bg-opacity-80 bg-slate-200"
+		class="modal-overlay fixed top-0 bottom-0 left-0 right-0 w-full h-full bg-opacity-80 dark:bg-opacity-60 bg-slate-200 dark:bg-background-950"
 		on:mousedown|self={toggleDialog}
 	>
 		<div
 			transition:fly={{ y: -120, delay: 25, duration: 150 }}
-			class="modal rounded-3xl shadow-xl"
+			class="modal rounded-3xl shadow-xl bg-background-50 dark:bg-background-800"
 			class:large
 		>
 			{#if $$slots.title}<div class="pb-4 mb-2 border-b">
@@ -72,7 +72,6 @@
 		z-index: 9999;
 	}
 	.modal {
-		background: white;
 		padding: 20px;
 		max-height: 90vh;
 		overflow-y: auto;

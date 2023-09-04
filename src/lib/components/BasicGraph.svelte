@@ -105,7 +105,7 @@
 
 		setupScene();
 
-		renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+		renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
 		renderer.setPixelRatio(window.devicePixelRatio || 1);
 		renderer.setClearColor(0x000000, 0);
 		renderer.setSize(containerElement.clientWidth, containerElement.clientHeight);
@@ -194,8 +194,13 @@
 		window.removeEventListener('resize', windowResizeHandler);
 	});
 
-	beforeUpdate(() => {
+	function updateRenderer() {
+		if (!containerElement) {
+			return;
+		}
+
 		if (_dataRenderer !== dataRenderer) {
+			console.log('renderer changed');
 			// Handle renderer changes
 			dataRenderer?.setup(scene, camera);
 			const width = containerElement.clientWidth;
@@ -204,14 +209,18 @@
 
 			_dataRenderer = dataRenderer!;
 		} else if (_data !== data) {
+			console.log('Data changed');
 			// Handle data only changes
 			dataRenderer?.updateWithData(data);
+			_data = data;
 		}
+	}
+
+	beforeUpdate(() => {
+		updateRenderer();
 	});
 
-	afterUpdate(() => {
-		console.log('afterUpdate', { dataRenderer, data });
-	});
+	afterUpdate(() => {});
 
 	onDestroy(() => {
 		if (!browser) {
@@ -260,7 +269,7 @@
 	}
 </script>
 
-<div class="relative w-full h-full">
+<div class="relative w-screen h-screen">
 	<div
 		bind:this={containerElement}
 		on:mousemove={handleHover}

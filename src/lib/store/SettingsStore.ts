@@ -1,5 +1,4 @@
-import { get } from 'svelte/store';
-import { useWritable } from './utils';
+import { get, writable } from 'svelte/store';
 
 export enum Theme {
 	Light = 'light',
@@ -17,17 +16,16 @@ const initialAppSettings: AppSettings = {
 	theme: Theme.Light
 };
 
-export const useSettingsStore = () => useWritable('appSettings', initialAppSettings);
+export const settingsStore = writable<AppSettings>(initialAppSettings);
 
 export const updateTheme = (theme: Theme) => {
-	const store = useSettingsStore();
-	store.update((settings) => {
-		return { ...settings, theme };
+	settingsStore.update((settings) => {
+		settings.theme = theme;
+		return settings;
 	});
 };
 
 export const toggleThemeMode = () => {
-	const store = useSettingsStore();
-	const value = get(store);
-	updateTheme(value.theme === Theme.Dark ? Theme.Light : Theme.Dark);
+	const { theme } = get(settingsStore);
+	updateTheme(theme === Theme.Dark ? Theme.Light : Theme.Dark);
 };
