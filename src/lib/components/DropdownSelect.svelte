@@ -1,4 +1,6 @@
 <script lang="ts">
+	import { beforeUpdate } from 'svelte';
+
 	import { CheckCircleIcon, CheckIcon, MailIcon, PhoneIcon } from 'svelte-feather-icons';
 	import Dropdown from './Dropdown.svelte';
 	import Button from './Button.svelte';
@@ -64,6 +66,10 @@
 
 		return `(${selected.length}) selected`;
 	}
+
+	beforeUpdate(() => {
+		selectionLabel = labelForSelection();
+	});
 </script>
 
 <div class="flex flex-col">
