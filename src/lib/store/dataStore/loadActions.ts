@@ -1,21 +1,8 @@
 import { get, type Writable } from 'svelte/store';
-import type { FilterEntry } from '$routes/graph/+page.server';
 import type { BaseStoreType } from './DataStore';
-import type { FilterOptions, IDataStore, ITableEntry, TableSchema } from './types';
+import type { IDataStore, ITableEntry, TableSchema } from './types';
 import { DuckDBDataProtocol } from '@duckdb/duckdb-wasm';
 import { TableSource, type ITableReference } from '../FilterStore';
-import type { I } from 'vitest/dist/types-71ccd11d';
-
-const filterQueryFields: string[] = [
-	'family',
-	'mode',
-	'vectorization',
-	's',
-	'n_threads',
-	'n_partitions',
-	'size',
-	'n_elements_lookup'
-];
 
 // Store extension containing actions to load data, transform & drop data
 export const dataStoreLoadExtension = (store: BaseStoreType, dataStore: Writable<IDataStore>) => {
