@@ -89,7 +89,7 @@
 						<p class="mb-2">from filter data provided by us</p>
 						<DropdownSelect
 							onSelect={(options) => {
-								dataStore.loadEntries(options);
+								filterStore.selectBuildInTables(options);
 							}}
 							options={$filterStore.preloadedTables}
 						/>

@@ -2,7 +2,9 @@ import { get, type Writable } from 'svelte/store';
 import type { FilterEntry } from '$routes/graph/+page.server';
 import type { BaseStoreType } from './DataStore';
 import type { FilterOptions, IDataStore, ITableEntry, TableSchema } from './types';
-import type { DuckDBDataProtocol } from '@duckdb/duckdb-wasm';
+import { DuckDBDataProtocol } from '@duckdb/duckdb-wasm';
+import { TableSource, type ITableReference } from '../FilterStore';
+import type { I } from 'vitest/dist/types-71ccd11d';
 
 const filterQueryFields: string[] = [
 	'family',
@@ -105,8 +107,13 @@ export const dataStoreLoadExtension = (store: BaseStoreType, dataStore: Writable
 			}
 		});
 
-	const loadCsvFromUrl = async (path: string, tableName: string, shouldSetLoading = true) => {
-		const { tables, sharedConnection: conn } = get(dataStore);
+	const loadCsvFromUrl = async (
+		path: string,
+		tableName: string,
+		shouldSetLoading = true,
+		createTable = true
+	) => {
+		const { sharedConnection: conn } = get(dataStore);
 
 		if (!conn) {
 			// TODO: add error handling
@@ -121,7 +128,7 @@ export const dataStoreLoadExtension = (store: BaseStoreType, dataStore: Writable
 			await conn.insertCSVFromPath(path, {
 				name: tableName,
 				detect: true,
-				create: tables[tableName] === undefined
+				create: createTable
 			});
 
 			const schema = await store.getTableSchema(tableName);
@@ -211,80 +218,96 @@ export const dataStoreLoadExtension = (store: BaseStoreType, dataStore: Writable
 		}, {} as TableSchema);
 	};
 
+	const loadTableReference = async (
+		ref: ITableReference,
+		shouldSetLoading = true,
+		shouldCreateTable = true
+	) => {
+		switch (ref.source) {
+			case TableSource.BUILD_IN: {
+				const csvUrl = new URL(ref.url, location.href).href;
+				return loadCsvFromUrl(csvUrl, ref.tableName, shouldSetLoading, shouldCreateTable);
+			}
+			case TableSource.URL: {
+				const csvUrl = ref.url;
+				return loadCsvFromUrl(csvUrl, ref.tableName, shouldSetLoading, shouldCreateTable);
+			}
+			case TableSource.FILE: {
+				const csvUrl = ref.file;
+				throw new Error('Not implemented yet');
+				break;
+			}
+		}
+	};
+
 	/**
 	 * Loads all CSVs for the selected filters entries
 	 * @param selected
 	 * @returns
 	 */
-	const loadEntries = async (selected: FilterEntry[]) =>
+	const loadTableReferences = async (refs: ITableReference[]) =>
 		withLoading(async () => {
-			if (selected.length === 0) {
+			if (refs.length === 0) {
 				return;
 			}
 
-			// Check if we already have loaded the table
-			selected = selected.filter((filter) => {
-				const { tables } = get(dataStore);
-				return tables[filter.name] === undefined;
-			});
+			// Group tables by name for later processing
+			const grouped = refs.reduce((acc, ref) => {
+				if (!acc[ref.tableName]) {
+					acc[ref.tableName] = [];
+				}
+				acc[ref.tableName].push(ref);
+				return acc;
+			}, {} as Record<string, ITableReference[]>);
 
+			// Check if references are already loaded
+			// TODO: add check or delete databases
+
+			// Load multiple tables at once but all linked to the same tableName sequentially
+			// This is required since we need to rewrite the entries for each table
+			// and a table should only be created once
 			const promise = Promise.all(
-				selected.flatMap((filter) => {
-					if (filter.entries.length > 0) {
-						const entry = filter.entries[0];
-						const csvUrl = new URL(entry.dataUrl, location.href).href;
-						// Do not set loading flag since we handle it here
-						return loadCsvFromUrl(csvUrl, filter.name, false);
+				Object.entries(grouped).flatMap(async ([tableName, entries]) => {
+					if (entries.length === 0) {
+						return [];
 					}
-					// FIXME: enable after testing
-					// filter.entries.map((entry) => {
-					// 	const csvUrl = new URL(entry.dataUrl, location.href).href;
-					// 	console.log({ csvUrl, filter, entry });
-					// 	return loadCSV(csvUrl, filter.name);
-					// })
-					// )
+
+					const loadedTables: ITableEntry[] = [];
+
+					// Load grouped entries sequentially
+					for (const [i, entry] of entries.entries()) {
+						const loadedTable = await loadTableReference(entry, false, i === 0);
+						if (loadedTable) {
+							loadedTables.push(loadedTable);
+						}
+					}
+
+					// Post process tables
+					return postProcessTable(tableName);
 				})
 			);
 
+			// Compute combined schemas and other meta information
 			try {
-				const tableDefinitions = await promise;
+				// Filter out undefined values
+				const tableDefinitions = (await promise).filter(
+					(t) => t !== undefined
+				) as unknown as ITableEntry[];
 
-				const { tables } = get(dataStore);
-
-				// Rewrite entries & update schemas
-				const rewriteResponses = await Promise.all(Object.keys(tables).map(postProcessTable));
-
-				console.log('Rewrite responses:', rewriteResponses);
-
+				// Update data store
 				dataStore.update((store) => {
-					rewriteResponses.forEach((resp) => {
-						if (!resp) {
-							return;
-						}
-						store.tables[resp.table].schema = resp.schema;
-						store.tables[resp.table].filterOptions = resp.filterOptions;
+					tableDefinitions.forEach((table) => {
+						store.tables[table.name] = table;
 					});
 					store.combinedSchema = computeCombinedTableSchema();
 					return store;
 				});
-
-				// Store preloaded table in query params
-				const params = new URLSearchParams(location.search);
-				tableDefinitions.forEach((table) => {
-					if (!table) {
-						return;
-					}
-					params.set('table', table.name);
-				});
-
-				history.replaceState(null, '', `?${params.toString()}`);
 
 				return tableDefinitions;
 			} catch (e) {
 				console.error('Failed to load CSVs:', e);
 				dataStore.update((store) => {
 					store.tables = {};
-					store.commonFilterOptions = {};
 					return store;
 				});
 			}
@@ -331,7 +354,7 @@ export const dataStoreLoadExtension = (store: BaseStoreType, dataStore: Writable
 		},
 		loadCsvFromFile,
 		loadCsvFromUrl,
-		loadEntries,
+		loadTableReferences,
 		resetDatabase
 	};
 };

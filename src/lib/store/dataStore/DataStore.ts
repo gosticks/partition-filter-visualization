@@ -9,12 +9,12 @@ import { withUrlStorage } from '../urlStorage';
 const _baseStore = () => {
 	const store = withUrlStorage(
 		writable<IDataStore>({
-		db: null,
-		isLoading: false,
-		sharedConnection: null,
-		tables: {},
-		combinedSchema: {},
-		previousQueries: []
+			db: null,
+			isLoading: false,
+			sharedConnection: null,
+			tables: {},
+			combinedSchema: {},
+			previousQueries: []
 		}),
 		{}
 	);

@@ -25,6 +25,26 @@ export interface IFilterStoreGraphOptions {
 	};
 }
 
+export enum TableSource {
+	BUILD_IN,
+	URL,
+	FILE
+}
+
+export type ITableReference = {
+	name: string;
+	tableName: string;
+} & (
+	| {
+			source: TableSource.BUILD_IN | TableSource.URL;
+			url: string;
+	  }
+	| {
+			source: TableSource.FILE;
+			file: File;
+	  }
+);
+
 export interface IFilterStore {
 	isLoading: boolean;
 	preloadedTables: { label: string; value: FilterEntry }[];
@@ -39,10 +59,10 @@ export interface IFilterStore {
 const _filterStore = () => {
 	const store = withUrlStorage(
 		writable<IFilterStore>({
-		isLoading: true,
-		graphType: GraphType.PLANE,
-		preloadedTables: [],
-		filterOptions: {}
+			isLoading: true,
+			graphType: GraphType.PLANE,
+			preloadedTables: [],
+			filterOptions: {}
 		}),
 		{
 			graphType: 'string',
@@ -70,6 +90,39 @@ const _filterStore = () => {
 				return store;
 			});
 		},
+
+		selectBuildInTables: async (tables: FilterEntry[]) => {
+			// Convert filter options to table references
+			const tableReferences: ITableReference[] = tables.flatMap((t) =>
+				t.entries.map((e) => ({
+					name: e.name,
+					tableName: t.name,
+					source: TableSource.BUILD_IN,
+					url: e.dataUrl
+				}))
+			);
+			console.log('Selected tables', tableReferences);
+			try {
+				const loadedTables = await dataStore.loadTableReferences(tableReferences);
+				console.log('Loaded tables', loadedTables);
+			} catch (e) {
+				console.error('Failed to load tables:', e);
+				return;
+			}
+		},
+
+		selectTables: async (tables: ITableReference[]) => {
+			const state = get(store);
+			// Load tables into data store
+			try {
+				const loadedTables = await dataStore.loadTableReferences(tables);
+				console.log('Loaded tables', loadedTables);
+			} catch (e) {
+				console.error('Failed to load tables:', e);
+				return;
+			}
+		},
+
 		setGraphOptions: async (graphOptions?: IFilterStoreGraphOptions) => {
 			if (!graphOptions) {
 				return;
@@ -118,12 +171,6 @@ const _filterStore = () => {
 									scaleY: 1
 								}
 							};
-
-							// Store filter state in URL
-							const params = new URLSearchParams(location.search);
-							const encoded = btoa(JSON.stringify(graphOptions));
-							params.set('filter', encoded);
-							history.replaceState(null, '', `${location.pathname}?${params.toString()}`);
 
 							return store;
 						});
