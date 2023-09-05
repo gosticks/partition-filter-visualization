@@ -25,28 +25,28 @@
 		// Pass possible db options to the filter sidebar
 		filterStore.setPreloadedTables(data.filters);
 
-		// Restore filter options from query parameters
-		const url = new URL(location.href);
-		const selectedTable = url.searchParams.get('table');
-		const filter = url.searchParams.get('filter');
+		// // Restore filter options from query parameters
+		// const url = new URL(location.href);
+		// const selectedTable = url.searchParams.get('table');
+		// const filter = url.searchParams.get('filter');
 
-		if (selectedTable && data.filters[selectedTable]) {
-			console.log('Loading table', selectedTable);
-			await dataStore.loadEntries([data.filters[selectedTable]]);
-		}
+		// if (selectedTable && data.filters[selectedTable]) {
+		// 	console.log('Loading table', selectedTable);
+		// 	await dataStore.loadEntries([data.filters[selectedTable]]);
+		// }
 
-		if (filter) {
-			console.log('Loading filter', filter);
-			try {
-				const filterOptions = JSON.parse(atob(filter)) as IFilterStoreGraphOptions;
-				console.log('Loading filter options', filterOptions);
-				await filterStore.setGraphOptions(filterOptions);
-			} catch (error) {
-				console.error('Failed to load filter options', error);
-			}
-		}
+		// if (filter) {
+		// 	console.log('Loading filter', filter);
+		// 	try {
+		// 		const filterOptions = JSON.parse(atob(filter)) as IFilterStoreGraphOptions;
+		// 		console.log('Loading filter options', filterOptions);
+		// 		await filterStore.setGraphOptions(filterOptions);
+		// 	} catch (error) {
+		// 		console.error('Failed to load filter options', error);
+		// 	}
+		// }
 
-		console.log('Mounting graph page', data);
+		// console.log('Mounting graph page', data);
 	});
 
 	let hoverPosition: Vector2 | undefined = undefined;

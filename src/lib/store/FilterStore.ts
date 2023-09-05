@@ -1,9 +1,10 @@
-import { writable } from 'svelte/store';
+import { get, writable } from 'svelte/store';
 import { dataStore } from './dataStore/DataStore';
 import type { FilterEntry } from '../../routes/graph/proxy+page.server';
 import type { GraphRenderer } from '$lib/rendering/GraphRenderer';
 import { PlaneRenderer } from '$lib/rendering/PlaneRenderer';
 import type { FilterOptions } from './dataStore/types';
+import { withUrlStorage } from './urlStorage';
 
 export const enum GraphType {
 	PLANE = 'plane'
@@ -36,12 +37,18 @@ export interface IFilterStore {
 }
 
 const _filterStore = () => {
-	const store = writable<IFilterStore>({
+	const store = withUrlStorage(
+		writable<IFilterStore>({
 		isLoading: true,
 		graphType: GraphType.PLANE,
 		preloadedTables: [],
 		filterOptions: {}
-	});
+		}),
+		{
+			graphType: 'string',
+			graphOptions: 'object'
+		}
+	);
 
 	const { set, update, subscribe } = store;
 

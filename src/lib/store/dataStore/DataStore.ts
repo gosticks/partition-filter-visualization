@@ -4,16 +4,20 @@ import type { IDataStore, TableSchema } from './types';
 import { browser } from '$app/environment';
 import { dataStoreFilterExtension } from './filterActions';
 import { AsyncDuckDB, ConsoleLogger, LogLevel } from '@duckdb/duckdb-wasm';
+import { withUrlStorage } from '../urlStorage';
 
 const _baseStore = () => {
-	const store = writable<IDataStore>({
+	const store = withUrlStorage(
+		writable<IDataStore>({
 		db: null,
 		isLoading: false,
 		sharedConnection: null,
 		tables: {},
 		combinedSchema: {},
 		previousQueries: []
-	});
+		}),
+		{}
+	);
 
 	const { set, update, subscribe } = store;
 
