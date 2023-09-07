@@ -69,7 +69,7 @@ export abstract class GraphOptions<
 	public abstract getType(): GraphType;
 	public abstract setStateValue<P extends Paths<T>>(path: P, value: PathValue<T, P>): void;
 	public abstract applyOptionsIfValid(): Promise<void>;
-
+	public abstract updateFilterOptions(): void;
 	public abstract getRenderer(): R;
 }
 

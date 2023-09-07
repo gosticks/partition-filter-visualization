@@ -32,7 +32,7 @@ export const defaultUrlEncoder = (
 	key: string,
 	type: EncodableTypes,
 	value: unknown
-): string | null => {
+): string | null | undefined => {
 	switch (type) {
 		case 'string':
 			return value as string;

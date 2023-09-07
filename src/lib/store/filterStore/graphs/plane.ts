@@ -1,14 +1,8 @@
 import { PlaneRenderer } from '$lib/rendering/PlaneRenderer';
 import { dataStore } from '$lib/store/dataStore/DataStore';
 import { get } from 'svelte/store';
-import {
-	GraphOptions,
-	type DataScaling,
-	type Paths,
-	setObjectValue,
-	type PathValue,
-	GraphType
-} from '../types';
+import { GraphOptions, type Paths, setObjectValue, type PathValue, GraphType } from '../types';
+import { DataScaling } from '$lib/store/dataStore/types';
 
 export type PlaneGraphState = {
 	display: {
@@ -39,11 +33,20 @@ export class PlaneGraphOptions extends GraphOptions<Partial<PlaneGraphState>, Pl
 	private state: Partial<PlaneGraphState>;
 
 	constructor(initialState: Partial<PlaneGraphState> = {}) {
+		super(new PlaneRenderer(), {});
+		this.updateFilterOptions();
+
+		this.state = initialState;
+		console.log('Created plane graph options', this.state);
+		this.applyOptionsIfValid();
+	}
+
+	public updateFilterOptions() {
 		const data = get(dataStore);
 		const numberTableColumns = Object.entries(data.combinedSchema)
 			.filter(([, type]) => type === 'number')
 			.map(([column]) => column);
-		super(new PlaneRenderer(), {
+		this.filterOptions = {
 			'data.xColumnName': {
 				type: 'string',
 				options: numberTableColumns,
@@ -68,12 +71,13 @@ export class PlaneGraphOptions extends GraphOptions<Partial<PlaneGraphState>, Pl
 				type: 'number',
 				options: [1, 2, 4, 8, 16, 32, 64],
 				label: 'Z Tile Count'
+			},
+			'data.yScale': {
+				type: 'string',
+				options: [DataScaling.LINEAR, DataScaling.LOG],
+				label: 'Y Scale'
 			}
-		});
-
-		this.state = initialState;
-		console.log('Created plane graph options', this.state);
-		this.applyOptionsIfValid();
+		};
 	}
 
 	public getType(): GraphType {
@@ -117,11 +121,14 @@ export class PlaneGraphOptions extends GraphOptions<Partial<PlaneGraphState>, Pl
 	public async applyOptionsIfValid() {
 		const isValid = this.isValid();
 		if (!isValid) {
+			console.error('Invalid graph options', this.state);
 			return;
 		}
 
 		// Query data required for this graph
 		const { xColumnName, yColumnName, zColumnName, xTileCount, zTileCount } = this.state.data!;
+
+		console.log('Querying tiled data for plane graph', this.state);
 
 		// Get all layers
 		try {
@@ -134,7 +141,8 @@ export class PlaneGraphOptions extends GraphOptions<Partial<PlaneGraphState>, Pl
 						yColumnName,
 						zColumnName,
 						xTileCount,
-						zTileCount
+						zTileCount,
+						scale: this.state.data!.yScale
 					})
 				)
 			);
@@ -143,6 +151,7 @@ export class PlaneGraphOptions extends GraphOptions<Partial<PlaneGraphState>, Pl
 				name: options[index] as string,
 				meta: {}
 			}));
+
 			this.renderer.updateWithData({
 				layers,
 				labels: {

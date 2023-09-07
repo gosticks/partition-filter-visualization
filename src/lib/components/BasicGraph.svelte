@@ -41,7 +41,7 @@
 	let minimap: Minimap | undefined = undefined;
 
 	let stats: Stats;
-
+	let setupComplete = false;
 	export let dataRenderer: GraphRenderer<Data> | undefined;
 
 	function setupControls() {
@@ -201,6 +201,10 @@
 		// Setup resize handler
 		window.addEventListener('resize', windowResizeHandler);
 
+		// Initially update render
+		updateRenderer(dataRenderer);
+		setupComplete = true;
+
 		animate();
 	});
 
@@ -213,9 +217,11 @@
 	});
 
 	function updateRenderer(newRenderer?: GraphRenderer<Data>) {
-		if (!containerElement) {
+		if (!containerElement || !setupComplete) {
 			return;
 		}
+
+		console.log('updateRenderer', newRenderer, dataRenderer);
 
 		// Remove old renderer
 		if (dataRenderer && dataRenderer !== newRenderer) {
@@ -231,9 +237,7 @@
 		dataRenderer.setup(scene, camera);
 		const width = containerElement.clientWidth;
 		dataRenderer.setScale(new THREE.Vector3(width, width, width));
-		if (data) {
-			dataRenderer.updateWithData(data);
-		}
+		updateData(data);
 	}
 
 	function updateData(data?: Data) {
@@ -242,8 +246,14 @@
 		}
 	}
 
-	$: updateRenderer(dataRenderer);
-	$: updateData(data);
+	$: {
+		if (setupComplete) {
+			updateRenderer(dataRenderer);
+		}
+	}
+	$: {
+		updateData(data);
+	}
 
 	onDestroy(() => {
 		if (!browser) {

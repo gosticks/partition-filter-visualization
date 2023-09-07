@@ -27,10 +27,6 @@
 		filterStore.setGraphOptions(filterOptions);
 	};
 
-	const setAxisOptions = (axis: 'x' | 'y' | 'z', option?: string) => {
-		filterOptions[axis] = option;
-	};
-
 	onMount(async () => {
 		// load initial options from store
 		const values = get(filterStore);

@@ -56,6 +56,11 @@ const urlEncoder: UrlEncoder = (key, type, value) => {
 	return encodedValue;
 };
 
+// Store renderer temporarily globally and
+// Set it after database init was completed
+
+let _graphOptions: GraphOptions | null = null;
+
 const urlDecoder: UrlDecoder = (key, type, value) => {
 	if (key === 'graphOptions') {
 		const val = urlDecodeObject(value) as { type: GraphType; state: unknown } | null;
@@ -69,7 +74,8 @@ const urlDecoder: UrlDecoder = (key, type, value) => {
 		switch (type) {
 			case GraphType.PLANE: {
 				console.debug('Decoded plane graph options', state);
-				return new PlaneGraphOptions(state as Partial<PlaneGraphState>);
+				_graphOptions = new PlaneGraphOptions(state as Partial<PlaneGraphState>);
+				return undefined;
 			}
 		}
 	}
@@ -155,9 +161,15 @@ const _filterStore = () => {
 			if (selectedTables.length) {
 				try {
 					await selectTables(selectedTables);
-					const { graphOptions } = get(store);
-					if (graphOptions) {
-						await graphOptions.applyOptionsIfValid();
+
+					if (_graphOptions) {
+						console.log('Applying graph options', _graphOptions);
+						_graphOptions.updateFilterOptions();
+						update((store) => {
+							store.graphOptions = _graphOptions;
+							return store;
+						});
+						await _graphOptions.applyOptionsIfValid();
 					}
 				} catch (e) {
 					console.error('Failed to load selected tables:', e);
