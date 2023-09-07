@@ -25,6 +25,7 @@ interface PlaneData {
 		y?: string;
 		z?: string;
 	};
+	normalized?: boolean;
 	scaleY?: number;
 }
 
@@ -168,8 +169,8 @@ export class PlaneRenderer extends GraphRenderer<PlaneData> {
 		this.layers = data.layers.map((layer, index) => {
 			const plane = layer.points;
 			const layerGroup = new THREE.Group();
-
-			const geo = new DataPlaneShapeGeometry(plane, undefined, false);
+			console.log('Normalized', data.normalized);
+			const geo = new DataPlaneShapeGeometry(plane, undefined, data.normalized ?? false);
 			const color = new THREE.Color(layer.color ?? colorPalette[index % colorPalette.length]);
 			// const mat = new DataPlaneShapeMaterial(
 			// 	color,
@@ -182,7 +183,7 @@ export class PlaneRenderer extends GraphRenderer<PlaneData> {
 			// 	// new THREE.Color((0xffff00 * (index + 1)) / data.data.length),
 			// 	// {}
 			// );
-			const mat = new THREE.MeshBasicMaterial({
+			const mat = new THREE.MeshLambertMaterial({
 				color: color,
 				opacity: 1,
 				transparent: true,

@@ -28,6 +28,8 @@ export type PlaneGraphState = {
 		yScale: DataScaling;
 		xScale: DataScaling;
 		zScale: DataScaling;
+
+		normalized: string;
 	};
 };
 
@@ -78,6 +80,11 @@ export class PlaneGraphOptions extends GraphOptions<Partial<PlaneGraphState>, Pl
 				type: 'string',
 				options: [DataScaling.LINEAR, DataScaling.LOG],
 				label: 'Y Scale'
+			},
+			'data.normalized': {
+				type: 'string',
+				label: 'Normalized',
+				options: ['true', 'false']
 			}
 		};
 	}
@@ -162,7 +169,7 @@ export class PlaneGraphOptions extends GraphOptions<Partial<PlaneGraphState>, Pl
 					y: yColumnName,
 					z: zColumnName
 				},
-
+				normalized: this.state.data!.normalized === 'true',
 				scaleY: 10
 			});
 

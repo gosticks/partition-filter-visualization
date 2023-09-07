@@ -65,7 +65,9 @@
 		<div class="h-screen w-full">
 			{#if $filterStore.graphOptions}
 				<div class="flex-grow flex-shrink">
-					<BasicGraph dataRenderer={$filterStore.graphOptions.getRenderer()} {onHover} />
+					<div class="flex flex-col">
+						<BasicGraph dataRenderer={$filterStore.graphOptions.getRenderer()} {onHover} />
+					</div>
 				</div>
 			{:else}
 				<GridBackground />
