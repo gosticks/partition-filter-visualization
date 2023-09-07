@@ -1,5 +1,5 @@
 import { browser } from '$app/environment';
-import type { Writable, Updater } from 'svelte/store';
+import { type Writable, type Updater, get } from 'svelte/store';
 
 type EncodableTypes = 'string' | 'number' | 'boolean' | 'object';
 
@@ -91,11 +91,13 @@ export const withUrlStorage = <S extends object, T extends EncodableTypes = Enco
 		entries.forEach(([key, type]) => {
 			const value = store[key];
 			if (value === undefined) {
+				params.delete(key.toString());
 				return;
 			}
 
 			const encodedValue = encoder(key.toString(), type, value);
 			if (encodedValue === null) {
+				params.delete(key.toString());
 				return;
 			}
 			params.set(key.toString(), encodedValue);
@@ -117,8 +119,9 @@ export const withUrlStorage = <S extends object, T extends EncodableTypes = Enco
 	};
 
 	const oldSet = store.set;
-	store.set = (newState: S) => {
-		oldSet(newState);
+	store.set = (state: S) => {
+		oldSet(state);
+		const newState = get(store);
 		const params = encodeValues(newState);
 		history.replaceState(null, '', `${location.pathname}?${params.toString()}`);
 	};
