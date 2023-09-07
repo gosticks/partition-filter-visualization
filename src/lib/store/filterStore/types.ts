@@ -80,7 +80,11 @@ export interface IFilterStore {
 	// filterOptions: FilterOptions;
 	selectedTables: ITableReference[];
 	graphOptions?: GraphOptions;
-	selectedPoint?: THREE.Vector3;
+	selectedPoint?: {
+		dataPosition: THREE.Vector3;
+		instanceId: number;
+		meta: Record<string, unknown>;
+	};
 }
 
 export enum TableSource {

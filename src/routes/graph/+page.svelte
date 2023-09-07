@@ -66,14 +66,6 @@
 			{#if $filterStore.graphOptions}
 				<div class="flex-grow flex-shrink">
 					<BasicGraph dataRenderer={$filterStore.graphOptions.getRenderer()} {onHover} />
-					{#if $filterStore.selectedPoint && hoverPosition}
-						<div
-							class="absolute pointer-events-none"
-							style={`left: ${hoverPosition.x}px; top: ${hoverPosition.y}px;`}
-						>
-							<Card title="TEST">{$filterStore.selectedPoint.toArray()}</Card>
-						</div>
-					{/if}
 				</div>
 			{:else}
 				<GridBackground />
@@ -108,6 +100,20 @@
 				<QueryEditor />
 			</Dialog>
 		</div>
+		{#if $filterStore.selectedPoint && hoverPosition}
+			<div
+				class="absolute pointer-events-none"
+				style={`left: ${hoverPosition.x}px; top: ${hoverPosition.y}px;`}
+			>
+				<Card>
+					<p>{$filterStore.selectedPoint.meta['layer']?.name ?? 'Untitled layer'}</p>
+					<div style="font-family: monospace;">
+						<p>{$filterStore.selectedPoint.meta['value'] ?? 'NaN'}</p>
+						[{$filterStore.selectedPoint.dataPosition.toArray()}]
+					</div>
+				</Card>
+			</div>
+		{/if}
 		<!-- <div class="absolute right-4 pt-4 t-0 bottom-0 w-96 min-h-screen overflow-y-auto">
 			<Card title="Filter Family">
 				<DropdownSelect

@@ -3,6 +3,8 @@ import { dataStore } from '$lib/store/dataStore/DataStore';
 import { get } from 'svelte/store';
 import { GraphOptions, type Paths, setObjectValue, type PathValue, GraphType } from '../types';
 import { DataScaling } from '$lib/store/dataStore/types';
+import FilterStore from '../FilterStore';
+import { graphColors, graphColors2 } from '$lib/rendering/colors';
 
 export type PlaneGraphState = {
 	display: {
@@ -149,6 +151,7 @@ export class PlaneGraphOptions extends GraphOptions<Partial<PlaneGraphState>, Pl
 			const layers = promise.map((data, index) => ({
 				points: data,
 				name: options[index] as string,
+				color: graphColors[index % graphColors.length],
 				meta: {}
 			}));
 
@@ -162,6 +165,22 @@ export class PlaneGraphOptions extends GraphOptions<Partial<PlaneGraphState>, Pl
 
 				scaleY: 10
 			});
+
+			// FIXME: restructure this somewhere else
+			this.renderer.onDataPointSelected = (point, meta) => {
+				FilterStore.update((store) => {
+					if (!point) {
+						store.selectedPoint = undefined;
+						return store;
+					}
+					store.selectedPoint = {
+						dataPosition: point,
+						instanceId: 0,
+						meta: meta
+					};
+					return store;
+				});
+			};
 		} catch (e) {
 			console.error('Failed to load tiled data:', e);
 			return;

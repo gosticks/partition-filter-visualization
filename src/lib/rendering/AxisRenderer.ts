@@ -35,8 +35,8 @@ export const defaultAxisLabelOptions = {
 };
 
 export const defaultAxisOptions = {
-	lineWidth: 5,
-	lineColor: 0xeeeeee,
+	lineWidth: 2,
+	lineColor: 0xcccccc,
 	label: defaultAxisLabelOptions
 };
 

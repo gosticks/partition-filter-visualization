@@ -40,6 +40,7 @@ const defaultRendererOptions: PlaneRendererOptions = {
 };
 
 export class PlaneRenderer extends GraphRenderer<PlaneData> {
+	public data?: PlaneData;
 	private group?: THREE.Group;
 	private options: PlaneRendererOptions;
 	private size: THREE.Vector3 = new THREE.Vector3(0, 0, 0);
@@ -81,24 +82,6 @@ export class PlaneRenderer extends GraphRenderer<PlaneData> {
 		this.group?.scale.copy(scale).multiplyScalar(0.25);
 	}
 
-	createCircleTexture(diameter: number, color: string): THREE.Texture | undefined {
-		const canvas = document.createElement('canvas');
-		canvas.width = diameter;
-		canvas.height = diameter;
-		const context = canvas.getContext('2d');
-		if (!context) {
-			return undefined;
-		}
-		context.beginPath();
-		context.arc(diameter / 2, diameter / 2, diameter / 2, 0, Math.PI * 2, false);
-		context.closePath();
-		context.fillStyle = color;
-		context.fill();
-		const texture = new THREE.CanvasTexture(canvas);
-		texture.needsUpdate = true;
-		return texture;
-	}
-
 	getIntersections(raycaster: THREE.Raycaster): THREE.Intersection[] {
 		const intersection = raycaster.intersectObjects(this.children, true);
 		if (!intersection.length) {
@@ -106,6 +89,7 @@ export class PlaneRenderer extends GraphRenderer<PlaneData> {
 		}
 
 		// Filter out instanced geometry
+
 		const instanceId = intersection[0].instanceId;
 
 		if (instanceId === undefined) {
@@ -137,11 +121,26 @@ export class PlaneRenderer extends GraphRenderer<PlaneData> {
 					this.selectedLayerIndex,
 					Math.floor(this.selectedInstanceId / this.width)
 				);
-				this.onDataPointSelected(point, { layerIndex: meshIndex, instanceId });
+
+				const value = this.data?.layers[meshIndex].points[point.z][point.x];
+
+				console.log(value);
+
+				this.onDataPointSelected(point, {
+					value,
+					layer: this.data?.layers[meshIndex],
+					layerIndex: meshIndex,
+					instanceId
+				});
 			}
 		}
 
 		return [];
+	}
+
+	toggleLayer(layerIndex: number) {
+		const layer = this.layers[layerIndex];
+		layer.visible = !layer.visible;
 	}
 
 	updateWithData(data: PlaneData, colorPalette: THREE.ColorRepresentation[] = graphColors) {
@@ -164,9 +163,8 @@ export class PlaneRenderer extends GraphRenderer<PlaneData> {
 		const group = new THREE.Group();
 
 		const sphereGeo = new THREE.SphereGeometry(0.01);
-		// const dataDotTexture = this.createCircleTexture(64, '#ff0000');
-		// const spriteMat = new THREE.SpriteMaterial({ map: dataDotTexture!, color: 0xffffff }); // Use white color for material and let the texture determine the actual color
 
+		this.data = data;
 		this.layers = data.layers.map((layer, index) => {
 			const plane = layer.points;
 			const layerGroup = new THREE.Group();

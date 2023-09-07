@@ -112,6 +112,11 @@ export const withUrlStorage = <S extends object, T extends EncodableTypes = Enco
 		oldUpdate((state) => {
 			const newState = updater(state);
 			const params = encodeValues(newState);
+
+			// Check if anything has changed
+			if (params.toString() === location.search.slice(1)) {
+				return newState;
+			}
 			history.replaceState(null, '', `${location.pathname}?${params.toString()}`);
 
 			return newState;

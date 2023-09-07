@@ -1,14 +1,19 @@
 export const graphColors = [
-	0x3498db, // Peter River (blue tone)
-	0xe74c3c, // Alizarin (red tone)
-	0x2ecc71, // Emerald (green tone)
-	0xf39c12, // Sun Flower (yellow tone)
-	0x9b59b6, // Amethyst (purple tone)
-	0x34495e, // Wet Asphalt (dark blue tone)
-	0xe67e22, // Carrot (orange tone)
-	0x1abc9c, // Turquoise
-	0x7f8c8d, // Asbestos (gray tone)
-	0x2980b9 // Belize Hole (blue tone)
+	'#3498db', // Peter River (blue tone)
+	'#e74c3c', // Alizarin (red tone)
+	'#2ECC71', // Emerald (green tone)
+	'#F39C12', // Sun Flower (yellow tone)
+	'#9B59B6', // Amethyst (purple tone)
+	'#34495E', // Wet Asphalt (dark blue tone)
+	'#E67E22', // Carrot (orange tone)
+	'#1ABC9C', // Turquoise
+	'#7F8C8D', // Asbestos (gray tone)
+	'#F1C40F', // Yellow
+	'#E74C3C', // Red
+	'#1ABC9C', // Green
+	'#9B59B6', // Purple
+	'#F39C12', // Orange
+	'#E67E22' // Dark Orange
 ];
 
 export const graphColors2 = [

@@ -1,4 +1,6 @@
 <script lang="ts" generics="Data extends unknown">
+	import Card from './Card.svelte';
+
 	import { Minimap } from '$lib/rendering/Minimap';
 
 	import type { D } from 'vitest/dist/types-71ccd11d';
@@ -17,6 +19,7 @@
 	import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass';
 	import { OutlinePass } from 'three/examples/jsm/postprocessing/OutlinePass';
 	import { AxisRenderer } from '$lib/rendering/AxisRenderer';
+	import { PlaneRenderer } from '$lib/rendering/PlaneRenderer';
 
 	export let onHover: (position: THREE.Vector2, object?: THREE.Object3D) => void = () => {};
 
@@ -221,8 +224,6 @@
 			return;
 		}
 
-		console.log('updateRenderer', newRenderer, dataRenderer);
-
 		// Remove old renderer
 		if (dataRenderer && dataRenderer !== newRenderer) {
 			dataRenderer.destroy();
@@ -313,6 +314,23 @@
 		class="minimap absolute isolate left-0 bottom-20 w-[200px] h-[200px]"
 		bind:this={minimapElement}
 	/>
+	<div class="legend absolute isolate left-4 bottom-80 w-[250px]">
+		{#if dataRenderer}
+			{#if dataRenderer instanceof PlaneRenderer && dataRenderer.data}
+				<Card title="Layers">
+					{#each dataRenderer.data.layers as layer, index}
+						<div class="flex gap-4 pb-2" on:click={() => dataRenderer?.toggleLayer(index)}>
+							<div
+								class="w-5 h-5 rounded-full bg-slate-300"
+								style={`background-color: ${layer.color ?? '#ff0000'};`}
+							/>
+							<p>{layer.name}</p>
+						</div>
+					{/each}
+				</Card>
+			{/if}
+		{/if}
+	</div>
 	<div class="stats absolute isolate top-0 left-0" bind:this={statsElement} />
 </div>
 

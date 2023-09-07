@@ -49,6 +49,8 @@ export class DataPlaneShapeGeometry extends THREE.BufferGeometry {
 				});
 			});
 
+			console.log('Max value', maxValue);
+
 			if (maxValue !== 0) {
 				this.normalizedData = data.map((row) => row.map((value) => value / maxValue));
 
