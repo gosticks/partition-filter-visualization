@@ -1,8 +1,9 @@
+import type { DeepPartial } from '$lib/store/filterStore/types';
 import * as THREE from 'three';
 import { MeshLine, MeshLineMaterial } from 'three.meshline';
 
 export interface AxisLabelOptions {
-	color: THREE.Color;
+	color: THREE.ColorRepresentation;
 	font: string;
 	fontSize: number;
 	fontLineHeight: number;
@@ -11,7 +12,7 @@ export interface AxisLabelOptions {
 
 export interface AxisOptions {
 	lineWidth: number;
-	lineColor: THREE.Color;
+	lineColor: THREE.ColorRepresentation;
 	label: AxisLabelOptions;
 }
 
@@ -25,23 +26,23 @@ export interface AxisRendererOptions {
 	z: AxisOptions;
 }
 
-const defaultAxisLabelOptions = {
-	color: new THREE.Color(0xcccccc),
+export const defaultAxisLabelOptions = {
+	color: 0xcccccc,
 	font: 'Arial',
 	fontSize: 100,
 	fontLineHeight: 1.2,
 	text: ''
 };
 
-const defaultAxisOptions = {
+export const defaultAxisOptions = {
 	lineWidth: 5,
-	lineColor: new THREE.Color(0xeeeeee),
+	lineColor: 0xeeeeee,
 	label: defaultAxisLabelOptions
 };
 
 const defaultAxisRendererOptions: AxisRendererOptions = {
 	size: new THREE.Vector3(1, 1, 1),
-	labelScale: 10,
+	labelScale: 0.1,
 	origin: new THREE.Vector3(0, 0, 0),
 
 	x: {
@@ -67,31 +68,56 @@ const defaultAxisRendererOptions: AxisRendererOptions = {
 	}
 };
 
-export class AxisRenderer {
+export class AxisRenderer extends THREE.Object3D {
 	private options: AxisRendererOptions;
-	private group: THREE.Group;
 
-	constructor(private scene: THREE.Scene, options: Partial<AxisRendererOptions> = {}) {
-		this.options = {
+	constructor(options: DeepPartial<AxisRendererOptions> = {}) {
+		super();
+
+		const optionsWithDefaults: AxisRendererOptions = {
 			...defaultAxisRendererOptions,
-			...options
+			...options,
+			x: {
+				...defaultAxisRendererOptions.x,
+				...(options.x ?? {}),
+				label: {
+					...defaultAxisRendererOptions.x.label,
+					...(options.x?.label ?? {})
+				}
+			},
+			y: {
+				...defaultAxisRendererOptions.y,
+				...(options.y ?? {}),
+				label: {
+					...defaultAxisRendererOptions.y.label,
+					...(options.y?.label ?? {})
+				}
+			},
+			z: {
+				...defaultAxisRendererOptions.z,
+				...(options.z ?? {}),
+				label: {
+					...defaultAxisRendererOptions.z.label,
+					...(options.z?.label ?? {})
+				}
+			}
 		};
 
-		this.group = new THREE.Group();
-		this.scene.add(this.group);
-		// this.render();
+		this.options = optionsWithDefaults;
+		this.render();
 	}
 
 	render(): void {
-		this.group.children = [];
-
-		this.group.add(this.createAxis(this.options.x, new THREE.Vector3(1, 0, 0)));
-		this.group.add(this.createAxis(this.options.y, new THREE.Vector3(0, 1, 0)));
-		this.group.add(this.createAxis(this.options.z, new THREE.Vector3(0, 0, 1)));
+		this.clear();
+		this.add(this.createAxis(this.options.x, new THREE.Vector3(1, 0, 0)));
+		this.add(this.createAxis(this.options.y, new THREE.Vector3(0, 1, 0)));
+		this.add(this.createAxis(this.options.z, new THREE.Vector3(0, 0, 1)));
 	}
 
 	destroy(): void {
-		this.group.remove();
+		this.removeFromParent();
+		this.remove();
+		this.clear();
 	}
 
 	private createAxis = (options: AxisOptions, direction: THREE.Vector3): THREE.Object3D => {
@@ -112,6 +138,8 @@ export class AxisRenderer {
 		// Scale the line along the direction vector to the desired length
 		const scaleFactor = direction.clone().multiply(this.options.size.clone());
 
+		// Compute width scale depending on text length
+
 		line.scale.set(scaleFactor.x, scaleFactor.y, scaleFactor.z);
 		axis.add(line);
 
@@ -129,7 +157,12 @@ export class AxisRenderer {
 			labelOffset.y === 0 ? -1 * this.options.labelScale : labelOffset.y,
 			labelOffset.z === 0 ? -1 * this.options.labelScale : labelOffset.z
 		);
-		label.scale.set(this.options.labelScale, this.options.labelScale, this.options.labelScale);
+		const textWidth = options.label.text.length * 0.75;
+		label.scale.set(
+			this.options.labelScale * textWidth,
+			this.options.labelScale,
+			this.options.labelScale
+		);
 		axis.add(label);
 
 		return axis;
@@ -157,7 +190,7 @@ export class AxisRenderer {
 		textContext.font = `${options.fontSize}px ${options.font}`;
 
 		// Set the text color
-		textContext.fillStyle = options.color.getStyle();
+		textContext.fillStyle = new THREE.Color(options.color).getStyle();
 
 		// Set the text alignment and baseline
 		textContext.textAlign = 'center';

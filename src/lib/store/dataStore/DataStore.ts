@@ -5,19 +5,19 @@ import { browser } from '$app/environment';
 import { dataStoreFilterExtension } from './filterActions';
 import { AsyncDuckDB, ConsoleLogger, LogLevel } from '@duckdb/duckdb-wasm';
 import { withUrlStorage } from '../urlStorage';
+import { withLogMiddleware } from '../logMiddleware';
+
+const initialStore: IDataStore = {
+	db: null,
+	isLoading: false,
+	sharedConnection: null,
+	tables: {},
+	combinedSchema: {},
+	previousQueries: []
+};
 
 const _baseStore = () => {
-	const store = withUrlStorage(
-		writable<IDataStore>({
-			db: null,
-			isLoading: false,
-			sharedConnection: null,
-			tables: {},
-			combinedSchema: {},
-			previousQueries: []
-		}),
-		{}
-	);
+	const store = withLogMiddleware(writable<IDataStore>(initialStore), 'DataStore');
 
 	const { set, update, subscribe } = store;
 
@@ -62,29 +62,43 @@ const _baseStore = () => {
 			store.sharedConnection = conn;
 			return store;
 		});
-
+		console.debug('Initialized duckdb');
 		return newDbInstance;
 	};
 
+	let promise: Promise<AsyncDuckDB> | null = null;
+
+	// Initialize duckdb only on client
+	if (browser) {
+		promise = initDuckDB();
+	}
+
 	const executeQuery = async (query: string) => {
+		try {
+			await promise;
+		} catch (e) {
+			console.error('Failed to initialize duckdb:', e);
+			return;
+		}
 		const { sharedConnection: conn } = get(store);
 		if (!conn) {
 			return;
 		}
 
+		const start = performance.now();
+		const result = await conn.query(query);
+		const end = performance.now();
 		// Push query to history
 		update((store) => {
-			store.previousQueries.push(query);
+			store.previousQueries.push({
+				query,
+				executionTime: end - start
+			});
 			return store;
 		});
 
-		return conn.query(query);
+		return result;
 	};
-
-	// Initialize duckdb only on client
-	if (browser) {
-		initDuckDB();
-	}
 
 	return {
 		subscribe,
@@ -96,6 +110,21 @@ const _baseStore = () => {
 
 		// Add modifiers
 		executeQuery,
+
+		getConnection: async () => {
+			try {
+				await promise;
+			} catch (e) {
+				console.error('Failed to initialize duckdb:', e);
+				return;
+			}
+			const { sharedConnection: conn } = get(store);
+			if (!conn) {
+				return;
+			}
+
+			return conn;
+		},
 
 		getTables: async (): Promise<string[]> => {
 			const query = `SELECT table_name FROM information_schema.tables;`;

@@ -2,12 +2,29 @@ import * as THREE from 'three';
 import { GraphRenderer } from './GraphRenderer';
 import { DataPlaneShapeMaterial } from './materials/DataPlaneMaterial';
 import { DataPlaneShapeGeometry } from './geometry/DataPlaneGeometry';
+import {
+	brighterColorList,
+	graphColors,
+	graphColors2,
+	mediumIntensityColorList,
+	softColorList
+} from './colors';
+import { AxisRenderer, defaultAxisLabelOptions } from './AxisRenderer';
 
 interface PlaneData {
 	// A list of ordered planes (e.g. bottom to top)
 	// each plane is a 2D array of points
-	data: number[][][];
-
+	layers: {
+		points: (Float32Array | number[])[];
+		name: string;
+		meta?: Record<string, unknown>;
+		color?: string;
+	}[];
+	labels: {
+		x?: string;
+		y?: string;
+		z?: string;
+	};
 	scaleY?: number;
 }
 
@@ -28,8 +45,11 @@ export class PlaneRenderer extends GraphRenderer<PlaneData> {
 	private size: THREE.Vector3 = new THREE.Vector3(0, 0, 0);
 	private depth = 0;
 	private width = 0;
+	private layers: THREE.Group[] = [];
 	private selectedInstanceId: number | undefined;
 	private selectedLayerIndex: number | undefined;
+
+	private axisRenderer?: AxisRenderer;
 
 	// Getter for all bar blocks managed by the renderer
 	get children(): THREE.Object3D[] {
@@ -46,6 +66,7 @@ export class PlaneRenderer extends GraphRenderer<PlaneData> {
 	}
 
 	destroy(): void {
+		console.log('Destroying plane renderer');
 		if (this.group) {
 			this.scene?.remove(this.group);
 		}
@@ -57,7 +78,25 @@ export class PlaneRenderer extends GraphRenderer<PlaneData> {
 
 	setScale(scale: THREE.Vector3): void {
 		this.size = scale;
-		this.group?.scale.copy(scale);
+		this.group?.scale.copy(scale).multiplyScalar(0.25);
+	}
+
+	createCircleTexture(diameter: number, color: string): THREE.Texture | undefined {
+		const canvas = document.createElement('canvas');
+		canvas.width = diameter;
+		canvas.height = diameter;
+		const context = canvas.getContext('2d');
+		if (!context) {
+			return undefined;
+		}
+		context.beginPath();
+		context.arc(diameter / 2, diameter / 2, diameter / 2, 0, Math.PI * 2, false);
+		context.closePath();
+		context.fillStyle = color;
+		context.fill();
+		const texture = new THREE.CanvasTexture(canvas);
+		texture.needsUpdate = true;
+		return texture;
 	}
 
 	getIntersections(raycaster: THREE.Raycaster): THREE.Intersection[] {
@@ -98,48 +137,76 @@ export class PlaneRenderer extends GraphRenderer<PlaneData> {
 					this.selectedLayerIndex,
 					Math.floor(this.selectedInstanceId / this.width)
 				);
-				this.onDataPointSelected(point);
+				this.onDataPointSelected(point, { layerIndex: meshIndex, instanceId });
 			}
 		}
 
 		return [];
 	}
 
-	updateWithData(data: PlaneData) {
+	updateWithData(data: PlaneData, colorPalette: THREE.ColorRepresentation[] = graphColors) {
+		// Remove all previous layers
+		this.layers.forEach((layer) => {
+			this.group?.remove(layer);
+			layer.clear();
+		});
+
+		// Remove axis renderer
+		if (this.axisRenderer) {
+			this.axisRenderer.destroy();
+			this.axisRenderer = undefined;
+		}
+
 		if (this.group) {
 			this.scene?.remove(this.group);
+			this.group.clear();
 		}
 		const group = new THREE.Group();
 
-		console.log('Size', this.size);
-		const sphereGeo = new THREE.SphereGeometry(0.015);
+		const sphereGeo = new THREE.SphereGeometry(0.01);
+		// const dataDotTexture = this.createCircleTexture(64, '#ff0000');
+		// const spriteMat = new THREE.SpriteMaterial({ map: dataDotTexture!, color: 0xffffff }); // Use white color for material and let the texture determine the actual color
 
-		data.data.forEach((plane, index) => {
+		this.layers = data.layers.map((layer, index) => {
+			const plane = layer.points;
+			const layerGroup = new THREE.Group();
+
 			const geo = new DataPlaneShapeGeometry(plane, undefined, false);
-			const colorValue = Math.min(Math.random() + 0.2 * index, 1.0);
-			const color = new THREE.Color(colorValue * 0xffffff);
-			// const color1 = new THREE.Color(colorValue * 0.2 * 0xffffff);
-			const mat = new DataPlaneShapeMaterial(
-				color,
-				color,
-				{
-					opacity: 0.95,
-					transparent: true
-					// wireframe: true
-				}
-				// new THREE.Color((0xffff00 * (index + 1)) / data.data.length),
-				// {}
-			);
+			const color = new THREE.Color(layer.color ?? colorPalette[index % colorPalette.length]);
+			// const mat = new DataPlaneShapeMaterial(
+			// 	color,
+			// 	color,
+			// 	{
+			// 		opacity: 0.5,
+			// 		transparent: true
+			// 		// wireframe: true
+			// 	}
+			// 	// new THREE.Color((0xffff00 * (index + 1)) / data.data.length),
+			// 	// {}
+			// );
+			const mat = new THREE.MeshBasicMaterial({
+				color: color,
+				opacity: 1,
+				transparent: true,
+				// clipIntersection: true,
+				// clipShadows: true,
+				side: THREE.DoubleSide
+			});
 			const mesh = new THREE.Mesh(geo, mat);
-			group.add(mesh);
+			layerGroup.add(mesh);
+
+			// Add metadata to mesh
+			mesh.userData = { index, name: layer.name, meta: layer.meta };
 
 			const pointBuffer = geo.buffer;
 			this.depth = geo.planeDims.depth;
 			this.width = geo.planeDims.width;
+
 			if (pointBuffer) {
-				const sphereMat = new THREE.MeshPhongMaterial({ color: 0xff0000 });
+				const sphereMat = new THREE.MeshBasicMaterial({ color: 0xeeeeff });
 				const dotMesh = new THREE.InstancedMesh(sphereGeo, sphereMat, geo.pointsPerPlane);
 				dotMesh.userData = { index };
+				// dotMesh.renderOrder = 10;
 				dotMesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
 				// Set position of each dot
 				const matrix = new THREE.Matrix4();
@@ -151,9 +218,18 @@ export class PlaneRenderer extends GraphRenderer<PlaneData> {
 
 				dotMesh.instanceMatrix.needsUpdate = true;
 				dotMesh.computeBoundingSphere();
-				group.add(dotMesh);
-			}
+				layerGroup.add(dotMesh);
 
+				// for (let i = 0; i < geo.pointsPerPlane; i++) {
+				// 	const sprite = new THREE.Sprite(spriteMat);
+				// 	const idx = i * DataPlaneShapeGeometry.pointComponentSize;
+				// 	sprite.position.set(pointBuffer[idx], pointBuffer[idx + 1], pointBuffer[idx + 2]);
+				// 	group.add(sprite);
+				// }
+
+				group.add(layerGroup);
+			}
+			return layerGroup;
 			// dotGeometry.setAttribute('position', geo.getAttribute('position'));
 			// var dotMaterial = new THREE.PointsMaterial({
 			// 	size: 20,
@@ -172,11 +248,26 @@ export class PlaneRenderer extends GraphRenderer<PlaneData> {
 		// group.add(mesh);
 
 		this.group = group;
-		this.group.position.x = this.size.x / 2;
-		this.group.position.z = this.size.z / 2;
-		this.group.scale.copy(this.size).multiplyScalar(0.5);
-		console.log('Scale', this.group.scale);
-		// this.group.scale.y = data.scaleY ?? 1;
+		this.axisRenderer = new AxisRenderer({
+			// labelScale: 10,
+			size: new THREE.Vector3(2, 2, 2),
+			labelScale: 0.15,
+			x: {
+				label: { text: data.labels?.x ?? 'x' }
+			},
+			y: {
+				label: { text: data.labels?.y ?? 'y' }
+			},
+			z: {
+				label: { text: data.labels?.z ?? 'z' }
+			}
+		});
+		this.axisRenderer.position.x = -1;
+		this.axisRenderer.position.z = -1;
+		this.group.add(this.axisRenderer);
+
+		this.setScale(this.size);
+
 		this.scene?.add(group);
 	}
 }

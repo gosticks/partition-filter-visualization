@@ -20,7 +20,7 @@
 	// add on select action
 	export let onSelect: (selected: T[]) => void | undefined;
 
-	let selectionLabel = labelForSelection();
+	let selectionLabel = labelForSelection(selected);
 
 	function internalOnSelect(value: T) {
 		if (singular) {
@@ -35,7 +35,7 @@
 		} else {
 			selected = [...selected, value];
 		}
-		selectionLabel = labelForSelection();
+		selectionLabel = labelForSelection(selected);
 
 		onSelect?.(selected);
 	}
@@ -51,7 +51,7 @@
 	}
 
 	// Computes the button text based on current selection
-	function labelForSelection() {
+	function labelForSelection(selected: T[]) {
 		if (selected.length === 0) {
 			return 'Select';
 		}
@@ -67,9 +67,9 @@
 		return `(${selected.length}) selected`;
 	}
 
-	beforeUpdate(() => {
-		selectionLabel = labelForSelection();
-	});
+	$: {
+		selectionLabel = labelForSelection(selected);
+	}
 </script>
 
 <div class="flex flex-col">

@@ -1,8 +1,10 @@
-export abstract class GraphRenderer<T = unknown> {
+export abstract class GraphRenderer<T = unknown, InstanceMetaInfo = any> {
 	public scene: THREE.Scene | undefined = undefined;
 	public camera: THREE.Camera | undefined = undefined;
 
-	public onDataPointSelected: ((point?: THREE.Vector3) => void) | undefined = undefined;
+	public onDataPointSelected:
+		| ((point?: THREE.Vector3, info?: InstanceMetaInfo) => void)
+		| undefined = undefined;
 
 	abstract destroy(): void;
 
@@ -15,7 +17,7 @@ export abstract class GraphRenderer<T = unknown> {
 	 * Used to update rendering based on data changes
 	 * @param data
 	 */
-	abstract updateWithData(data: T): void;
+	abstract updateWithData(data: T, colorPalette: THREE.ColorRepresentation[]): void;
 
 	abstract getIntersections(raycaster: THREE.Raycaster): THREE.Intersection[];
 

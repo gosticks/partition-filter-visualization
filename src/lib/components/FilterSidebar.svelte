@@ -1,12 +1,15 @@
 <script lang="ts">
 	import { dataStore } from '$lib/store/dataStore/DataStore';
-	import filterStore, { GraphType, type IFilterStoreGraphOptions } from '$lib/store/FilterStore';
+	import filterStore, { type IFilterStoreGraphOptions } from '$lib/store/filterStore/FilterStore';
+	import { onMount } from 'svelte';
 	import Button from './Button.svelte';
 	import Card from './Card.svelte';
 	import DropdownSelect from './DropdownSelect.svelte';
+	import { get } from 'svelte/store';
+	import Slider from './Slider.svelte';
+	import { GraphType } from '$lib/store/filterStore/types';
 
-	let filterOptions: Partial<IFilterStoreGraphOptions['options']> = {};
-	let graphType = GraphType.PLANE;
+	let filterOptions: Record<string, unknown> = {};
 
 	const sliderDisplay = (filterName: string) => {
 		switch (filterName) {
@@ -18,16 +21,31 @@
 	};
 
 	const applyFilter = () => {
+		console.log('Applying filter', filterOptions);
 		// TODO: validate filter options
 
-		filterStore.setGraphOptions({
-			type: graphType,
-			options: filterOptions as any
-		});
+		filterStore.setGraphOptions(filterOptions);
 	};
 
 	const setAxisOptions = (axis: 'x' | 'y' | 'z', option?: string) => {
 		filterOptions[axis] = option;
+	};
+
+	onMount(async () => {
+		// load initial options from store
+		const values = get(filterStore);
+
+		// If present load initial values
+		if (values.graphOptions) {
+			console.log('Loading initial filter options', values.graphOptions);
+			filterOptions = values.graphOptions.getCurrentOptions();
+		}
+	});
+
+	const onInput = (value: number, label?: string) => {
+		if (label) {
+			filterOptions[label] = value;
+		}
 	};
 </script>
 
@@ -41,9 +59,77 @@
 					''
 				)}
 			</p>
-			<Button color="secondary" on:click={dataStore.resetDatabase}>Reset</Button>
+			<Button color="secondary" on:click={filterStore.reset}>Reset</Button>
 		</Card>
-
+		<Card title="Graph Type"
+			><Button
+				on:click={() => {
+					filterStore.selectGraphType(GraphType.PLANE);
+				}}>Plane mode</Button
+			></Card
+		>
+		{#if $filterStore.graphOptions}
+			<Card title="Visualization options">
+				<div class="flex flex-col gap-2">
+					<!-- {#if typeof $dataStore.combinedSchema['mode'] !== 'undefined'}
+				<DropdownSelect
+					label="Groupings"
+					singular
+					onSelect={(selected) => {
+						filterOptions['mode'] = selected.length > 0 ? selected[0] : undefined;
+					}}
+					options={$dataStore.combinedSchema['mode'].options.map((entry) => ({
+						label: entry,
+						value: entry
+					}))}
+				/>
+			{/if} -->
+					{#each Object.entries($filterStore.graphOptions.filterOptions) as [key, value]}
+						{#if value.type === 'string'}
+							<DropdownSelect
+								label={value.label || key}
+								singular
+								onSelect={(selected) => {
+									filterOptions[key] = selected.length > 0 ? selected[0] : undefined;
+								}}
+								options={value.options.map((entry) => ({
+									label: entry,
+									value: entry
+								}))}
+							/>
+						{:else if value.type === 'number'}
+							<Slider
+								label={key}
+								value={filterOptions[key]}
+								min={Math.min(...value.options)}
+								max={Math.max(...value.options)}
+								diplayFunction={sliderDisplay(key)}
+								{onInput}
+							/>
+						{/if}
+					{/each}
+					<!--
+					<DropdownSelect
+						label={`${axis} Axis`}
+						singular
+						selected={$filterStore.graphOptions?.options[axis] !== undefined
+							? [$filterStore.graphOptions?.options[axis]]
+							: undefined}
+						onSelect={(selected) => {
+							setAxisOptions(axis, selected.length > 0 ? selected[0] : undefined);
+						}}
+						options={Object.entries($dataStore.combinedSchema)
+							.filter(([_, value]) => value === 'number')
+							.map(([key]) => ({
+								label: key,
+								value: key
+							}))}
+					/>
+				{/each} -->
+					<Button color="primary" size="lg" on:click={applyFilter}>Visualize</Button>
+				</div>
+			</Card>
+		{/if}
 		{#if $dataStore.combinedSchema}
 			<!-- <Card title="Filters">
 				<div class="flex flex-col gap-2 h-[300px] overflow-y-scroll">
@@ -81,44 +167,6 @@
 					{/each}
 				</div>
 			</Card> -->
-			<Card title="Graph Type">Select a graph type here</Card>
-			<Card title="Visualization options">
-				<div class="flex flex-col gap-2">
-					<!-- {#if typeof $dataStore.combinedSchema['mode'] !== 'undefined'}
-						<DropdownSelect
-							label="Groupings"
-							singular
-							onSelect={(selected) => {
-								filterOptions['mode'] = selected.length > 0 ? selected[0] : undefined;
-							}}
-							options={$dataStore.combinedSchema['mode'].options.map((entry) => ({
-								label: entry,
-								value: entry
-							}))}
-						/>
-					{/if} -->
-
-					{#each ['x', 'y', 'z'] as axis}
-						<DropdownSelect
-							label={`${axis} Axis`}
-							singular
-							selected={$filterStore.graphOptions?.options[axis] !== undefined
-								? [$filterStore.graphOptions?.options[axis]]
-								: undefined}
-							onSelect={(selected) => {
-								setAxisOptions(axis, selected.length > 0 ? selected[0] : undefined);
-							}}
-							options={Object.entries($dataStore.combinedSchema)
-								.filter(([_, value]) => value === 'number')
-								.map(([key]) => ({
-									label: key,
-									value: key
-								}))}
-						/>
-					{/each}
-					<Button color="primary" size="lg" on:click={applyFilter}>Visualize</Button>
-				</div>
-			</Card>
 		{/if}
 	{/if}
 </div>

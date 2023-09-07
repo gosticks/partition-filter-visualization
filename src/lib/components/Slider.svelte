@@ -6,7 +6,16 @@
 	export let label: string | undefined = undefined;
 	export let diplayFunction: DisplayFunction = (v: number) => v + '';
 
-	let value: number = 0;
+	export let value: number = 0;
+
+	export let onInput: (value: number, label?: string) => void | undefined;
+
+	// Execute in separate call to prevent infinite loop when label is set
+	const _onInput = (newValue: number) => {
+		onInput?.(newValue, label);
+	};
+
+	$: _onInput(value);
 
 	$: value = Math.max(min, Math.min(max, value)); // Ensure value stays within the min-max range
 </script>

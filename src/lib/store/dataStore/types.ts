@@ -1,6 +1,6 @@
 import type { AsyncDuckDB, AsyncDuckDBConnection } from '@duckdb/duckdb-wasm';
 
-export type FilterOptions = Record<string, { options: unknown[]; type: string }>;
+export type FilterOptions = Record<string, { options: unknown[]; label?: string; type: string }>;
 export type TableSchema = Record<string, 'number' | 'string'>;
 
 export interface ITableEntry {
@@ -18,5 +18,5 @@ export interface IDataStore {
 	tables: Record<string, ITableEntry>;
 	// Table schema shared across all tables
 	combinedSchema: TableSchema;
-	previousQueries: string[];
+	previousQueries: { query: string; executionTime: number }[];
 }

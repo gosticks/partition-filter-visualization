@@ -15,7 +15,7 @@
 	import GridBackground from '$lib/components/GridBackground.svelte';
 	import MessageCard from '$lib/components/MessageCard.svelte';
 	import DropZone from '$lib/components/DropZone.svelte';
-	import filterStore, { type IFilterStoreGraphOptions } from '$lib/store/FilterStore';
+	import filterStore, { type IFilterStoreGraphOptions } from '$lib/store/filterStore/FilterStore';
 
 	export let data: PageServerData;
 
@@ -23,7 +23,7 @@
 		if (!browser) return;
 
 		// Pass possible db options to the filter sidebar
-		filterStore.setPreloadedTables(data.filters);
+		await filterStore.initWithPreloadedTables(data.filters);
 
 		// // Restore filter options from query parameters
 		// const url = new URL(location.href);
@@ -63,13 +63,9 @@
 <div>
 	<div class="relative">
 		<div class="h-screen w-full">
-			{#if $filterStore.filterRenderer}
+			{#if $filterStore.graphOptions}
 				<div class="flex-grow flex-shrink">
-					<BasicGraph
-						data={$filterStore.filterRenderer.data}
-						dataRenderer={$filterStore.filterRenderer.renderer}
-						{onHover}
-					/>
+					<BasicGraph dataRenderer={$filterStore.graphOptions.getRenderer()} {onHover} />
 					{#if $filterStore.selectedPoint && hoverPosition}
 						<div
 							class="absolute pointer-events-none"
@@ -82,7 +78,7 @@
 			{:else}
 				<GridBackground />
 			{/if}
-			{#if Object.keys($dataStore.tables).length === 0}
+			{#if $filterStore.selectedTables.length === 0}
 				<div class="h-full w-full flex flex-col gap-10 justify-center items-center">
 					<MessageCard>
 						<h2 class="text-2xl font-bold mb-5">Please select filter family</h2>

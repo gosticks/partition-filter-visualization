@@ -6,6 +6,7 @@
 	import type { editor } from 'monaco-editor';
 	import Button from './Button.svelte';
 	import { dataStore } from '$lib/store/dataStore/DataStore';
+	import Card from './Card.svelte';
 
 	let dbConnection: AsyncDuckDBConnection | undefined = undefined;
 
@@ -34,12 +35,14 @@
 
 		// Store query in session storage
 		sessionStorage.setItem(storageKey, value);
-
+		isLoading = true;
 		try {
 			currentQuery = dataStore.executeQuery(value);
 		} catch (error) {
 			console.error(error);
 			currentQuery = Promise.reject(error);
+		} finally {
+			isLoading = false;
 		}
 	}
 
@@ -50,20 +53,23 @@
 </script>
 
 <div>
-	<div class="grid grid-cols-2">
-		<div class="col-span-1">
+	<div class="grid grid-cols-8 max-h-full">
+		<div class="col-span-3">
 			<h3 class="font-semibold text-lg mb-3">Query</h3>
-			<CodeEditor bind:editor class="h-[50vh] w-full" />
+			<div class="border">
+				<CodeEditor bind:editor class="h-[60vh] w-full" />
+			</div>
 		</div>
-		<div>
+		<div class="col-span-3">
 			<h3 class="font-semibold text-lg mb-3">Output</h3>
-			<div class="h-[50vh] overflow-scroll">
+			<div
+				class="h-[60vh] overflow-auto border-t border-b border-r"
+				style="font-family: monospace;"
+			>
 				{#if currentQuery}
 					{#await currentQuery then data}
 						{#if data !== undefined}
-							<table
-								class="table-auto w-full border-collapse border border-gray-300 dark:border-gray-950"
-							>
+							<table class="table-auto w-full border-collapse">
 								<thead class="bg-gray-200 dark:bg-gray-600">
 									<tr>
 										<th class="px-4 py-2">ID</th>
@@ -98,6 +104,30 @@
 						<div class="text-red-500">Error: {error.message}</div>
 					{/await}
 				{/if}
+			</div>
+		</div>
+		<div class="col-span-2">
+			<h3 class="font-semibold text-lg mb-3">History</h3>
+			<div class="h-[60vh] overflow-scroll">
+				{#each $dataStore.previousQueries as entry}
+					<!-- svelte-ignore a11y-click-events-have-key-events -->
+					<div
+						class="relative border-b select-none cursor-pointer first:border-t py-2 px-2 hover:text-background-900 text-background-500 hover:bg-background-100 dark:hover:bg-background-600"
+						style="font-family: monospace;"
+						on:click={() => {
+							editor.setValue(entry.query);
+						}}
+					>
+						<p class="line-clamp-2 overflow-ellipsis">
+							{entry.query}
+						</p>
+						<div
+							class="absolute right-2 bottom-2 text-sm bg-cyan-500 text-cyan-200 px-2 rounded-lg"
+						>
+							{entry.executionTime.toLocaleString()}ms
+						</div>
+					</div>
+				{/each}
 			</div>
 		</div>
 	</div>

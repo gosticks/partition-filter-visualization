@@ -1,4 +1,8 @@
 <script lang="ts" generics="Data extends unknown">
+	import { Minimap } from '$lib/rendering/Minimap';
+
+	import type { D } from 'vitest/dist/types-71ccd11d';
+
 	import type { DataPlaneShapeMaterial } from '$lib/rendering/materials/DataPlaneMaterial';
 
 	import type { GraphRenderer } from '$lib/rendering/GraphRenderer';
@@ -16,7 +20,7 @@
 
 	export let onHover: (position: THREE.Vector2, object?: THREE.Object3D) => void = () => {};
 
-	export let data: Data;
+	export let data: Data | undefined = undefined;
 	// Internal data copy to check for changes
 	let _data: Data;
 
@@ -24,6 +28,7 @@
 
 	let containerElement: HTMLDivElement;
 	let statsElement: HTMLDivElement;
+	let minimapElement: HTMLDivElement;
 
 	let scene: THREE.Scene;
 	let camera: THREE.Camera;
@@ -32,13 +37,12 @@
 	let raycaster: THREE.Raycaster;
 	let outlinePass: OutlinePass;
 	let composer: EffectComposer;
+
+	let minimap: Minimap | undefined = undefined;
+
 	let stats: Stats;
 
 	export let dataRenderer: GraphRenderer<Data> | undefined;
-	// Internal data renderer copy to check for changes
-	let _dataRenderer: typeof dataRenderer;
-
-	let axisRenderer: AxisRenderer;
 
 	function setupControls() {
 		controls = new OrbitControls(camera, renderer.domElement);
@@ -48,6 +52,21 @@
 
 		controls.enableDamping = true;
 		controls.dampingFactor = 0.1;
+		controls.minDistance = 0.5;
+		controls.maxDistance = 1000;
+	}
+
+	function setupMinimap() {
+		if (!minimapElement) {
+			return;
+		}
+
+		if (minimap) {
+			minimap.destroy();
+		}
+
+		minimap = new Minimap(minimapElement);
+		minimap.setCurrentCamera(camera);
 	}
 
 	function setupScene() {
@@ -63,8 +82,8 @@
 			containerElement.clientWidth / 2,
 			containerElement.clientHeight / 2,
 			containerElement.clientHeight / -2,
-			-cameraField,
-			cameraField
+			-cameraField * 4,
+			cameraField * 4
 		);
 
 		camera.position.z = 1000;
@@ -105,7 +124,7 @@
 
 		setupScene();
 
-		renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
+		renderer = new THREE.WebGLRenderer({ alpha: false });
 		renderer.setPixelRatio(window.devicePixelRatio || 1);
 		renderer.setClearColor(0x000000, 0);
 		renderer.setSize(containerElement.clientWidth, containerElement.clientHeight);
@@ -136,12 +155,6 @@
 
 		setupControls();
 
-		axisRenderer = new AxisRenderer(scene, {
-			size: new THREE.Vector3(width, height, width),
-			labelScale: width / 25
-		});
-		axisRenderer.render();
-
 		raycaster = new THREE.Raycaster();
 
 		stats = new Stats();
@@ -149,10 +162,15 @@
 		statsElement.appendChild(stats.dom);
 
 		const size = width * 2;
-		const divisions = (width * 2) / 100;
+		const divisions = (width * 10) / 300;
 
 		const gridHelper = new THREE.GridHelper(size, divisions);
+		// Offset grid by half of the size
+		// gridHelper.position.x = -size / 2;
+		// gridHelper.position.z = -size / 2;
 		scene.add(gridHelper);
+
+		setupMinimap();
 
 		// Animation loop
 		const animate = () => {
@@ -194,33 +212,38 @@
 		window.removeEventListener('resize', windowResizeHandler);
 	});
 
-	function updateRenderer() {
+	function updateRenderer(newRenderer?: GraphRenderer<Data>) {
 		if (!containerElement) {
 			return;
 		}
 
-		if (_dataRenderer !== dataRenderer) {
-			console.log('renderer changed');
-			// Handle renderer changes
-			dataRenderer?.setup(scene, camera);
-			const width = containerElement.clientWidth;
-			dataRenderer?.setScale(new THREE.Vector3(width, width, width));
-			dataRenderer?.updateWithData(data);
+		// Remove old renderer
+		if (dataRenderer && dataRenderer !== newRenderer) {
+			dataRenderer.destroy();
+		}
 
-			_dataRenderer = dataRenderer!;
-		} else if (_data !== data) {
-			console.log('Data changed');
-			// Handle data only changes
-			dataRenderer?.updateWithData(data);
-			_data = data;
+		if (!newRenderer) {
+			return;
+		}
+		dataRenderer = newRenderer;
+		// Setup new renderer
+		dataRenderer = newRenderer;
+		dataRenderer.setup(scene, camera);
+		const width = containerElement.clientWidth;
+		dataRenderer.setScale(new THREE.Vector3(width, width, width));
+		if (data) {
+			dataRenderer.updateWithData(data);
 		}
 	}
 
-	beforeUpdate(() => {
-		updateRenderer();
-	});
+	function updateData(data?: Data) {
+		if (data) {
+			dataRenderer?.updateWithData(data);
+		}
+	}
 
-	afterUpdate(() => {});
+	$: updateRenderer(dataRenderer);
+	$: updateData(data);
 
 	onDestroy(() => {
 		if (!browser) {
@@ -254,9 +277,9 @@
 		if (obj instanceof THREE.Mesh) {
 			const material = obj.material as DataPlaneShapeMaterial;
 			if (material.opacity < 0.6) {
-				material.setOpacity(0.95);
+				material.opacity = 0.6;
 			} else {
-				material.setOpacity(0.1);
+				material.opacity = 0.2;
 			}
 		}
 	}
@@ -275,6 +298,10 @@
 		on:mousemove={handleHover}
 		on:click={handleClick}
 		class="bar-chart-container w-full h-full overflow-hidden isolate"
+	/>
+	<div
+		class="minimap absolute isolate left-0 bottom-20 w-[200px] h-[200px]"
+		bind:this={minimapElement}
 	/>
 	<div class="stats absolute isolate top-0 left-0" bind:this={statsElement} />
 </div>

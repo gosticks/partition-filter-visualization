@@ -1,10 +1,11 @@
 import * as THREE from 'three';
 
+type Data = (number[] | Float32Array)[];
 export class DataPlaneShapeGeometry extends THREE.BufferGeometry {
 	static readonly pointComponentSize = 3;
 
-	private normalizedData: number[][];
-	private previousNormalizedData: number[][] | undefined = undefined;
+	private normalizedData: Data;
+	private previousNormalizedData: Data | undefined = undefined;
 	private width: number;
 	private depth: number;
 
@@ -28,14 +29,13 @@ export class DataPlaneShapeGeometry extends THREE.BufferGeometry {
 	}
 
 	constructor(
-		data: number[][],
-		previousData: number[][] | undefined = undefined,
+		data: Data,
+		previousData: Data | undefined = undefined,
 		normalized = false,
 		private drawsSideWalls = false,
 		private drawsBottom = false
 	) {
 		super();
-		console.log('create geo', { data, previousData, normalized });
 		if (normalized) {
 			this.normalizedData = data;
 			this.previousNormalizedData = previousData;
@@ -127,8 +127,6 @@ export class DataPlaneShapeGeometry extends THREE.BufferGeometry {
 		const hasBottomLayer = this.previousNormalizedData !== undefined;
 
 		const polyindicesPerPlane = numPolygons * 3;
-
-		console.log('create geo');
 
 		// Add all points to the geometry
 		for (let z = 0; z < depth; z++) {

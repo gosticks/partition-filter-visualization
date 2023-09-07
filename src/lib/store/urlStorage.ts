@@ -1,9 +1,64 @@
 import { browser } from '$app/environment';
 import type { Writable, Updater } from 'svelte/store';
 
-export const withUrlStorage = <S extends object>(
+type EncodableTypes = 'string' | 'number' | 'boolean' | 'object';
+
+export const urlEncodeObject = (obj: Record<string, unknown>): string => {
+	return btoa(JSON.stringify(obj));
+};
+
+export const urlDecodeObject = (str: string): Record<string, unknown> => {
+	return JSON.parse(atob(str));
+};
+
+export const defaultUrlDecoder = (
+	key: string,
+	type: EncodableTypes,
+	value: string
+): unknown | null => {
+	switch (type) {
+		case 'string':
+			return value;
+		case 'number':
+			return Number(value);
+		case 'boolean':
+			return value === 'true';
+		case 'object':
+			return urlDecodeObject(value);
+	}
+};
+
+export const defaultUrlEncoder = (
+	key: string,
+	type: EncodableTypes,
+	value: unknown
+): string | null => {
+	switch (type) {
+		case 'string':
+			return value as string;
+		case 'number':
+			return (value as number).toString();
+		case 'boolean':
+			return (value as boolean).toString();
+		case 'object':
+			// Filter out empty arrays
+			if (Array.isArray(value) && value.length === 0) {
+				return null;
+			}
+			return urlEncodeObject(value as Record<string, unknown>);
+	}
+
+	return null;
+};
+
+export type UrlDecoder = typeof defaultUrlDecoder;
+export type UrlEncoder = typeof defaultUrlEncoder;
+
+export const withUrlStorage = <S extends object, T extends EncodableTypes = EncodableTypes>(
 	store: Writable<S>,
-	storeKeys: Partial<Record<keyof S, 'string' | 'number' | 'boolean' | 'object'>>
+	storeKeys: Partial<Record<keyof S, T>>,
+	encoder: UrlEncoder = defaultUrlEncoder,
+	decoder: UrlDecoder = defaultUrlDecoder
 ) => {
 	if (!browser) {
 		return store;
@@ -12,33 +67,20 @@ export const withUrlStorage = <S extends object>(
 	// Restore state from storage
 	const params = new URLSearchParams(location.search);
 
-	const entries = Object.entries(storeKeys) as [
-		keyof S,
-		'string' | 'number' | 'boolean' | 'object'
-	][];
+	const entries = Object.entries(storeKeys) as [keyof S, T][];
 
 	// Set initial store state
 	store.update((state) => {
 		entries.forEach(([key, type]) => {
-			const storedValue = params.get(key.toString());
-			if (storedValue === null) {
+			const value = params.get(key.toString());
+
+			if (value === null) {
 				return;
 			}
 
-			switch (type) {
-				case 'string':
-					(state[key] as string) = storedValue;
-					break;
-				case 'number':
-					(state[key] as number) = Number(storedValue);
-					break;
-				case 'boolean':
-					(state[key] as boolean) = storedValue === 'true';
-					break;
-				case 'object':
-					(state[key] as object) = JSON.parse(atob(storedValue));
-					break;
-			}
+			// Type cast to unknown to allow dynamic key access
+			(state[key] as unknown) = decoder(key.toString(), type, value);
+			return;
 		});
 		console.log('Restored state', state);
 		return state;
@@ -51,20 +93,12 @@ export const withUrlStorage = <S extends object>(
 			if (value === undefined) {
 				return;
 			}
-			switch (type) {
-				case 'string':
-					params.set(key.toString(), value as string);
-					break;
-				case 'number':
-					params.set(key.toString(), (value as number).toString());
-					break;
-				case 'boolean':
-					params.set(key.toString(), (value as boolean).toString());
-					break;
-				case 'object':
-					params.set(key.toString(), btoa(JSON.stringify(value)));
-					break;
+
+			const encodedValue = encoder(key.toString(), type, value);
+			if (encodedValue === null) {
+				return;
 			}
+			params.set(key.toString(), encodedValue);
 		});
 
 		return params;
@@ -80,6 +114,13 @@ export const withUrlStorage = <S extends object>(
 
 			return newState;
 		});
+	};
+
+	const oldSet = store.set;
+	store.set = (newState: S) => {
+		oldSet(newState);
+		const params = encodeValues(newState);
+		history.replaceState(null, '', `${location.pathname}?${params.toString()}`);
 	};
 
 	return store;
