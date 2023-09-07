@@ -89,11 +89,6 @@ export enum TableSource {
 	FILE
 }
 
-export enum DataScaling {
-	LINEAR,
-	LOG
-}
-
 export type ITableReference = {
 	name: string;
 	tableName: string;

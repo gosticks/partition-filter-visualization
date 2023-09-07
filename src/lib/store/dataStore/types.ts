@@ -3,6 +3,11 @@ import type { AsyncDuckDB, AsyncDuckDBConnection } from '@duckdb/duckdb-wasm';
 export type FilterOptions = Record<string, { options: unknown[]; label?: string; type: string }>;
 export type TableSchema = Record<string, 'number' | 'string'>;
 
+export enum DataScaling {
+	LINEAR = 'linear',
+	LOG = 'log'
+}
+
 export interface ITableEntry {
 	name: string;
 	dataUrl: string;

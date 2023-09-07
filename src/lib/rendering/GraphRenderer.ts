@@ -17,7 +17,7 @@ export abstract class GraphRenderer<T = unknown, InstanceMetaInfo = any> {
 	 * Used to update rendering based on data changes
 	 * @param data
 	 */
-	abstract updateWithData(data: T, colorPalette: THREE.ColorRepresentation[]): void;
+	abstract updateWithData(data: T, colorPalette?: THREE.ColorRepresentation[]): void;
 
 	abstract getIntersections(raycaster: THREE.Raycaster): THREE.Intersection[];
 

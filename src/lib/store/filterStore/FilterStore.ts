@@ -77,7 +77,8 @@ const urlDecoder: UrlDecoder = (key, type, value) => {
 	return defaultUrlDecoder(key, type, value);
 };
 
-const baseStore = writable<IFilterStore>(initialStore);
+// Hacky way to create a new store with a new base object
+const baseStore = writable<IFilterStore>(JSON.parse(JSON.stringify(initialStore)));
 
 const _filterStore = () => {
 	console.log('### INIT STORE ###', get(baseStore));
@@ -128,7 +129,12 @@ const _filterStore = () => {
 
 		reset: () => {
 			dataStore.resetDatabase();
-			set(initialStore);
+			const newInitialState = JSON.parse(JSON.stringify(initialStore));
+
+			// Inject init preloaded tables
+			newInitialState.preloadedTables = get(store).preloadedTables;
+			newInitialState.isLoading = false;
+			set(newInitialState);
 		},
 
 		// Actions
