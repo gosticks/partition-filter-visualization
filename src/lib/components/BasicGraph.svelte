@@ -53,10 +53,20 @@
 		controls.zoomSpeed = 1;
 		controls.panSpeed = 1;
 
+		controls.enablePan = false;
+		controls.enableZoom = true;
+		controls.enableRotate = false;
+
 		controls.enableDamping = true;
 		controls.dampingFactor = 0.1;
 		controls.minDistance = 0.5;
 		controls.maxDistance = 1000;
+
+		controls.reset();
+
+		controls.addEventListener('change', () => {
+			controls.saveState();
+		});
 	}
 
 	function setupMinimap() {

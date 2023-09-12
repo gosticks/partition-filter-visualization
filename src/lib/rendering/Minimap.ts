@@ -27,6 +27,8 @@ import {
 import { AxisRenderer } from './AxisRenderer';
 import * as THREE from 'three';
 
+import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls';
+
 const grayColorList = [
 	'#2B2B2B', // Charcoal Gray
 	'#3E3E3E', // Dark Gray
@@ -54,6 +56,8 @@ export class Minimap {
 	private stopped = false;
 	private cubeSize = 20;
 	private bevelSize = 0.075;
+
+	private controls: OrbitControls;
 
 	private previousFaceIndex: number | null = null;
 
@@ -102,6 +106,20 @@ export class Minimap {
 		return geometry;
 	}
 
+	setupControls() {
+		this.controls = new OrbitControls(this.camera, this.renderer.domElement);
+		this.controls.rotateSpeed = 1;
+		this.controls.zoomSpeed = 1;
+		this.controls.panSpeed = 1;
+		this.controls.enableZoom = false;
+		this.controls.enablePan = false;
+		this.controls.enableDamping = true;
+		this.controls.dampingFactor = 0.1;
+	}
+
+	private mouseDownPos = { x: 0, y: 0 };
+	private mouseUpPos = { x: 0, y: 0 };
+
 	constructor(element: HTMLElement) {
 		const bounds = element.getBoundingClientRect();
 		this.camera = new OrthographicCamera(
@@ -117,7 +135,22 @@ export class Minimap {
 
 		// Setup event listeners
 		element.addEventListener('mousemove', this.onCanvasHover.bind(this));
-		element.addEventListener('click', this.onCanvasClick.bind(this));
+
+		element.addEventListener('mousedown', (event) => {
+			this.mouseDownPos.x = event.clientX;
+			this.mouseDownPos.y = event.clientY;
+		});
+
+		element.addEventListener('mouseup', (event) => {
+			this.mouseUpPos.x = event.clientX;
+			this.mouseUpPos.y = event.clientY;
+
+			// Check if positions match to detect if it was just a click
+			if (this.mouseDownPos.x === this.mouseUpPos.x && this.mouseDownPos.y === this.mouseUpPos.y) {
+				this.onCanvasClick(event);
+			}
+		});
+
 		element.addEventListener('mouseenter', () => {
 			this.mouseInside = true;
 		});
@@ -138,7 +171,7 @@ export class Minimap {
 			new MeshBasicMaterial({ color: grayColorList[8] })
 		];
 		this.orientationCube = new Mesh(cubeGeometry, materials);
-		this.orientationCube.scale.multiplyScalar(this.cubeSize);
+		this.orientationCube.scale.set(this.cubeSize, this.cubeSize, this.cubeSize);
 		this.scene.add(this.orientationCube);
 		const bevelSize = 0.075;
 
@@ -323,6 +356,8 @@ export class Minimap {
 		this.renderer.setSize(bounds.width, bounds.height);
 		element.appendChild(this.renderer.domElement);
 
+		this.setupControls();
+
 		this.startAnimationLoop();
 	}
 
@@ -360,8 +395,8 @@ export class Minimap {
 		console.log('Looking at', lookDirection, this.trackedCamera);
 
 		const cameraPosition = lookDirection.multiplyScalar(300);
-		this.trackedCamera.position.copy(cameraPosition);
-		this.trackedCamera.lookAt(lookDirection);
+		this.camera.position.copy(cameraPosition);
+		this.camera.lookAt(lookDirection);
 
 		// Clear face selection to avoid issues
 		this.clearFaceSelection();
@@ -440,11 +475,19 @@ export class Minimap {
 
 		if (this.trackedCamera) {
 			this.renderFaceSelection();
-			// console.log('rendering');
-			this.scene.quaternion.copy(this.trackedCamera.quaternion).conjugate();
-			this.scene.up.copy(this.trackedCamera.up);
+			// // console.log('rendering');
+			// this.scene.quaternion.copy(this.trackedCamera.quaternion).conjugate();
+			// this.scene.up.copy(this.trackedCamera.up);
+			// this.renderer.render(this.scene, this.camera);
+
+			this.controls.update();
 			this.renderer.render(this.scene, this.camera);
+
+			// Set target camera to match the one we're tracking
+			this.trackedCamera.position.copy(this.camera.position);
+			this.trackedCamera.quaternion.copy(this.camera.quaternion);
 		}
+
 		requestAnimationFrame(this.startAnimationLoop.bind(this));
 	}
 

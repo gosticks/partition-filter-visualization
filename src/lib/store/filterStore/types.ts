@@ -51,15 +51,35 @@ export function setObjectValue<T extends object, P extends Paths<T>>(
 	current[keys[keys.length - 1]] = value;
 }
 
+export type GraphFilterOptions<T> = Partial<
+	Record<
+		keyof T,
+		| {
+				type: 'string';
+				options: string[];
+				label: string;
+		  }
+		| {
+				type: 'number';
+				options: number[];
+				label: string;
+		  }
+		| {
+				type: 'boolean';
+				label: string;
+		  }
+	>
+>;
+
 export abstract class GraphOptions<
 	T extends Record<string, unknown> = Record<string, unknown>,
 	R extends GraphRenderer = GraphRenderer
 > {
 	public renderer: R;
 	public active = false;
-	public filterOptions: FilterOptions;
+	public filterOptions: GraphFilterOptions<T>;
 
-	constructor(renderer: R, filterOptions: FilterOptions) {
+	constructor(renderer: R, filterOptions: GraphFilterOptions<T>) {
 		this.renderer = renderer;
 		this.filterOptions = filterOptions;
 	}

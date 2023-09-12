@@ -7,30 +7,25 @@ import FilterStore from '../FilterStore';
 import { graphColors, graphColors2 } from '$lib/rendering/colors';
 
 export type PlaneGraphState = {
-	display: {
-		// Y Axis display scaling
-		yScale: number;
-		axisRanges: Partial<{
-			x: [number, number];
-			y: [number, number];
-			z: [number, number];
-		}>;
-	};
-	data: {
-		xTileCount: number;
-		zTileCount: number;
+	// Y Axis display scaling
+	axisRanges: Partial<{
+		x: [number, number];
+		y: [number, number];
+		z: [number, number];
+	}>;
+	xTileCount: number;
+	zTileCount: number;
 
-		xColumnName: string;
-		yColumnName: string;
-		zColumnName: string;
+	xColumnName: string;
+	yColumnName: string;
+	zColumnName: string;
 
-		// Data scaling
-		yScale: DataScaling;
-		xScale: DataScaling;
-		zScale: DataScaling;
+	// Data scaling
+	yScale: DataScaling;
+	xScale: DataScaling;
+	zScale: DataScaling;
 
-		normalized: string;
-	};
+	normalized: string;
 };
 
 export class PlaneGraphOptions extends GraphOptions<Partial<PlaneGraphState>, PlaneRenderer> {
@@ -51,37 +46,37 @@ export class PlaneGraphOptions extends GraphOptions<Partial<PlaneGraphState>, Pl
 			.filter(([, type]) => type === 'number')
 			.map(([column]) => column);
 		this.filterOptions = {
-			'data.xColumnName': {
+			xColumnName: {
 				type: 'string',
 				options: numberTableColumns,
 				label: 'X Axis'
 			},
-			'data.zColumnName': {
+			zColumnName: {
 				type: 'string',
 				options: numberTableColumns,
 				label: 'Z Axis'
 			},
-			'data.yColumnName': {
+			yColumnName: {
 				type: 'string',
 				options: numberTableColumns,
 				label: 'Y Axis'
 			},
-			'data.xTileCount': {
+			xTileCount: {
 				type: 'number',
 				options: [1, 2, 4, 8, 16, 32, 64],
 				label: 'X Tile Count'
 			},
-			'data.zTileCount': {
+			zTileCount: {
 				type: 'number',
 				options: [1, 2, 4, 8, 16, 32, 64],
 				label: 'Z Tile Count'
 			},
-			'data.yScale': {
+			yScale: {
 				type: 'string',
 				options: [DataScaling.LINEAR, DataScaling.LOG],
 				label: 'Y Scale'
 			},
-			'data.normalized': {
+			normalized: {
 				type: 'string',
 				label: 'Normalized',
 				options: ['true', 'false']
@@ -101,9 +96,7 @@ export class PlaneGraphOptions extends GraphOptions<Partial<PlaneGraphState>, Pl
 		return this.state;
 	}
 	public isValid(): boolean {
-		const requiredDisplayFields: (keyof PlaneGraphState['display'])[] = [];
-
-		const requiredDataFields: (keyof PlaneGraphState['data'])[] = [
+		const requiredFields: (keyof PlaneGraphState)[] = [
 			'xTileCount',
 			'zTileCount',
 			'xColumnName',
@@ -111,13 +104,7 @@ export class PlaneGraphOptions extends GraphOptions<Partial<PlaneGraphState>, Pl
 			'zColumnName'
 		];
 
-		const displayValid = requiredDisplayFields.every(
-			(field) => this.state.display?.[field] !== undefined
-		);
-
-		const dataValid = requiredDataFields.every((field) => this.state.data?.[field] !== undefined);
-
-		return displayValid && dataValid;
+		return requiredFields.every((field) => this.state[field] !== undefined);
 	}
 
 	public setStateValue<P extends Paths<Partial<PlaneGraphState>>>(
@@ -135,7 +122,8 @@ export class PlaneGraphOptions extends GraphOptions<Partial<PlaneGraphState>, Pl
 		}
 
 		// Query data required for this graph
-		const { xColumnName, yColumnName, zColumnName, xTileCount, zTileCount } = this.state.data!;
+		const { xColumnName, yColumnName, zColumnName, xTileCount, zTileCount, yScale } = this
+			.state as PlaneGraphState;
 
 		console.log('Querying tiled data for plane graph', this.state);
 
@@ -151,7 +139,7 @@ export class PlaneGraphOptions extends GraphOptions<Partial<PlaneGraphState>, Pl
 						zColumnName,
 						xTileCount,
 						zTileCount,
-						scale: this.state.data!.yScale
+						scale: yScale
 					})
 				)
 			);
@@ -173,7 +161,7 @@ export class PlaneGraphOptions extends GraphOptions<Partial<PlaneGraphState>, Pl
 					y: yColumnName,
 					z: zColumnName
 				},
-				normalized: this.state.data!.normalized === 'true',
+				normalized: this.state.normalized === 'true',
 				scaleY: 10
 			});
 

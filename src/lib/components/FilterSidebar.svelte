@@ -33,9 +33,17 @@
 
 		// If present load initial values
 		if (values.graphOptions) {
-			console.log('Loading initial filter options', values.graphOptions);
+			console.log('!!!Loading initial filter options', values.graphOptions);
 			filterOptions = values.graphOptions.getCurrentOptions();
 		}
+
+		filterStore.subscribe((value) => {
+			console.log('Values updated');
+			if (value.graphOptions) {
+				console.log('!!!Loading filter options', value.graphOptions.getCurrentOptions());
+				filterOptions = { ...value.graphOptions.getCurrentOptions() };
+			}
+		});
 	});
 
 	const onInput = (value: number, label?: string) => {
@@ -96,6 +104,7 @@
 						{:else if value.type === 'number'}
 							<Slider
 								label={key}
+								initialValue={filterOptions[key]}
 								value={filterOptions[key]}
 								min={Math.min(...value.options)}
 								max={Math.max(...value.options)}
