@@ -24,29 +24,6 @@
 
 		// Pass possible db options to the filter sidebar
 		await filterStore.initWithPreloadedTables(data.filters);
-
-		// // Restore filter options from query parameters
-		// const url = new URL(location.href);
-		// const selectedTable = url.searchParams.get('table');
-		// const filter = url.searchParams.get('filter');
-
-		// if (selectedTable && data.filters[selectedTable]) {
-		// 	console.log('Loading table', selectedTable);
-		// 	await dataStore.loadEntries([data.filters[selectedTable]]);
-		// }
-
-		// if (filter) {
-		// 	console.log('Loading filter', filter);
-		// 	try {
-		// 		const filterOptions = JSON.parse(atob(filter)) as IFilterStoreGraphOptions;
-		// 		console.log('Loading filter options', filterOptions);
-		// 		await filterStore.setGraphOptions(filterOptions);
-		// 	} catch (error) {
-		// 		console.error('Failed to load filter options', error);
-		// 	}
-		// }
-
-		// console.log('Mounting graph page', data);
 	});
 
 	let hoverPosition: Vector2 | undefined = undefined;
@@ -70,6 +47,11 @@
 					</div>
 				</div>
 			{:else}
+				<!-- <div class="flex-grow flex-shrink">
+					<div class="flex flex-col">
+						<BasicGraph {onHover} />
+					</div>
+				</div> -->
 				<GridBackground />
 			{/if}
 			{#if $filterStore.selectedTables.length === 0}
@@ -116,113 +98,6 @@
 				</Card>
 			</div>
 		{/if}
-		<!-- <div class="absolute right-4 pt-4 t-0 bottom-0 w-96 min-h-screen overflow-y-auto">
-			<Card title="Filter Family">
-				<DropdownSelect
-					onSelect={onFilterSelect}
-					options={Object.entries(data.filters).map(([key, value]) => ({
-						label: key,
-						value: value
-					}))}
-				/>
-			</Card>
-			{#if filterOptions}
-				<Card title="Filters">
-					<div class="flex flex-col gap-2">
-						{#if filterOptions}
-							{#each Object.entries(filterOptions) as [filterName, filter], idx}
-								<div>
-									{#if filter.type === 'string'}
-										<DropdownSelect
-											label={filterName}
-											onSelect={(selected) => {
-												selectedFilterOptions[filterName] = {
-													options: selected,
-													type: filter.type
-												};
-											}}
-											options={filter.options.map((entry) => ({
-												label: entry,
-												value: entry
-											}))}
-										/>
-									{:else if filter.type === 'number'}
-										<Slider
-											label={filterName}
-											min={Math.min(...filter.options)}
-											max={Math.max(...filter.options)}
-											diplayFunction={sliderDisplay(filterName)}
-											onInput={(value) => {
-												selectedFilterOptions[filterName] = {
-													options: [value],
-													type: filter.type
-												};
-											}}
-										/>
-									{/if}
-								</div>
-							{/each}
-						{/if}
-					</div>
-				</Card>
-			{/if}
-			{#if tableSchema}
-				<Card title="Visualize">
-					<div class="flex flex-col gap-2">
-						<DropdownSelect
-							label={'X Axis'}
-							singular
-							onSelect={(selected) => {
-								console.log(selected);
-								xAxisKey = selected.length > 0 ? selected[0] : undefined;
-							}}
-							options={Object.entries(tableSchema)
-								.filter(([_, value]) => value === 'number')
-								.map(([key]) => ({
-									label: key,
-									value: key
-								}))}
-						/>
-						<DropdownSelect
-							label={'Z Axis'}
-							singular
-							onSelect={(selected) => {
-								console.log(selected);
-								zAxisKey = selected.length > 0 ? selected[0] : undefined;
-							}}
-							options={Object.entries(tableSchema)
-								.filter(([_, value]) => value === 'number')
-								.map(([key]) => ({
-									label: key,
-									value: key
-								}))}
-						/>
-						<DropdownSelect
-							label={'Y Axis'}
-							singular
-							onSelect={(selected) => {
-								console.log(selected);
-								yAxisKey = selected.length > 0 ? selected[0] : undefined;
-							}}
-							options={Object.entries(tableSchema)
-								.filter(([_, value]) => value === 'number')
-								.map(([key]) => ({
-									label: key,
-									value: key
-								}))}
-						/>
-					</div>
-					<Button color="primary" size="lg" on:click={onVisualize}>Visualize</Button>
-				</Card>
-			{/if}
-			<Card title="Dev Tools">
-				<Dialog large>
-					<Button slot="trigger" color="secondary" size="lg">SQL Editor</Button>
-					<svelte:fragment slot="title">SQL Query Editor</svelte:fragment>
-					<QueryEditor />
-				</Dialog>
-			</Card>
-		</div> -->
 		{#if $filterStore.isLoading || $dataStore.isLoading}
 			<LoadingOverlay isLoading={true} />
 		{/if}

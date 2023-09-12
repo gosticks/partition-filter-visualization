@@ -28,7 +28,7 @@ export interface AxisRendererOptions {
 
 export const defaultAxisLabelOptions = {
 	color: 0xcccccc,
-	font: 'Arial',
+	font: 'Courier New',
 	fontSize: 100,
 	fontLineHeight: 1.2,
 	text: ''

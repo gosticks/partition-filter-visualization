@@ -156,10 +156,14 @@ export class PlaneGraphOptions extends GraphOptions<Partial<PlaneGraphState>, Pl
 				)
 			);
 			const layers = promise.map((data, index) => ({
-				points: data,
+				points: data.data,
+				min: data.min,
+				max: data.max,
 				name: options[index] as string,
 				color: graphColors[index % graphColors.length],
-				meta: {}
+				meta: {
+					rows: data.queryResult
+				}
 			}));
 
 			this.renderer.updateWithData({

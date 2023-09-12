@@ -2,6 +2,14 @@ import type { BaseStoreType } from './DataStore';
 import { DataScaling, type FilterOptions } from './types';
 import { get, type Writable } from 'svelte/store';
 
+interface ITiledDataRow {
+	mode: string;
+	x: number;
+	z: number;
+	y: number;
+	name: string;
+}
+
 // Store extension containing actions to load data, transform & drop data
 export const dataStoreFilterExtension = (store: BaseStoreType, dataStore: Writable<IDataStore>) => {
 	const getFiltersOptions = async (
@@ -46,15 +54,7 @@ export const dataStoreFilterExtension = (store: BaseStoreType, dataStore: Writab
 			zTileCount: number;
 			scale: DataScaling;
 		}
-	): Promise<
-		{
-			mode: string;
-			x: number;
-			z: number;
-			y: number;
-			name: string;
-		}[]
-	> => {
+	): Promise<ITiledDataRow[]> => {
 		// FIXME: this currently incorrectly pairs up x and z values within a mode/group
 		const query = `WITH
 	${options.xColumnName}_min_max AS (
@@ -124,7 +124,12 @@ export const dataStoreFilterExtension = (store: BaseStoreType, dataStore: Writab
 			zTileCount: number;
 			scale: DataScaling;
 		}
-	) => {
+	): Promise<{
+		data: Float32Array[];
+		min: number;
+		max: number;
+		queryResult?: ITiledDataRow[];
+	}> => {
 		try {
 			const rows = await getTiledRows(tableName, mode, options);
 
@@ -134,16 +139,30 @@ export const dataStoreFilterExtension = (store: BaseStoreType, dataStore: Writab
 				() => new Float32Array(options.zTileCount)
 			);
 
+			let min = Number.MAX_VALUE;
+			let max = Number.MIN_VALUE;
+
 			rows.forEach((r) => {
+				min = Math.min(min, r.y);
+				max = Math.max(max, r.y);
 				const x = Math.min(r.x, options.xTileCount - 1);
 				const z = Math.min(r.z, options.zTileCount - 1);
 				data[x][z] = r.y;
 			});
 
-			return data;
+			return {
+				data,
+				min,
+				max,
+				queryResult: rows
+			};
 		} catch (e) {
 			console.error('Failed to create tiled data:', e);
-			return [];
+			return {
+				data: [],
+				min: 0,
+				max: 0
+			};
 		}
 	};
 

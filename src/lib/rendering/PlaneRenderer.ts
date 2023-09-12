@@ -2,13 +2,7 @@ import * as THREE from 'three';
 import { GraphRenderer } from './GraphRenderer';
 import { DataPlaneShapeMaterial } from './materials/DataPlaneMaterial';
 import { DataPlaneShapeGeometry } from './geometry/DataPlaneGeometry';
-import {
-	brighterColorList,
-	graphColors,
-	graphColors2,
-	mediumIntensityColorList,
-	softColorList
-} from './colors';
+import { graphColors } from './colors';
 import { AxisRenderer, defaultAxisLabelOptions } from './AxisRenderer';
 
 interface PlaneData {
@@ -16,6 +10,8 @@ interface PlaneData {
 	// each plane is a 2D array of points
 	layers: {
 		points: (Float32Array | number[])[];
+		min: number;
+		max: number;
 		name: string;
 		meta?: Record<string, unknown>;
 		color?: string;
@@ -42,14 +38,21 @@ const defaultRendererOptions: PlaneRendererOptions = {
 
 export class PlaneRenderer extends GraphRenderer<PlaneData> {
 	public data?: PlaneData;
+	private gridHelper?: THREE.GridHelper;
 	private group?: THREE.Group;
 	private options: PlaneRendererOptions;
 	private size: THREE.Vector3 = new THREE.Vector3(0, 0, 0);
 	private depth = 0;
 	private width = 0;
 	private layers: THREE.Group[] = [];
+
+	// Dots displayed on top of each data layer
+	private layerDots: THREE.Group[] = [];
 	private selectedInstanceId: number | undefined;
 	private selectedLayerIndex: number | undefined;
+
+	private min = 0;
+	private max = 0;
 
 	private axisRenderer?: AxisRenderer;
 
@@ -81,6 +84,7 @@ export class PlaneRenderer extends GraphRenderer<PlaneData> {
 	setScale(scale: THREE.Vector3): void {
 		this.size = scale;
 		this.group?.scale.copy(scale).multiplyScalar(0.25);
+		// this.group?.scale.copy(scale).multiply(dataScale).multiplyScalar(0.25);
 	}
 
 	getIntersections(raycaster: THREE.Raycaster): THREE.Intersection[] {
@@ -90,20 +94,27 @@ export class PlaneRenderer extends GraphRenderer<PlaneData> {
 		}
 
 		// Filter out instanced geometry
+		const index = intersection.findIndex(
+			(i) =>
+				i.instanceId !== undefined &&
+				this.layers[(i.object as THREE.InstancedMesh).userData.index].visible
+		);
 
-		const instanceId = intersection[0].instanceId;
-
-		if (instanceId === undefined) {
+		if (index == -1) {
 			if (this.selectedInstanceId !== undefined) {
 				// Color in selected instance
 				this.selectedInstanceId = undefined;
 				this.selectedLayerIndex = undefined;
 				this.onDataPointSelected?.();
 			}
-			return intersection;
+
+			// Bypass invisible layers
+			return intersection.filter((i) => i.object.visible && i.object.parent.visible);
 		}
 
-		const mesh = intersection[0].object as THREE.InstancedMesh;
+		const instanceId = intersection[index].instanceId as number;
+
+		const mesh = intersection[index].object as THREE.InstancedMesh;
 		const meshIndex = mesh.userData.index;
 		if (this.selectedLayerIndex !== meshIndex && instanceId !== this.selectedInstanceId) {
 			this.selectedInstanceId = instanceId;
@@ -161,28 +172,26 @@ export class PlaneRenderer extends GraphRenderer<PlaneData> {
 			this.scene?.remove(this.group);
 			this.group.clear();
 		}
+
 		const group = new THREE.Group();
 
-		const sphereGeo = new THREE.SphereGeometry(0.01);
+		const sphereGeo = new THREE.SphereGeometry(0.008);
 
 		this.data = data;
+		const dataWidth = data.layers[0].points[0].length;
+		const dataDepth = data.layers[0].points.length;
+		let globalMin = Infinity;
+		let globalMax = -Infinity;
+
 		this.layers = data.layers.map((layer, index) => {
+			globalMax = Math.max(globalMax, layer.max);
+			globalMin = Math.min(globalMin, layer.min);
+
 			const plane = layer.points;
 			const layerGroup = new THREE.Group();
-			console.log('Normalized', data.normalized);
-			const geo = new DataPlaneShapeGeometry(plane, undefined, data.normalized ?? false);
+			const geo = new DataPlaneShapeGeometry(plane, undefined, true);
 			const color = new THREE.Color(layer.color ?? colorPalette[index % colorPalette.length]);
-			// const mat = new DataPlaneShapeMaterial(
-			// 	color,
-			// 	color,
-			// 	{
-			// 		opacity: 0.5,
-			// 		transparent: true
-			// 		// wireframe: true
-			// 	}
-			// 	// new THREE.Color((0xffff00 * (index + 1)) / data.data.length),
-			// 	// {}
-			// );
+
 			const mat = new THREE.MeshLambertMaterial({
 				color: color,
 				opacity: 1,
@@ -192,52 +201,69 @@ export class PlaneRenderer extends GraphRenderer<PlaneData> {
 				side: THREE.DoubleSide
 			});
 			const mesh = new THREE.Mesh(geo, mat);
+
 			layerGroup.add(mesh);
 
 			// Add metadata to mesh
 			mesh.userData = { index, name: layer.name, meta: layer.meta };
 
-			const pointBuffer = geo.buffer;
 			this.depth = geo.planeDims.depth;
 			this.width = geo.planeDims.width;
 
-			if (pointBuffer) {
-				const sphereMat = new THREE.MeshBasicMaterial({ color: 0xeeeeff });
-				const dotMesh = new THREE.InstancedMesh(sphereGeo, sphereMat, geo.pointsPerPlane);
-				dotMesh.userData = { index };
-				// dotMesh.renderOrder = 10;
-				dotMesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
-				// Set position of each dot
-				const matrix = new THREE.Matrix4();
-				for (let i = 0; i < geo.pointsPerPlane; i++) {
-					const idx = i * DataPlaneShapeGeometry.pointComponentSize;
-					matrix.setPosition(pointBuffer[idx], pointBuffer[idx + 1], pointBuffer[idx + 2]);
-					dotMesh.setMatrixAt(i, matrix);
-				}
-
-				dotMesh.instanceMatrix.needsUpdate = true;
-				dotMesh.computeBoundingSphere();
-				layerGroup.add(dotMesh);
-
-				// for (let i = 0; i < geo.pointsPerPlane; i++) {
-				// 	const sprite = new THREE.Sprite(spriteMat);
-				// 	const idx = i * DataPlaneShapeGeometry.pointComponentSize;
-				// 	sprite.position.set(pointBuffer[idx], pointBuffer[idx + 1], pointBuffer[idx + 2]);
-				// 	group.add(sprite);
-				// }
-
-				group.add(layerGroup);
-			}
+			group.add(layerGroup);
 			return layerGroup;
-			// dotGeometry.setAttribute('position', geo.getAttribute('position'));
-			// var dotMaterial = new THREE.PointsMaterial({
-			// 	size: 20,
-			// 	sizeAttenuation: false,
-			// 	color: 0xff0000
-			// });
-			// var dot = new THREE.Points(dotGeometry, dotMaterial);
-			// group.add(dot);
 		});
+
+		let dataScaleFactor = globalMax - globalMin;
+		dataScaleFactor = dataScaleFactor === 0 ? 1 : dataScaleFactor;
+		dataScaleFactor = 1 / dataScaleFactor;
+
+		// With the scale known we can now draw the layer points
+		for (const [index, layerGroup] of this.layers.entries()) {
+			const geo = (layerGroup.children[0] as THREE.Mesh).geometry as DataPlaneShapeGeometry;
+
+			if (!geo) {
+				continue;
+			}
+
+			const pointBuffer = geo.buffer;
+			if (!pointBuffer) {
+				continue;
+			}
+
+			const sphereMat = new THREE.MeshBasicMaterial({ color: 0xeeeeff });
+			const dotMesh = new THREE.InstancedMesh(sphereGeo, sphereMat, geo.pointsPerPlane);
+			dotMesh.userData = { index };
+			// dotMesh.renderOrder = 10;
+			dotMesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+			// Set position of each dot
+			const matrix = new THREE.Matrix4();
+			for (let i = 0; i < geo.pointsPerPlane; i++) {
+				const idx = i * DataPlaneShapeGeometry.pointComponentSize;
+
+				// Apply scale
+
+				matrix.setPosition(
+					pointBuffer[idx],
+					pointBuffer[idx + 1] * dataScaleFactor,
+					pointBuffer[idx + 2]
+				);
+
+				dotMesh.setMatrixAt(i, matrix);
+			}
+
+			dotMesh.instanceMatrix.needsUpdate = true;
+			dotMesh.computeBoundingSphere();
+
+			// Scale data
+			layerGroup.children[0].scale.y = dataScaleFactor;
+
+			layerGroup.add(dotMesh);
+		}
+
+		this.min = globalMin;
+		this.max = globalMax;
+
 		// const geometry = new DataPlaneShapeGeometry(highestValues, undefined);
 
 		// // Create a material with the custom fragment shader
@@ -264,8 +290,19 @@ export class PlaneRenderer extends GraphRenderer<PlaneData> {
 		this.axisRenderer.position.x = -1;
 		this.axisRenderer.position.z = -1;
 		this.group.add(this.axisRenderer);
+		this.gridHelper = new THREE.GridHelper(2 * 4, (dataWidth - 1) * 4, 0x888888, 0x888888);
+
+		// Move grid helper by half a section to align with rendering
+		this.gridHelper.position.x += 1 / (dataWidth - 1);
+		this.gridHelper.position.z += 1 / (dataWidth - 1);
+
+		this.group?.add(this.gridHelper);
 
 		this.setScale(this.size);
+
+		// Offset grid by half of the size
+		// gridHelper.position.x = -size / 2;
+		// gridHelper.position.z = -size / 2;
 
 		this.scene?.add(group);
 	}

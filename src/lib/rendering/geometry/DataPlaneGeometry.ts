@@ -32,6 +32,7 @@ export class DataPlaneShapeGeometry extends THREE.BufferGeometry {
 		data: Data,
 		previousData: Data | undefined = undefined,
 		normalized = false,
+		interpolateZeroes = true,
 		private drawsSideWalls = false,
 		private drawsBottom = false
 	) {
@@ -74,7 +75,69 @@ export class DataPlaneShapeGeometry extends THREE.BufferGeometry {
 				throw new Error('Previous data has different dimensions');
 			}
 		}
+
+		if (interpolateZeroes) {
+			for (let z = 0; z < this.normalizedData.length; z++) {
+				for (let x = 0; x < this.normalizedData[z].length; x++) {
+					// Only interpolate within surface
+					if (
+						z < 1 ||
+						x < 1 ||
+						z >= this.normalizedData.length - 1 ||
+						x >= this.normalizedData[z].length - 1
+					) {
+						continue;
+					}
+
+					const value = this.normalizedData[z][x];
+					if (value === 0) {
+						const interpolatedValue = this.interpolate(this.normalizedData, z, x);
+						if (interpolatedValue !== null) {
+							this.normalizedData[z][x] = interpolatedValue;
+						}
+					}
+				}
+			}
+		}
 		this.computeGeometry();
+	}
+
+	interpolate(matrix: Data, z: number, x: number): number | null {
+		let sum = 0;
+		let count = 0;
+		let radius = 1;
+
+		while (true) {
+			const zMin = Math.max(z - radius, 0);
+			const zMax = Math.min(z + radius, matrix.length - 1);
+			const xMin = Math.max(x - radius, 0);
+			const xMax = Math.min(x + radius, matrix[z].length - 1);
+
+			let allZero = true;
+			for (let zi = zMin; zi <= zMax; zi++) {
+				for (let xi = xMin; xi <= xMax; xi++) {
+					// Only consider boundary values of the current radius
+					if (zi === z - radius || zi === z + radius || xi === x - radius || xi === x + radius) {
+						const val = matrix[zi][xi];
+						sum += val;
+						count++;
+
+						if (val !== 0) {
+							allZero = false;
+						}
+					}
+				}
+			}
+
+			if (!allZero || radius >= Math.max(matrix.length, matrix[0].length)) {
+				break;
+			}
+
+			radius++;
+		}
+
+		if (count === 0) return null;
+		return sum / count;
 	}
 
 	/**
@@ -138,17 +201,18 @@ export class DataPlaneShapeGeometry extends THREE.BufferGeometry {
 				const indexIdx = (z * (width - 1) + x) * 6;
 
 				// Add top plane coordinates
-				vertices[vertexIdx] = (x / width) * 2.0 - 1.0; //x
+				vertices[vertexIdx] = (x / (width - 1)) * 2.0 - 1.0; //x
 				vertices[vertexIdx + 1] = normalizedData[z][x]; //y
-				vertices[vertexIdx + 2] = (z / depth) * 2.0 - 1.0; //z
+				vertices[vertexIdx + 2] = (z / (depth - 1)) * 2.0 - 1.0; //z
 
 				if (this.drawsBottom) {
 					// Add bottom plane coordinates
-					vertices[vertexIdx + pointsPerPlane * bufferElementSize] = (x / width) * 2.0 - 1.0; //x
+					vertices[vertexIdx + pointsPerPlane * bufferElementSize] = (x / (width - 1)) * 2.0 - 1.0; //x
 					vertices[vertexIdx + pointsPerPlane * bufferElementSize + 1] = hasBottomLayer
 						? this.previousNormalizedData?.[z][x] ?? 0 // syntax enforced by strict null checks (should never happen)
 						: 0;
-					vertices[vertexIdx + pointsPerPlane * bufferElementSize + 2] = (z / depth) * 2.0 - 1.0; //z
+					vertices[vertexIdx + pointsPerPlane * bufferElementSize + 2] =
+						(z / (depth - 1)) * 2.0 - 1.0; //z
 				}
 
 				if (z === depth - 1 || x === width - 1) {

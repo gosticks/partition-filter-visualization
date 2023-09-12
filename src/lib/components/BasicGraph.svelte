@@ -89,14 +89,14 @@
 			cameraField * 4
 		);
 
-		camera.position.z = 1000;
-		camera.position.x = 1000;
-		camera.position.y = 1000;
+		camera.position.z = 2000;
+		camera.position.x = 2000;
+		camera.position.y = 2000;
 
 		// Add directional light pointing from camera
 		const light = new THREE.DirectionalLight(0xffffff, 1);
 		// const light = new PointLight(0xffffff, 1, 1000);
-		light.position.set(0, 200, 500);
+		light.position.set(0, 500, 500);
 		light.lookAt(0, 0, 0);
 		camera.add(light);
 
@@ -163,15 +163,6 @@
 		stats = new Stats();
 		stats.showPanel(1);
 		statsElement.appendChild(stats.dom);
-
-		const size = width * 2;
-		const divisions = (width * 10) / 300;
-
-		const gridHelper = new THREE.GridHelper(size, divisions);
-		// Offset grid by half of the size
-		// gridHelper.position.x = -size / 2;
-		// gridHelper.position.z = -size / 2;
-		scene.add(gridHelper);
 
 		setupMinimap();
 
@@ -283,16 +274,10 @@
 			return;
 		}
 
-		const obj = outlinePass.selectedObjects[0];
-
-		if (obj instanceof THREE.Mesh) {
-			const material = obj.material as DataPlaneShapeMaterial;
-			if (material.opacity < 0.6) {
-				material.opacity = 0.6;
-			} else {
-				material.opacity = 0.2;
-			}
-		}
+		// const obj = outlinePass.selectedObjects[0];
+		// if (obj.parent instanceof THREE.Group) {
+		// 	obj.parent.visible = !obj.parent.visible;
+		// }
 	}
 
 	function clearScene() {
@@ -319,7 +304,11 @@
 			{#if dataRenderer instanceof PlaneRenderer && dataRenderer.data}
 				<Card title="Layers">
 					{#each dataRenderer.data.layers as layer, index}
-						<div class="flex gap-4 pb-2" on:click={() => dataRenderer?.toggleLayer(index)}>
+						<div
+							class="flex gap-4 pb-2 cursor-pointer"
+							style="opacity: ${layer.visible ? 1.0 : 0.5};"
+							on:click={() => dataRenderer?.toggleLayer(index)}
+						>
 							<div
 								class="w-5 h-5 rounded-full bg-slate-300"
 								style={`background-color: ${layer.color ?? '#ff0000'};`}
