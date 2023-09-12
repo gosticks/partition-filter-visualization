@@ -51,6 +51,13 @@
 			filterOptions[label] = value;
 		}
 	};
+
+	const optionConstructor = (value: string, index: number, meta: unknown) => ({
+		label: value,
+		value: value,
+		id: index,
+		initiallySelected: filterOptions[meta as string] === value
+	});
 </script>
 
 <div class="absolute right-4 pt-4 t-0 bottom-0 w-96 min-h-full overflow-y-auto">
@@ -89,19 +96,22 @@
 				/>
 			{/if} -->
 					{#each Object.entries($filterStore.graphOptions.filterOptions) as [key, value]}
-						{#if value.type === 'string'}
+						{#if value?.type === 'string'}
 							<DropdownSelect
 								label={value.label || key}
 								singular
 								onSelect={(selected) => {
-									filterOptions[key] = selected.length > 0 ? selected[0] : undefined;
+									if (selected.length > 0) {
+										filterOptions[key] = selected[0].value;
+									} else {
+										delete filterOptions[key];
+									}
 								}}
-								options={value.options.map((entry) => ({
-									label: entry,
-									value: entry
-								}))}
+								meta={key}
+								values={value.options}
+								{optionConstructor}
 							/>
-						{:else if value.type === 'number'}
+						{:else if value?.type === 'number'}
 							<Slider
 								label={key}
 								initialValue={filterOptions[key]}

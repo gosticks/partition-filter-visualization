@@ -11,53 +11,84 @@
 	export let label: string | undefined = undefined;
 
 	// Data type
+
 	type T = $$Generic;
+	type R = $$Generic;
+	type M = $$Generic;
+	type Option = { label: string; value: T; id: number; initiallySelected: boolean };
 
-	export let options: { label: string; value: T }[];
+	export let selection = new Set<T>();
 
-	export let selected: T[] = [];
+	export let options: Option[] = [];
+	export let meta: M | undefined = undefined;
+	export let values: R[] | undefined = undefined;
+	export let optionConstructor: (value: R, index: number, meta: unknown) => Option;
+
+	let dummy = 0;
+
+	// $: {
+	// 	selectionLabel = labelForSelection(options.filter((o) => selection.has(o.value)));
+	// }
+	$: {
+		if (values) {
+			options = values.map((v, i) => optionConstructor(v, i, meta));
+
+			// Set all items that were initially selected
+			selection = new Set<T>(options.filter((o) => o.initiallySelected).map((o) => o.value));
+			const selectedOptions = options.filter((o) => selection.has(o.value));
+			const newLabel = labelForSelection(selectedOptions);
+			console.log('Selection', selection, selectedOptions, newLabel);
+			if (newLabel !== selectionLabel) {
+				selectionLabel = newLabel;
+			}
+		}
+	}
 
 	// add on select action
-	export let onSelect: (selected: T[]) => void | undefined;
+	export let onSelect: (selected: Option[]) => void | undefined;
 
-	let selectionLabel = labelForSelection(selected);
+	let selectionLabel = labelForSelection(options.filter((o) => selection.has(o.value)));
 
-	function internalOnSelect(value: T) {
+	function internalOnSelect(option: Option) {
 		if (singular) {
-			selected = [value];
-			onSelect?.(selected);
+			selection = new Set<T>([option.value]);
+			onSelect?.([option]);
 
 			return;
 		}
 
-		if (selected.includes(value)) {
-			selected = selected.filter((v) => v !== value);
+		if (selection.has(option.value)) {
+			selection.delete(option.value);
 		} else {
-			selected = [...selected, value];
+			selection.add(option.value);
 		}
-		selectionLabel = labelForSelection(selected);
+		selection = new Set<T>(selection);
 
-		onSelect?.(selected);
+		const selectedOptions = options.filter((o) => selection.has(o.value));
+		selectionLabel = labelForSelection(selectedOptions);
+
+		onSelect?.(selectedOptions);
 	}
 
 	function clearAll() {
-		selected = [];
-		onSelect?.(selected);
+		selection = new Set<T>();
+		onSelect?.([]);
 	}
 
 	function selectAll() {
-		selected = options.map((o) => o.value);
-		onSelect?.(selected);
+		selection = new Set<T>(options.map((o) => o.value));
+		onSelect?.(options);
 	}
 
 	// Computes the button text based on current selection
-	function labelForSelection(selected: T[]) {
+	function labelForSelection(selected: Option[]) {
+		console.log('Label for selection', label, selected, selected.length);
 		if (selected.length === 0) {
 			return 'Select';
 		}
 
 		if (singular) {
-			return options.find((o) => o.value === selected[0])?.label || 'Select';
+			return selected[0].label || 'Select';
 		}
 
 		if (options.length === selected.length) {
@@ -65,10 +96,6 @@
 		}
 
 		return `(${selected.length}) selected`;
-	}
-
-	$: {
-		selectionLabel = labelForSelection(selected);
 	}
 </script>
 
@@ -89,27 +116,27 @@
 
 		<div slot="content">
 			<ul>
-				{#each options as { label, value }, i}
-					{@const isSelected = selected.includes(value)}
+				{#each options as option, i}
+					{@const selected = selection.has(option.value)}
 					<li class="border-spacing-1 border-b dark:border-background-800 last:border-b-0">
 						<button
-							on:click={() => internalOnSelect(value)}
+							on:click={() => internalOnSelect(option)}
 							class="p-4 hover:bg-secondary-200 dark:hover:bg-secondary-700 w-full text-left flex gap-4"
 						>
 							<div class="w-6">
 								{#if singular}
 									<div
-										class="rounded-full op w-6 h-6 border-2 flex items-center justify-center border-secondary-900 {isSelected
+										class="rounded-full op w-6 h-6 border-2 flex items-center justify-center border-secondary-900 {selected
 											? 'opacity-100'
 											: 'opacity-20'}"
 									>
-										<div hidden={!isSelected} class="rounded-full w-4 h-4 bg-secondary-900" />
+										<div hidden={!selected} class="rounded-full w-4 h-4 bg-secondary-900" />
 									</div>
 								{:else}
-									<i hidden={!isSelected}><CheckIcon /></i>
+									<i hidden={!selected}><CheckIcon /></i>
 								{/if}
 							</div>
-							<span class={isSelected ? 'font-bold' : ''}>{label}</span></button
+							<span class={selected ? 'font-bold' : ''}>{option.label}</span></button
 						>
 					</li>
 				{/each}
