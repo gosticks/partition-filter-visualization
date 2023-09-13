@@ -15,14 +15,15 @@
 	type T = $$Generic;
 	type R = $$Generic;
 	type M = $$Generic;
-	type Option = { label: string; value: T; id: number; initiallySelected: boolean };
+	type Option = { label: string; value: T; id?: number; initiallySelected?: boolean };
 
 	export let selection = new Set<T>();
 
 	export let options: Option[] = [];
 	export let meta: M | undefined = undefined;
 	export let values: R[] | undefined = undefined;
-	export let optionConstructor: (value: R, index: number, meta: unknown) => Option;
+	export let optionConstructor: ((value: R, index: number, meta: unknown) => Option) | undefined =
+		undefined;
 
 	let dummy = 0;
 
@@ -30,14 +31,13 @@
 	// 	selectionLabel = labelForSelection(options.filter((o) => selection.has(o.value)));
 	// }
 	$: {
-		if (values) {
-			options = values.map((v, i) => optionConstructor(v, i, meta));
+		if (values && optionConstructor) {
+			options = values.map((v, i) => optionConstructor!(v, i, meta));
 
 			// Set all items that were initially selected
 			selection = new Set<T>(options.filter((o) => o.initiallySelected).map((o) => o.value));
 			const selectedOptions = options.filter((o) => selection.has(o.value));
 			const newLabel = labelForSelection(selectedOptions);
-			console.log('Selection', selection, selectedOptions, newLabel);
 			if (newLabel !== selectionLabel) {
 				selectionLabel = newLabel;
 			}
@@ -45,14 +45,15 @@
 	}
 
 	// add on select action
-	export let onSelect: (selected: Option[]) => void | undefined;
+	export let onSelect: (selected: Option[], meta?: unknown) => void | undefined;
 
 	let selectionLabel = labelForSelection(options.filter((o) => selection.has(o.value)));
 
 	function internalOnSelect(option: Option) {
+		// In singular mode we only allow one selection
 		if (singular) {
 			selection = new Set<T>([option.value]);
-			onSelect?.([option]);
+			onSelect?.([option], meta);
 
 			return;
 		}
@@ -72,17 +73,16 @@
 
 	function clearAll() {
 		selection = new Set<T>();
-		onSelect?.([]);
+		onSelect?.([], meta);
 	}
 
 	function selectAll() {
 		selection = new Set<T>(options.map((o) => o.value));
-		onSelect?.(options);
+		onSelect?.(options, meta);
 	}
 
 	// Computes the button text based on current selection
 	function labelForSelection(selected: Option[]) {
-		console.log('Label for selection', label, selected, selected.length);
 		if (selected.length === 0) {
 			return 'Select';
 		}

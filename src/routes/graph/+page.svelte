@@ -16,6 +16,11 @@
 	import MessageCard from '$lib/components/MessageCard.svelte';
 	import DropZone from '$lib/components/DropZone.svelte';
 	import filterStore, { type IFilterStoreGraphOptions } from '$lib/store/filterStore/FilterStore';
+	import Minimal from '$lib/components/graph/Minimal.svelte';
+	import PlaneGraph from '$lib/components/graph/PlaneGraph.svelte';
+	import { GraphOptions } from '$lib/store/filterStore/types';
+	import { PlaneGraphOptions } from '$lib/store/filterStore/graphs/plane';
+	import type { FilterEntry } from './proxy+page.server';
 
 	export let data: PageServerData;
 
@@ -35,6 +40,13 @@
 	function onHover(position: Vector2, object?: THREE.Object3D) {
 		hoverPosition = position;
 	}
+
+	function onSelectTable(selectionOptions: { label: string; value: FilterEntry }[]) {
+		const selectedTables = $filterStore.preloadedTables.filter(
+			(option) => option.value === selectionOptions[0].value
+		);
+		filterStore.selectBuildInTables(selectedTables.map((option) => option.value));
+	}
 </script>
 
 <div>
@@ -43,7 +55,12 @@
 			{#if $filterStore.graphOptions}
 				<div class="flex-grow flex-shrink">
 					<div class="flex flex-col">
-						<BasicGraph dataRenderer={$filterStore.graphOptions.getRenderer()} {onHover} />
+						<BasicGraph>
+							{#if $filterStore.graphOptions instanceof PlaneGraphOptions}
+								<PlaneGraph options={$filterStore.graphOptions} />
+							{/if}
+							<Minimal />
+						</BasicGraph>
 					</div>
 				</div>
 			{:else}
@@ -59,12 +76,7 @@
 					<MessageCard>
 						<h2 class="text-2xl font-bold mb-5">Please select filter family</h2>
 						<p class="mb-2">from filter data provided by us</p>
-						<DropdownSelect
-							onSelect={(options) => {
-								filterStore.selectBuildInTables(options);
-							}}
-							options={$filterStore.preloadedTables}
-						/>
+						<DropdownSelect onSelect={onSelectTable} options={$filterStore.preloadedTables} />
 						<div class="flex mt-5 mb-5 items-center justify-center">
 							<div class="border-t dark:border-background-700 w-full" />
 							<div class="mx-4 opacity-50">OR</div>

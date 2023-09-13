@@ -1,6 +1,5 @@
-import type { GraphRenderer } from '$lib/rendering/GraphRenderer';
 import type { FilterEntry } from '$routes/graph/+page.server';
-import type { FilterOptions } from '../dataStore/types';
+import type { Readable } from 'svelte/store';
 
 export enum GraphType {
 	PLANE = 'plane'
@@ -72,25 +71,27 @@ export type GraphFilterOptions<T> = Partial<
 >;
 
 export abstract class GraphOptions<
-	T extends Record<string, unknown> = Record<string, unknown>,
-	R extends GraphRenderer = GraphRenderer
+	Options extends Record<string, unknown> = Record<string, unknown>,
+	Data = unknown
 > {
-	public renderer: R;
 	public active = false;
-	public filterOptions: GraphFilterOptions<T>;
+	public filterOptions: GraphFilterOptions<Options>;
 
-	constructor(renderer: R, filterOptions: GraphFilterOptions<T>) {
-		this.renderer = renderer;
+	constructor(filterOptions: GraphFilterOptions<Options>) {
 		this.filterOptions = filterOptions;
 	}
 
 	public abstract isValid(): boolean;
-	public abstract getCurrentOptions(): T;
 	public abstract getType(): GraphType;
-	public abstract setStateValue<P extends Paths<T>>(path: P, value: PathValue<T, P>): void;
+	public abstract setStateValue<P extends Paths<Options>>(
+		path: P,
+		value: PathValue<Options, P>
+	): void;
 	public abstract applyOptionsIfValid(): Promise<void>;
 	public abstract updateFilterOptions(): void;
-	public abstract getRenderer(): R;
+
+	public abstract dataStore: Readable<Data | undefined>;
+	public abstract optionsStore: Readable<Options | undefined>;
 }
 
 export interface IFilterStore {

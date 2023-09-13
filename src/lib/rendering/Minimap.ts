@@ -130,7 +130,7 @@ export class Minimap {
 			-bounds.width * 4,
 			bounds.width * 4
 		);
-
+		console.log('bounds', bounds);
 		this.camera.position.z = Math.min(bounds.width, bounds.height);
 
 		// Setup event listeners

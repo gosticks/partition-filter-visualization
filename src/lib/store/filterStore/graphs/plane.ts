@@ -1,12 +1,11 @@
-import { PlaneRenderer } from '$lib/rendering/PlaneRenderer';
+import type { IPlaneRendererData } from '$lib/rendering/PlaneRenderer';
 import { dataStore } from '$lib/store/dataStore/DataStore';
-import { get } from 'svelte/store';
+import { get, readonly, writable, type Writable } from 'svelte/store';
 import { GraphOptions, type Paths, setObjectValue, type PathValue, GraphType } from '../types';
 import { DataScaling } from '$lib/store/dataStore/types';
-import FilterStore from '../FilterStore';
 import { graphColors, graphColors2 } from '$lib/rendering/colors';
 
-export type PlaneGraphState = {
+export interface IPlaneGraphState {
 	// Y Axis display scaling
 	axisRanges: Partial<{
 		x: [number, number];
@@ -26,13 +25,24 @@ export type PlaneGraphState = {
 	zScale: DataScaling;
 
 	normalized: string;
-};
+}
 
-export class PlaneGraphOptions extends GraphOptions<Partial<PlaneGraphState>, PlaneRenderer> {
-	private state: Partial<PlaneGraphState>;
+export class PlaneGraphOptions extends GraphOptions<
+	Partial<IPlaneGraphState>,
+	IPlaneRendererData | undefined
+> {
+	private state: Partial<IPlaneGraphState>;
+	private _dataStore: Writable<IPlaneRendererData | undefined> = writable(undefined);
+	private _optionsStore: Writable<Partial<IPlaneGraphState>> = writable({});
 
-	constructor(initialState: Partial<PlaneGraphState> = {}) {
-		super(new PlaneRenderer(), {});
+	public dataStore = readonly(this._dataStore);
+	public optionsStore = readonly(this._optionsStore);
+
+	constructor(initialState: Partial<IPlaneGraphState> = {}) {
+		super({});
+
+		this._optionsStore.set(initialState);
+
 		this.updateFilterOptions();
 
 		this.state = initialState;
@@ -88,15 +98,11 @@ export class PlaneGraphOptions extends GraphOptions<Partial<PlaneGraphState>, Pl
 		return GraphType.PLANE;
 	}
 
-	public getRenderer(): PlaneRenderer {
-		return this.renderer as PlaneRenderer;
-	}
-
 	public getCurrentOptions() {
 		return this.state;
 	}
 	public isValid(): boolean {
-		const requiredFields: (keyof PlaneGraphState)[] = [
+		const requiredFields: (keyof IPlaneGraphState)[] = [
 			'xTileCount',
 			'zTileCount',
 			'xColumnName',
@@ -107,9 +113,9 @@ export class PlaneGraphOptions extends GraphOptions<Partial<PlaneGraphState>, Pl
 		return requiredFields.every((field) => this.state[field] !== undefined);
 	}
 
-	public setStateValue<P extends Paths<Partial<PlaneGraphState>>>(
+	public setStateValue<P extends Paths<Partial<IPlaneGraphState>>>(
 		path: P,
-		value: PathValue<Partial<PlaneGraphState>, P>
+		value: PathValue<Partial<IPlaneGraphState>, P>
 	) {
 		(setObjectValue as any)(this.state, path, value as unknown);
 	}
@@ -123,7 +129,7 @@ export class PlaneGraphOptions extends GraphOptions<Partial<PlaneGraphState>, Pl
 
 		// Query data required for this graph
 		const { xColumnName, yColumnName, zColumnName, xTileCount, zTileCount, yScale } = this
-			.state as PlaneGraphState;
+			.state as IPlaneGraphState;
 
 		console.log('Querying tiled data for plane graph', this.state);
 
@@ -154,7 +160,7 @@ export class PlaneGraphOptions extends GraphOptions<Partial<PlaneGraphState>, Pl
 				}
 			}));
 
-			this.renderer.updateWithData({
+			this._dataStore.set({
 				layers,
 				labels: {
 					x: xColumnName,
@@ -165,21 +171,32 @@ export class PlaneGraphOptions extends GraphOptions<Partial<PlaneGraphState>, Pl
 				scaleY: 10
 			});
 
-			// FIXME: restructure this somewhere else
-			this.renderer.onDataPointSelected = (point, meta) => {
-				FilterStore.update((store) => {
-					if (!point) {
-						store.selectedPoint = undefined;
-						return store;
-					}
-					store.selectedPoint = {
-						dataPosition: point,
-						instanceId: 0,
-						meta: meta
-					};
-					return store;
-				});
-			};
+			// this.renderer.updateWithData({
+			// 	layers,
+			// 	labels: {
+			// 		x: xColumnName,
+			// 		y: yColumnName,
+			// 		z: zColumnName
+			// 	},
+			// 	normalized: this.state.normalized === 'true',
+			// 	scaleY: 10
+			// });
+
+			// // FIXME: restructure this somewhere else
+			// this.renderer.onDataPointSelected = (point, meta) => {
+			// 	FilterStore.update((store) => {
+			// 		if (!point) {
+			// 			store.selectedPoint = undefined;
+			// 			return store;
+			// 		}
+			// 		store.selectedPoint = {
+			// 			dataPosition: point,
+			// 			instanceId: 0,
+			// 			meta: meta
+			// 		};
+			// 		return store;
+			// 	});
+			// };
 		} catch (e) {
 			console.error('Failed to load tiled data:', e);
 			return;

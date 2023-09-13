@@ -40,10 +40,17 @@
 <button
 	{disabled}
 	on:click
-	class="inline-flex justify-between items-center border {classForDisabledState()} {classForColors()} {classForSize()}  font-medium focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 {className ??
+	class:disabled
+	class="inline-flex justify-between items-center border {classForColors()} {classForSize()}  font-medium focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 {className ??
 		''}"
 >
 	<slot name="leading" />
 	<slot />
 	<slot name="trailing" />
 </button>
+
+<style>
+	.disabled {
+		@apply cursor-not-allowed opacity-30 pointer-events-none;
+	}
+</style>

@@ -33,14 +33,11 @@
 
 		// If present load initial values
 		if (values.graphOptions) {
-			console.log('!!!Loading initial filter options', values.graphOptions);
 			filterOptions = values.graphOptions.getCurrentOptions();
 		}
 
 		filterStore.subscribe((value) => {
-			console.log('Values updated');
 			if (value.graphOptions) {
-				console.log('!!!Loading filter options', value.graphOptions.getCurrentOptions());
 				filterOptions = { ...value.graphOptions.getCurrentOptions() };
 			}
 		});
@@ -58,6 +55,15 @@
 		id: index,
 		initiallySelected: filterOptions[meta as string] === value
 	});
+
+	const onOptionSelected = (selected: { label: string; value: string }[], meta?: unknown) => {
+		const key = meta as string;
+		if (selected.length > 0) {
+			filterOptions[key] = selected[0].value;
+		} else {
+			delete filterOptions[key];
+		}
+	};
 </script>
 
 <div class="absolute right-4 pt-4 t-0 bottom-0 w-96 min-h-full overflow-y-auto">
@@ -100,13 +106,7 @@
 							<DropdownSelect
 								label={value.label || key}
 								singular
-								onSelect={(selected) => {
-									if (selected.length > 0) {
-										filterOptions[key] = selected[0].value;
-									} else {
-										delete filterOptions[key];
-									}
-								}}
+								onSelect={onOptionSelected}
 								meta={key}
 								values={value.options}
 								{optionConstructor}

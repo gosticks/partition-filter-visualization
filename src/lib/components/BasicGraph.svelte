@@ -1,51 +1,35 @@
 <script lang="ts" generics="Data extends unknown">
+	import type { GraphRenderLoopCallback, GraphService } from './graph/types';
+
+	import { defineService } from '$lib/contextService';
+
 	import Card from './Card.svelte';
-
-	import { Minimap } from '$lib/rendering/Minimap';
-
-	import type { D } from 'vitest/dist/types-71ccd11d';
-
-	import type { DataPlaneShapeMaterial } from '$lib/rendering/materials/DataPlaneMaterial';
 
 	import type { GraphRenderer } from '$lib/rendering/GraphRenderer';
 
 	import { browser } from '$app/environment';
-	import Stats from 'stats.js';
-	import { onMount, afterUpdate, beforeUpdate, onDestroy } from 'svelte';
+
+	import { onMount, onDestroy, setContext } from 'svelte';
 	import * as THREE from 'three';
 
 	import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls';
 	import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer';
 	import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass';
 	import { OutlinePass } from 'three/examples/jsm/postprocessing/OutlinePass';
-	import { AxisRenderer } from '$lib/rendering/AxisRenderer';
-	import { PlaneRenderer } from '$lib/rendering/PlaneRenderer';
+	import Stats from './graph/Stats.svelte';
 
 	export let onHover: (position: THREE.Vector2, object?: THREE.Object3D) => void = () => {};
 
-	export let data: Data | undefined = undefined;
-	// Internal data copy to check for changes
-	let _data: Data;
-
-	// let displatFilter: ;
-
 	let containerElement: HTMLDivElement;
-	let statsElement: HTMLDivElement;
-	let minimapElement: HTMLDivElement;
 
 	let scene: THREE.Scene;
 	let camera: THREE.Camera;
 	let renderer: THREE.WebGLRenderer;
 	let controls: OrbitControls;
-	let raycaster: THREE.Raycaster;
 	let outlinePass: OutlinePass;
 	let composer: EffectComposer;
-
-	let minimap: Minimap | undefined = undefined;
-
+	let isSetupComplete = false;
 	let stats: Stats;
-	let setupComplete = false;
-	export let dataRenderer: GraphRenderer<Data> | undefined;
 
 	function setupControls() {
 		controls = new OrbitControls(camera, renderer.domElement);
@@ -67,19 +51,6 @@
 		controls.addEventListener('change', () => {
 			controls.saveState();
 		});
-	}
-
-	function setupMinimap() {
-		if (!minimapElement) {
-			return;
-		}
-
-		if (minimap) {
-			minimap.destroy();
-		}
-
-		minimap = new Minimap(minimapElement);
-		minimap.setCurrentCamera(camera);
 	}
 
 	function setupScene() {
@@ -143,9 +114,6 @@
 		renderer.setSize(containerElement.clientWidth, containerElement.clientHeight);
 		containerElement.appendChild(renderer.domElement);
 
-		const width = containerElement.clientWidth;
-		const height = containerElement.clientHeight;
-
 		composer = new EffectComposer(renderer);
 
 		// Add default render pass
@@ -168,49 +136,79 @@
 
 		setupControls();
 
-		raycaster = new THREE.Raycaster();
-
-		stats = new Stats();
-		stats.showPanel(1);
-		statsElement.appendChild(stats.dom);
-
-		setupMinimap();
-
 		// Animation loop
 		const animate = () => {
-			controls.update();
-			stats.begin();
-
-			if (mousePosition && dataRenderer) {
-				// Handle selection
-				raycaster.setFromCamera(mousePosition, camera);
-
-				const intersections = dataRenderer.getIntersections(raycaster);
-
-				if (intersections.length === 0) {
-					outlinePass.selectedObjects = [];
-					onHover(mouseClientPosition, undefined);
-				} else {
-					outlinePass.selectedObjects = [intersections[0].object];
-					onHover(mouseClientPosition, intersections[0].object);
-				}
+			// call all before subscribers
+			for (const subscriber of beforeSubscribers) {
+				subscriber();
 			}
 
-			composer.render();
-			stats.end();
+			controls.update();
 
+			// if (mousePosition) {
+			// 	// Handle selection
+			// 	raycaster.setFromCamera(mousePosition, camera);
+
+			// 	// const intersections = dataRenderer.getIntersections(raycaster);
+
+			// 	// if (intersections.length === 0) {
+			// 	// 	outlinePass.selectedObjects = [];
+			// 	// 	onHover(mouseClientPosition, undefined);
+			// 	// } else {
+			// 	// 	outlinePass.selectedObjects = [intersections[0].object];
+			// 	// 	onHover(mouseClientPosition, intersections[0].object);
+			// 	// }
+			// }
+
+			composer.render();
+			for (const subscriber of afterSubscribers) {
+				subscriber();
+			}
 			requestAnimationFrame(animate);
 		};
 
 		// Setup resize handler
 		window.addEventListener('resize', windowResizeHandler);
 
-		// Initially update render
-		updateRenderer(dataRenderer);
-		setupComplete = true;
+		isSetupComplete = true;
 
+		// Set scene and camera to context
 		animate();
 	});
+
+	const beforeSubscribers: Set<GraphRenderLoopCallback> = new Set();
+	const afterSubscribers: Set<GraphRenderLoopCallback> = new Set();
+
+	const registerOnBeforeRender = (callback: GraphRenderLoopCallback) => {
+		beforeSubscribers.add(callback);
+
+		return () => {
+			beforeSubscribers.delete(callback);
+		};
+	};
+
+	const registerOnAfterRender = (callback: GraphRenderLoopCallback) => {
+		afterSubscribers.add(callback);
+
+		return () => {
+			afterSubscribers.delete(callback);
+		};
+	};
+
+	setContext<GraphService>('graph', {
+		getValues: getContextValues,
+		registerOnBeforeRender,
+		registerOnAfterRender
+	});
+
+	function getContextValues() {
+		return {
+			scene,
+			camera,
+			renderer,
+			domElement: containerElement
+		};
+	}
 
 	onDestroy(() => {
 		if (!browser) {
@@ -218,50 +216,6 @@
 		}
 
 		window.removeEventListener('resize', windowResizeHandler);
-	});
-
-	function updateRenderer(newRenderer?: GraphRenderer<Data>) {
-		if (!containerElement || !setupComplete) {
-			return;
-		}
-
-		// Remove old renderer
-		if (dataRenderer && dataRenderer !== newRenderer) {
-			dataRenderer.destroy();
-		}
-
-		if (!newRenderer) {
-			return;
-		}
-		dataRenderer = newRenderer;
-		// Setup new renderer
-		dataRenderer = newRenderer;
-		dataRenderer.setup(scene, camera);
-		const width = containerElement.clientWidth;
-		dataRenderer.setScale(new THREE.Vector3(width, width, width));
-		updateData(data);
-	}
-
-	function updateData(data?: Data) {
-		if (data) {
-			dataRenderer?.updateWithData(data);
-		}
-	}
-
-	$: {
-		if (setupComplete) {
-			updateRenderer(dataRenderer);
-		}
-	}
-	$: {
-		updateData(data);
-	}
-
-	onDestroy(() => {
-		if (!browser) {
-			return;
-		}
-
 		// Clean up Three.js resources on component destroy
 		clearScene();
 		renderer.dispose();
@@ -280,10 +234,9 @@
 	}
 
 	function handleClick(event: MouseEvent) {
-		if (outlinePass.selectedObjects.length === 0) {
-			return;
-		}
-
+		// if (outlinePass.selectedObjects.length === 0) {
+		// 	return;
+		// }
 		// const obj = outlinePass.selectedObjects[0];
 		// if (obj.parent instanceof THREE.Group) {
 		// 	obj.parent.visible = !obj.parent.visible;
@@ -303,43 +256,17 @@
 		bind:this={containerElement}
 		on:mousemove={handleHover}
 		on:click={handleClick}
-		class="bar-chart-container w-full h-full overflow-hidden isolate"
+		class="w-full h-full overflow-hidden isolate"
 	/>
-	<div
-		class="minimap absolute isolate left-0 bottom-20 w-[200px] h-[200px]"
-		bind:this={minimapElement}
-	/>
-	<div class="legend absolute isolate left-4 bottom-80 w-[250px]">
-		{#if dataRenderer}
-			{#if dataRenderer instanceof PlaneRenderer && dataRenderer.data}
-				<Card title="Layers">
-					{#each dataRenderer.data.layers as layer, index}
-						<div
-							class="flex gap-4 pb-2 cursor-pointer"
-							style="opacity: ${layer.visible ? 1.0 : 0.5};"
-							on:click={() => dataRenderer?.toggleLayer(index)}
-						>
-							<div
-								class="w-5 h-5 rounded-full bg-slate-300"
-								style={`background-color: ${layer.color ?? '#ff0000'};`}
-							/>
-							<p>{layer.name}</p>
-						</div>
-					{/each}
-				</Card>
-			{/if}
-		{/if}
-	</div>
-	<div class="stats absolute isolate top-0 left-0" bind:this={statsElement} />
+	<!-- Render children only after setup complete -->
+	{#if isSetupComplete}
+		<slot />
+		<Stats />
+	{/if}
 </div>
 
 <style lang="scss">
 	.bar-chart-container {
 		position: relative;
-	}
-
-	/* Override default stats placement */
-	:global(.stats > *) {
-		position: absolute !important;
 	}
 </style>

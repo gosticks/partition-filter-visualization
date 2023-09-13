@@ -5,7 +5,7 @@ import { DataPlaneShapeGeometry } from './geometry/DataPlaneGeometry';
 import { graphColors } from './colors';
 import { AxisRenderer, defaultAxisLabelOptions } from './AxisRenderer';
 
-interface PlaneData {
+export interface IPlaneRendererData {
 	// A list of ordered planes (e.g. bottom to top)
 	// each plane is a 2D array of points
 	layers: {
@@ -25,34 +25,20 @@ interface PlaneData {
 	scaleY?: number;
 }
 
-interface PlaneRendererOptions {
-	// TODO: think about naming
-	cols: number;
-	rows: number;
-}
-
-const defaultRendererOptions: PlaneRendererOptions = {
-	cols: 10,
-	rows: 10
-};
-
-export class PlaneRenderer extends GraphRenderer<PlaneData> {
-	public data?: PlaneData;
+export class PlaneRenderer extends GraphRenderer<IPlaneRendererData> {
+	public data?: IPlaneRendererData;
 	private gridHelper?: THREE.GridHelper;
 	private group?: THREE.Group;
-	private options: PlaneRendererOptions;
-	private size: THREE.Vector3 = new THREE.Vector3(0, 0, 0);
 	private depth = 0;
 	private width = 0;
 	private layers: THREE.Group[] = [];
 
-	// Dots displayed on top of each data layer
-	private layerDots: THREE.Group[] = [];
-	private selectedInstanceId: number | undefined;
-	private selectedLayerIndex: number | undefined;
-
 	private min = 0;
 	private max = 0;
+
+	// Dots displayed on top of each data layer
+	private selectedInstanceId: number | undefined;
+	private selectedLayerIndex: number | undefined;
 
 	private axisRenderer?: AxisRenderer;
 
@@ -61,13 +47,12 @@ export class PlaneRenderer extends GraphRenderer<PlaneData> {
 		return this.group?.children ?? [];
 	}
 
-	constructor(options: Partial<PlaneRendererOptions> = {}) {
+	constructor() {
 		super();
+	}
 
-		this.options = {
-			...defaultRendererOptions,
-			...options
-		};
+	onResize(evt: UIEvent): void {
+		console.log('Resizing plane renderer');
 	}
 
 	destroy(): void {
@@ -77,11 +62,15 @@ export class PlaneRenderer extends GraphRenderer<PlaneData> {
 		}
 	}
 
-	setup(scene: THREE.Scene, camera: THREE.Camera): void {
-		super.setup(scene, camera);
+	setup(renderContainer: HTMLElement, scene: THREE.Scene, camera: THREE.Camera): void {
+		super.setup(renderContainer, scene, camera);
+
+		// Subscribe to resize events
+		// renderTargetHTMLElement.addEventListener('resize', this.onResize.bind(this));
 	}
 
 	setScale(scale: THREE.Vector3): void {
+		console.log('Setting scale', scale);
 		this.size = scale;
 		this.group?.scale.copy(scale).multiplyScalar(0.25);
 		// this.group?.scale.copy(scale).multiply(dataScale).multiplyScalar(0.25);
@@ -150,12 +139,7 @@ export class PlaneRenderer extends GraphRenderer<PlaneData> {
 		return [];
 	}
 
-	toggleLayer(layerIndex: number) {
-		const layer = this.layers[layerIndex];
-		layer.visible = !layer.visible;
-	}
-
-	updateWithData(data: PlaneData, colorPalette: THREE.ColorRepresentation[] = graphColors) {
+	cleanup(): void {
 		// Remove all previous layers
 		this.layers.forEach((layer) => {
 			this.group?.remove(layer);
@@ -172,14 +156,48 @@ export class PlaneRenderer extends GraphRenderer<PlaneData> {
 			this.scene?.remove(this.group);
 			this.group.clear();
 		}
+	}
+
+	toggleLayerVisibility(layerIndex: number): boolean {
+		const layer = this.layers[layerIndex];
+		layer.visible = !layer.visible;
+
+		return layer.visible;
+	}
+
+	getLayerVisibility(): boolean[] {
+		return this.layers.map((layer) => layer.visible);
+	}
+
+	showAllLayers(): void {
+		this.layers.forEach((layer) => {
+			layer.visible = true;
+		});
+	}
+
+	hideAllLayers(): void {
+		this.layers.forEach((layer) => {
+			layer.visible = false;
+		});
+	}
+
+	updateWithData(
+		data: IPlaneRendererData,
+		colorPalette: THREE.ColorRepresentation[] = graphColors
+	) {
+		// Validate data
+		if (!data.layers.length) {
+			console.warn('No data provided');
+			return;
+		}
+
+		this.cleanup();
 
 		const group = new THREE.Group();
-
 		const sphereGeo = new THREE.SphereGeometry(0.008);
 
 		this.data = data;
 		const dataWidth = data.layers[0].points[0].length;
-		const dataDepth = data.layers[0].points.length;
 		let globalMin = Infinity;
 		let globalMax = -Infinity;
 
