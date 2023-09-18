@@ -1,96 +1,188 @@
 import type { IPlaneRendererData } from '$lib/rendering/PlaneRenderer';
 import { dataStore } from '$lib/store/dataStore/DataStore';
-import { get, readonly, writable, type Writable } from 'svelte/store';
-import { GraphOptions, type Paths, setObjectValue, type PathValue, GraphType } from '../types';
+import { get, readonly, writable, type Readable, type Writable } from 'svelte/store';
+import { GraphOptions, GraphType } from '../types';
 import { DataScaling } from '$lib/store/dataStore/types';
-import { graphColors, graphColors2 } from '$lib/rendering/colors';
+import { graphColors } from '$lib/rendering/colors';
+import type { ITiledDataOptions } from '$lib/store/dataStore/filterActions';
+import { urlDecodeObject, urlEncodeObject, withSingleKeyUrlStorage } from '$lib/store/urlStorage';
+import { withLogMiddleware } from '$lib/store/logMiddleware';
 
-export interface IPlaneGraphState {
-	// Y Axis display scaling
-	axisRanges: Partial<{
-		x: [number, number];
-		y: [number, number];
-		z: [number, number];
-	}>;
-	xTileCount: number;
-	zTileCount: number;
+type RequiredOptions = ITiledDataOptions & {
+	groupBy: string;
+};
 
-	xColumnName: string;
-	yColumnName: string;
-	zColumnName: string;
-
-	// Data scaling
-	yScale: DataScaling;
-	xScale: DataScaling;
-	zScale: DataScaling;
-
-	normalized: string;
-}
+export type IPlaneGraphState = (
+	| ({
+			isValid: true;
+	  } & RequiredOptions)
+	| ({
+			isValid: false;
+	  } & Partial<RequiredOptions>)
+) & { isRendered: boolean };
 
 export class PlaneGraphOptions extends GraphOptions<
-	Partial<IPlaneGraphState>,
+	Partial<RequiredOptions>,
 	IPlaneRendererData | undefined
 > {
-	private state: Partial<IPlaneGraphState>;
-	private _dataStore: Writable<IPlaneRendererData | undefined> = writable(undefined);
-	private _optionsStore: Writable<Partial<IPlaneGraphState>> = writable({});
+	private _dataStore: Writable<IPlaneRendererData | undefined>;
+	private _optionsStore: Writable<IPlaneGraphState>;
 
-	public dataStore = readonly(this._dataStore);
-	public optionsStore = readonly(this._optionsStore);
+	public dataStore: Readable<IPlaneRendererData | undefined>;
+	public optionsStore: Readable<Partial<RequiredOptions>>;
 
-	constructor(initialState: Partial<IPlaneGraphState> = {}) {
+	constructor(initialState: Partial<RequiredOptions> = {}) {
 		super({});
 
-		this._optionsStore.set(initialState);
+		this._dataStore = writable(undefined);
+		this.dataStore = readonly(this._dataStore);
 
-		this.updateFilterOptions();
+		// Check if options are initially valid
+		const initialOptions = {
+			isRendered: false,
+			isValid: this.isValid(initialState),
+			...initialState
+		} as IPlaneGraphState;
 
-		this.state = initialState;
-		console.log('Created plane graph options', this.state);
+		this._optionsStore = withLogMiddleware(
+			withSingleKeyUrlStorage(
+				writable(initialOptions),
+				'filterStore',
+				(state) => {
+					return urlEncodeObject(state);
+				},
+				(value) => {
+					if (!value || value === 'undefined') {
+						return initialOptions;
+					}
+					const state = urlDecodeObject(value);
+					return {
+						isRendered: false,
+						isValid: this.isValid(state),
+						...state
+					} as IPlaneGraphState;
+				}
+			),
+			'PlaneGraphOptions',
+			{
+				color: 'orange'
+			}
+		);
+		this.optionsStore = readonly(this._optionsStore);
+
+		this.reloadFilterOptions();
+
 		this.applyOptionsIfValid();
 	}
 
-	public updateFilterOptions() {
+	public setFilterOption = <K extends keyof RequiredOptions>(key: K, value: RequiredOptions[K]) => {
+		this._optionsStore.update((store) => {
+			(store as Partial<RequiredOptions>)[key] = value;
+			store.isValid = this.isValid(store);
+			return store;
+		});
+
+		this.applyOptionsIfValid();
+	};
+
+	public toString(): string {
+		const state = get(this._optionsStore);
+		console.log('Encoding', state);
+		return urlEncodeObject({
+			type: this.getType(),
+			state
+		});
+	}
+
+	private isValid(state: Partial<RequiredOptions> | undefined): boolean {
+		if (!state) {
+			return false;
+		}
+		const { xColumnName, yColumnName, zColumnName, tileCount, groupBy } = state;
+		return (
+			typeof groupBy === 'string' &&
+			typeof xColumnName === 'string' &&
+			typeof yColumnName === 'string' &&
+			typeof zColumnName === 'string' &&
+			typeof tileCount === 'number'
+		);
+	}
+
+	public reloadFilterOptions() {
 		const data = get(dataStore);
+		const stringTableColumns = Object.entries(data.combinedSchema)
+			.filter(([, type]) => type === 'string')
+			.map(([column]) => column);
 		const numberTableColumns = Object.entries(data.combinedSchema)
 			.filter(([, type]) => type === 'number')
 			.map(([column]) => column);
 		this.filterOptions = {
-			xColumnName: {
+			groupBy: {
 				type: 'string',
-				options: numberTableColumns,
-				label: 'X Axis'
+				options: stringTableColumns,
+				label: 'Group By'
 			},
-			zColumnName: {
-				type: 'string',
-				options: numberTableColumns,
-				label: 'Z Axis'
+			xColumnName: {
+				type: 'row',
+				keys: ['xColumnName', 'scaleX'],
+				grow: [0.7, 0.3],
+				items: [
+					{
+						type: 'string',
+						options: numberTableColumns,
+						label: 'X Axis'
+					},
+					{
+						type: 'string',
+						options: [DataScaling.LINEAR, DataScaling.LOG],
+						label: 'X Scale'
+					}
+				]
 			},
 			yColumnName: {
-				type: 'string',
-				options: numberTableColumns,
-				label: 'Y Axis'
+				type: 'row',
+				keys: ['yColumnName', 'scaleY'],
+				grow: [0.7, 0.3],
+				items: [
+					{
+						type: 'string',
+						options: numberTableColumns,
+						label: 'Y Axis'
+					},
+					{
+						type: 'string',
+						options: [DataScaling.LINEAR, DataScaling.LOG],
+						label: 'Y Scale'
+					}
+				]
 			},
-			xTileCount: {
+			zColumnName: {
+				type: 'row',
+				keys: ['zColumnName', 'scaleZ'],
+				grow: [0.7, 0.3],
+				items: [
+					{
+						type: 'string',
+						options: numberTableColumns,
+						label: 'Z Axis'
+					},
+					{
+						type: 'string',
+						options: [DataScaling.LINEAR, DataScaling.LOG],
+						label: 'Z Scale'
+					}
+				]
+			},
+			tileCount: {
 				type: 'number',
-				options: [1, 2, 4, 8, 16, 32, 64],
-				label: 'X Tile Count'
-			},
-			zTileCount: {
-				type: 'number',
-				options: [1, 2, 4, 8, 16, 32, 64],
-				label: 'Z Tile Count'
-			},
-			yScale: {
-				type: 'string',
-				options: [DataScaling.LINEAR, DataScaling.LOG],
-				label: 'Y Scale'
-			},
-			normalized: {
-				type: 'string',
-				label: 'Normalized',
-				options: ['true', 'false']
+				options: [2, 128],
+				label: 'Tile Count'
 			}
+			// zTileCount: {
+			// 	type: 'number',
+			// 	options: [2, 128],
+			// 	label: 'Z Tile Count'
+			// }
 		};
 	}
 
@@ -99,61 +191,69 @@ export class PlaneGraphOptions extends GraphOptions<
 	}
 
 	public getCurrentOptions() {
-		return this.state;
-	}
-	public isValid(): boolean {
-		const requiredFields: (keyof IPlaneGraphState)[] = [
-			'xTileCount',
-			'zTileCount',
-			'xColumnName',
-			'yColumnName',
-			'zColumnName'
-		];
-
-		return requiredFields.every((field) => this.state[field] !== undefined);
-	}
-
-	public setStateValue<P extends Paths<Partial<IPlaneGraphState>>>(
-		path: P,
-		value: PathValue<Partial<IPlaneGraphState>, P>
-	) {
-		(setObjectValue as any)(this.state, path, value as unknown);
+		return get(this._optionsStore);
 	}
 
 	public async applyOptionsIfValid() {
-		const isValid = this.isValid();
-		if (!isValid) {
-			console.error('Invalid graph options', this.state);
+		const state = get(this._optionsStore);
+		if (state.isValid !== true) {
 			return;
 		}
 
-		// Query data required for this graph
-		const { xColumnName, yColumnName, zColumnName, xTileCount, zTileCount, yScale } = this
-			.state as IPlaneGraphState;
-
-		console.log('Querying tiled data for plane graph', this.state);
+		// Get available tables
+		const data = get(dataStore);
 
 		// Get all layers
 		try {
-			const options = await dataStore.getDistinctValues('bloom', 'mode');
+			// eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+			// const options = await dataStore.getDistinctValues('bloom', state.groupBy);
+			const tables = Object.keys(data.tables);
+
+			const xAxisMinMax = await Promise.all(
+				tables.map((table) => dataStore.getMinMax(table, state.xColumnName, state.scaleX))
+			);
+			const yAxisMinMax = await Promise.all(
+				tables.map((table) => dataStore.getMinMax(table, state.yColumnName, state.scaleY))
+			);
+			const zAxisMinMax = await Promise.all(
+				tables.map((table) => dataStore.getMinMax(table, state.zColumnName, state.scaleZ))
+			);
+
+			const xAxisRange = xAxisMinMax.reduce(
+				(acc, [min, max]) => [Math.min(acc[0], min), Math.max(acc[1], max)],
+				[Infinity, -Infinity]
+			);
+			const yAxisRange = yAxisMinMax.reduce(
+				(acc, [min, max]) => [Math.min(acc[0], min), Math.max(acc[1], max)],
+				[Infinity, -Infinity]
+			);
+			const zAxisRange = zAxisMinMax.reduce(
+				(acc, [min, max]) => [Math.min(acc[0], min), Math.max(acc[1], max)],
+				[Infinity, -Infinity]
+			);
+
+			console.log('Z axis min/max', zAxisRange);
+			console.log('X axis min/max', xAxisRange);
+			console.log('Y axis min/max', yAxisRange);
 
 			const promise = await Promise.all(
-				options.map((mode) =>
-					dataStore.getTiledData('bloom', mode as string, {
-						xColumnName,
-						yColumnName,
-						zColumnName,
-						xTileCount,
-						zTileCount,
-						scale: yScale
-					})
+				tables.map((table) =>
+					dataStore.getTiledData(
+						table,
+						undefined,
+						state as RequiredOptions,
+						xAxisRange,
+						yAxisRange,
+						zAxisRange
+					)
 				)
 			);
+
 			const layers = promise.map((data, index) => ({
 				points: data.data,
 				min: data.min,
 				max: data.max,
-				name: options[index] as string,
+				name: tables[index] as string,
 				color: graphColors[index % graphColors.length],
 				meta: {
 					rows: data.queryResult
@@ -163,40 +263,13 @@ export class PlaneGraphOptions extends GraphOptions<
 			this._dataStore.set({
 				layers,
 				labels: {
-					x: xColumnName,
-					y: yColumnName,
-					z: zColumnName
+					x: state.xColumnName,
+					y: state.yColumnName,
+					z: state.zColumnName
 				},
-				normalized: this.state.normalized === 'true',
+				normalized: false,
 				scaleY: 10
 			});
-
-			// this.renderer.updateWithData({
-			// 	layers,
-			// 	labels: {
-			// 		x: xColumnName,
-			// 		y: yColumnName,
-			// 		z: zColumnName
-			// 	},
-			// 	normalized: this.state.normalized === 'true',
-			// 	scaleY: 10
-			// });
-
-			// // FIXME: restructure this somewhere else
-			// this.renderer.onDataPointSelected = (point, meta) => {
-			// 	FilterStore.update((store) => {
-			// 		if (!point) {
-			// 			store.selectedPoint = undefined;
-			// 			return store;
-			// 		}
-			// 		store.selectedPoint = {
-			// 			dataPosition: point,
-			// 			instanceId: 0,
-			// 			meta: meta
-			// 		};
-			// 		return store;
-			// 	});
-			// };
 		} catch (e) {
 			console.error('Failed to load tiled data:', e);
 			return;

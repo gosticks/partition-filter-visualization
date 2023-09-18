@@ -3,6 +3,7 @@ import type { BaseStoreType } from './DataStore';
 import type { IDataStore, ITableEntry, TableSchema } from './types';
 import { DuckDBDataProtocol } from '@duckdb/duckdb-wasm';
 import { TableSource, type ITableReference } from '../filterStore/types';
+import notificationStore from '../notificationStore';
 
 // Store extension containing actions to load data, transform & drop data
 export const dataStoreLoadExtension = (store: BaseStoreType, dataStore: Writable<IDataStore>) => {
@@ -88,7 +89,14 @@ export const dataStoreLoadExtension = (store: BaseStoreType, dataStore: Writable
 				await db.registerFileHandle(tableName, file, DuckDBDataProtocol.BROWSER_FILEREADER, true);
 				console.log('Registered file handle:', tableName);
 			} catch (e) {
-				console.error(`Failed to load table ${tableName} from file ${file.name}:`, e);
+				const msg = `Failed to load table ${tableName} from file ${file.name}`;
+				console.error(msg, e);
+				notificationStore.addNotification({
+					id: Date.now(),
+					message: msg,
+					description: (e as Error)?.message,
+					type: 'error'
+				});
 				throw e;
 			} finally {
 				store.setIsLoading(false);
@@ -139,7 +147,14 @@ export const dataStoreLoadExtension = (store: BaseStoreType, dataStore: Writable
 
 			return tableEntry;
 		} catch (e) {
-			console.error(`Failed to load table ${tableName} at ${path}:`, e);
+			const msg = `Failed to load table ${tableName} from path ${path}`;
+			console.error(msg, e);
+			notificationStore.addNotification({
+				id: Date.now(),
+				message: msg,
+				description: (e as Error)?.message,
+				type: 'error'
+			});
 			throw e;
 		} finally {
 			if (shouldSetLoading) {
@@ -322,10 +337,6 @@ export const dataStoreLoadExtension = (store: BaseStoreType, dataStore: Writable
 				return tableDefinitions;
 			} catch (e) {
 				console.error('Failed to load CSVs:', e);
-				dataStore.update((store) => {
-					store.tables = {};
-					return store;
-				});
 			}
 		});
 

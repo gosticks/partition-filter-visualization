@@ -4,7 +4,7 @@
 	import CodeEditor from './CodeEditor.svelte';
 	import type { AsyncDuckDBConnection } from '@duckdb/duckdb-wasm';
 	import type { editor } from 'monaco-editor';
-	import Button from './Button.svelte';
+	import Button from './button/Button.svelte';
 	import { dataStore } from '$lib/store/dataStore/DataStore';
 	import Card from './Card.svelte';
 

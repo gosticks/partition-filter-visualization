@@ -1,6 +1,6 @@
 <script lang="ts">
 	import type { PageServerData } from './$types';
-	import Button from '$lib/components/Button.svelte';
+	import Button from '$lib/components/button/Button.svelte';
 	import DropdownSelect from '$lib/components/DropdownSelect.svelte';
 	import BasicGraph from '$lib/components/BasicGraph.svelte';
 	import LoadingOverlay from '$lib/components/LoadingOverlay.svelte';
@@ -21,6 +21,8 @@
 	import { GraphOptions } from '$lib/store/filterStore/types';
 	import { PlaneGraphOptions } from '$lib/store/filterStore/graphs/plane';
 	import type { FilterEntry } from './proxy+page.server';
+	import TableSelection from '$lib/components/TableSelection.svelte';
+	import { ButtonColor, ButtonSize } from '$lib/components/button/type';
 
 	export let data: PageServerData;
 
@@ -33,19 +35,8 @@
 
 	let hoverPosition: Vector2 | undefined = undefined;
 
-	function filesDropped(files: FileList) {
-		dataStore.loadEntriesFromFileList(files);
-	}
-
 	function onHover(position: Vector2, object?: THREE.Object3D) {
 		hoverPosition = position;
-	}
-
-	function onSelectTable(selectionOptions: { label: string; value: FilterEntry }[]) {
-		const selectedTables = $filterStore.preloadedTables.filter(
-			(option) => option.value === selectionOptions[0].value
-		);
-		filterStore.selectBuildInTables(selectedTables.map((option) => option.value));
 	}
 </script>
 
@@ -74,24 +65,17 @@
 			{#if $filterStore.selectedTables.length === 0}
 				<div class="h-full w-full flex flex-col gap-10 justify-center items-center">
 					<MessageCard>
-						<h2 class="text-2xl font-bold mb-5">Please select filter family</h2>
-						<p class="mb-2">from filter data provided by us</p>
-						<DropdownSelect onSelect={onSelectTable} options={$filterStore.preloadedTables} />
-						<div class="flex mt-5 mb-5 items-center justify-center">
-							<div class="border-t dark:border-background-700 w-full" />
-							<div class="mx-4 opacity-50">OR</div>
-							<div class="border-t w-full dark:border-background-700" />
-						</div>
-						<p class="mb-2">your own dataset in CSV format</p>
-						<DropZone onFileDropped={filesDropped} />
+						<TableSelection />
 					</MessageCard>
 				</div>
 			{/if}
 		</div>
-		<FilterSidebar />
+		{#if $filterStore.selectedTables.length !== 0}
+			<FilterSidebar />
+		{/if}
 		<div class="fixed bottom-5 left-5">
-			<Dialog large>
-				<Button slot="trigger" color="secondary" size="lg">SQL Editor</Button>
+			<Dialog size={'large'}>
+				<Button slot="trigger" color={ButtonColor.PRIMARY} size={ButtonSize.LG}>SQL Editor</Button>
 				<svelte:fragment slot="title">SQL Query Editor</svelte:fragment>
 				<QueryEditor />
 			</Dialog>

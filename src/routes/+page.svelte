@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { base } from '$app/paths';
-	import Button from '$lib/components/Button.svelte';
+	import Button from '$lib/components/button/Button.svelte';
+	import { ButtonColor, ButtonSize } from '$lib/components/button/type';
 	import DropZone from '$lib/components/DropZone.svelte';
 	import GridBackground from '$lib/components/GridBackground.svelte';
 	import MessageCard from '$lib/components/MessageCard.svelte';
@@ -23,8 +24,8 @@
 			ut et quos animi eveniet.
 		</p>
 		<div class="flex gap-2 mt-6 h-min">
-			<Button size="lg">Upload CSV</Button><a href="{base}/graph"
-				><Button color="primary" size="lg">View Existing</Button></a
+			<Button size={ButtonSize.LG}>Upload CSV</Button><a href="{base}/graph"
+				><Button size={ButtonSize.LG} color={ButtonColor.SECONDARY}>View Existing</Button></a
 			>
 		</div>
 		<DropZone onFileDropped={onCsvDropped} />

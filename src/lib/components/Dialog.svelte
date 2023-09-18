@@ -3,8 +3,9 @@
 	import { onMount, onDestroy } from 'svelte';
 	import { fade, fly } from 'svelte/transition';
 
-	export let large = false;
+	type DialogSize = 'small' | 'medium' | 'large';
 
+	export let size: DialogSize = 'medium';
 	export let dialogOpen = false;
 	let className: string | undefined = undefined;
 	export { className as class };
@@ -48,8 +49,7 @@
 	>
 		<div
 			transition:fly={{ y: -120, delay: 25, duration: 150 }}
-			class="modal rounded-3xl shadow-xl bg-background-50 dark:bg-background-800"
-			class:large
+			class="modal rounded-3xl shadow-xl bg-background-50 dark:bg-background-800 {size}"
 		>
 			{#if $$slots.title}<div class="pb-4 mb-2 border-b">
 					<h2 class="font-bold text-xl"><slot name="title" /></h2>
@@ -81,6 +81,14 @@
 		&.large {
 			max-width: calc(95vw - 40px);
 			max-height: calc(95vh - 40px) !important;
+		}
+
+		&.small {
+			max-width: 500px;
+		}
+
+		@media (max-width: 768px) {
+			width: 90%;
 		}
 	}
 </style>

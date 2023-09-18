@@ -43,13 +43,11 @@ const initialStore: IFilterStore = {
 
 const urlEncoder: UrlEncoder = (key, type, value) => {
 	if (key === 'graphOptions') {
-		const graphOptions = value as GraphOptions;
-		const state = graphOptions.getCurrentOptions();
-
-		return urlEncodeObject({
-			type: graphOptions.getType(),
-			state: state
-		});
+		console.log('Encoding graph options', value);
+		if (!value) {
+			return undefined;
+		}
+		return (value as GraphOptions).getType();
 	}
 	const encodedValue = defaultUrlEncoder(key, type, value);
 	// console.log('Encoding', key, encodedValue, value, JSON.stringify(value));
@@ -63,18 +61,10 @@ let _graphOptions: GraphOptions | null = null;
 
 const urlDecoder: UrlDecoder = (key, type, value) => {
 	if (key === 'graphOptions') {
-		const val = urlDecodeObject(value) as { type: GraphType; state: unknown } | null;
-
-		if (!val) {
-			return null;
-		}
-
-		const { type, state } = val;
-
-		switch (type) {
+		const graphType = value as GraphType;
+		switch (graphType) {
 			case GraphType.PLANE: {
-				console.debug('Decoded plane graph options', state);
-				_graphOptions = new PlaneGraphOptions(state as Partial<PlaneGraphState>);
+				_graphOptions = new PlaneGraphOptions();
 				return undefined;
 			}
 		}
@@ -162,9 +152,9 @@ const _filterStore = () => {
 				try {
 					await selectTables(selectedTables);
 
-					if (_graphOptions) {
+					if (_graphOptions && _graphOptions !== null) {
 						console.log('Applying graph options', _graphOptions);
-						_graphOptions.updateFilterOptions();
+						_graphOptions.reloadFilterOptions();
 						update((store) => {
 							store.graphOptions = _graphOptions;
 							return store;
@@ -214,7 +204,7 @@ const _filterStore = () => {
 
 			update((store) => {
 				Object.entries(options).forEach(([key, value]) => {
-					graphOptions.setStateValue(key, value);
+					// graphOptions.setStateValue(key, value);
 				});
 				return store;
 			});

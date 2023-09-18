@@ -50,29 +50,38 @@ export function setObjectValue<T extends object, P extends Paths<T>>(
 	current[keys[keys.length - 1]] = value;
 }
 
-export type GraphFilterOptions<T> = Partial<
-	Record<
-		keyof T,
-		| {
-				type: 'string';
-				options: string[];
-				label: string;
-		  }
-		| {
-				type: 'number';
-				options: number[];
-				label: string;
-		  }
-		| {
-				type: 'boolean';
-				label: string;
-		  }
-	>
->;
+export type SimpleGraphFilterOption =
+	| {
+			type: 'string';
+			required?: boolean;
+			options: string[];
+			label: string;
+	  }
+	| {
+			type: 'number';
+			options: number[];
+			label: string;
+	  }
+	| {
+			type: 'boolean';
+			label: string;
+	  };
+
+export type GraphFilterOption<T> =
+	| SimpleGraphFilterOption
+	| {
+			type: 'row';
+			keys: (keyof T)[];
+			grow?: number[]; // Flex grow factor default 1 for all
+			items: SimpleGraphFilterOption[];
+	  };
+
+export type GraphFilterOptions<T> = Partial<Record<keyof T, GraphFilterOption<T>>>;
 
 export abstract class GraphOptions<
 	Options extends Record<string, unknown> = Record<string, unknown>,
-	Data = unknown
+	Data = unknown,
+	K extends keyof Options = keyof Options
 > {
 	public active = false;
 	public filterOptions: GraphFilterOptions<Options>;
@@ -81,17 +90,18 @@ export abstract class GraphOptions<
 		this.filterOptions = filterOptions;
 	}
 
-	public abstract isValid(): boolean;
 	public abstract getType(): GraphType;
-	public abstract setStateValue<P extends Paths<Options>>(
-		path: P,
-		value: PathValue<Options, P>
-	): void;
 	public abstract applyOptionsIfValid(): Promise<void>;
-	public abstract updateFilterOptions(): void;
+	public abstract reloadFilterOptions(): void;
+	public abstract setFilterOption(key: K, value: Options[K]): void;
 
 	public abstract dataStore: Readable<Data | undefined>;
 	public abstract optionsStore: Readable<Options | undefined>;
+
+	public abstract toString(): string;
+	public static fromString(str: string): GraphOptions | null {
+		return null;
+	}
 }
 
 export interface IFilterStore {

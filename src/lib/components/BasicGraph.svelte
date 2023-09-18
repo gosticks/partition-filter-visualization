@@ -1,6 +1,7 @@
 <script lang="ts" generics="Data extends unknown">
 	import type { GraphRenderLoopCallback, GraphService } from './graph/types';
 
+	import * as TWEEN from '@tweenjs/tween.js';
 	import { defineService } from '$lib/contextService';
 
 	import Card from './Card.svelte';
@@ -108,7 +109,11 @@
 
 		setupScene();
 
-		renderer = new THREE.WebGLRenderer({ alpha: false });
+		renderer = new THREE.WebGLRenderer({
+			alpha: false,
+			antialias: true,
+			powerPreference: 'high-performance'
+		});
 		renderer.setPixelRatio(window.devicePixelRatio || 1);
 		renderer.setClearColor(0x000000, 0);
 		renderer.setSize(containerElement.clientWidth, containerElement.clientHeight);
@@ -137,12 +142,12 @@
 		setupControls();
 
 		// Animation loop
-		const animate = () => {
+		const animate = (time: number) => {
 			// call all before subscribers
 			for (const subscriber of beforeSubscribers) {
 				subscriber();
 			}
-
+			TWEEN.update(time);
 			controls.update();
 
 			// if (mousePosition) {
@@ -173,7 +178,7 @@
 		isSetupComplete = true;
 
 		// Set scene and camera to context
-		animate();
+		animate(0);
 	});
 
 	const beforeSubscribers: Set<GraphRenderLoopCallback> = new Set();
@@ -251,7 +256,7 @@
 	}
 </script>
 
-<div class="relative w-screen h-screen">
+<div class="relative w-screen h-[80vh]">
 	<div
 		bind:this={containerElement}
 		on:mousemove={handleHover}

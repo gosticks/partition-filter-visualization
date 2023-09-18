@@ -7,7 +7,7 @@ export default {
 	theme: {
 		fontFamily: {
 			display: ['Source Serif Pro', 'Georgia', 'serif'],
-			body: ['Manrope', 'system-ui', 'sans-serif']
+			body: ['Inter', 'system-ui', 'sans-serif']
 		},
 
 		extend: {

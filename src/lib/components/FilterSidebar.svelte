@@ -2,93 +2,132 @@
 	import { dataStore } from '$lib/store/dataStore/DataStore';
 	import filterStore, { type IFilterStoreGraphOptions } from '$lib/store/filterStore/FilterStore';
 	import { onMount } from 'svelte';
-	import Button from './Button.svelte';
+	import Button from './button/Button.svelte';
 	import Card from './Card.svelte';
-	import DropdownSelect from './DropdownSelect.svelte';
 	import { get } from 'svelte/store';
-	import Slider from './Slider.svelte';
-	import { GraphType } from '$lib/store/filterStore/types';
+	import { GraphOptions, GraphType } from '$lib/store/filterStore/types';
+	import OptionRenderer from './OptionRenderer.svelte';
+	import Divider from './base/Divider.svelte';
+	import {
+		LayersIcon,
+		PlusIcon,
+		RefreshCcwIcon,
+		SettingsIcon,
+		Trash2Icon,
+		XIcon
+	} from 'svelte-feather-icons';
+	import { ButtonColor, ButtonSize, ButtonVariant } from './button/type';
+	import Dialog from './Dialog.svelte';
+	import DropZone from './DropZone.svelte';
+	import TableSelection from './TableSelection.svelte';
 
-	let filterOptions: Record<string, unknown> = {};
-
-	const sliderDisplay = (filterName: string) => {
-		switch (filterName) {
-			case 'size':
-				return (value: number) => `${(value / 1024 / 1024).toFixed(3)} MB`;
-			default:
-				return (value: number) => `${value}`;
-		}
-	};
+	let optionsStore: GraphOptions['optionsStore'] | undefined;
+	let isFilterBarOpen: boolean = true;
 
 	const applyFilter = () => {
-		console.log('Applying filter', filterOptions);
 		// TODO: validate filter options
-
-		filterStore.setGraphOptions(filterOptions);
+		// filterStore.setGraphOptions(filterOptions);
 	};
 
 	onMount(async () => {
 		// load initial options from store
 		const values = get(filterStore);
-
+		console.log('filterStore', values);
 		// If present load initial values
-		if (values.graphOptions) {
-			filterOptions = values.graphOptions.getCurrentOptions();
-		}
+		// if (values.graphOptions) {
+		// 	filterOptions = values.graphOptions.getCurrentOptions();
+		// }
 
-		filterStore.subscribe((value) => {
-			if (value.graphOptions) {
-				filterOptions = { ...value.graphOptions.getCurrentOptions() };
-			}
-		});
+		// filterStore.subscribe((value) => {
+		// 	if (value.graphOptions) {
+		// 		filterOptions = { ...value.graphOptions.getCurrentOptions() };
+		// 	}
+		// });
 	});
 
-	const onInput = (value: number, label?: string) => {
-		if (label) {
-			filterOptions[label] = value;
-		}
-	};
+	$: if ($filterStore.graphOptions) {
+		optionsStore = $filterStore.graphOptions.optionsStore;
+	}
 
-	const optionConstructor = (value: string, index: number, meta: unknown) => ({
-		label: value,
-		value: value,
-		id: index,
-		initiallySelected: filterOptions[meta as string] === value
-	});
+	function fadeSlide(node: HTMLElement, options?: { duration?: number }) {
+		return {
+			duration: options?.duration || 100,
+			css: (t: number) => `
+				transform: translateY(${(1 - t) * -20}px) scale(${0.9 + t * 0.1});
+                opacity: ${t};
+			`
+		};
+	}
 
-	const onOptionSelected = (selected: { label: string; value: string }[], meta?: unknown) => {
-		const key = meta as string;
-		if (selected.length > 0) {
-			filterOptions[key] = selected[0].value;
-		} else {
-			delete filterOptions[key];
-		}
-	};
+	function _toggleFilterBar() {
+		isFilterBarOpen = !isFilterBarOpen;
+	}
 </script>
 
 <div class="absolute right-4 pt-4 t-0 bottom-0 w-96 min-h-full overflow-y-auto">
-	<!-- <Card>Available preloaded tables {$filterStore.preloadedTables.length}</Card> -->
-	{#if Object.keys($dataStore.tables).length > 0}
-		<Card title="Filter Family">
-			<p class="mb-4">
-				Loaded tables: {Object.entries($dataStore.tables).reduce(
-					(acc, [name, value]) => acc + ` ${name}`,
-					''
-				)}
-			</p>
-			<Button color="secondary" on:click={filterStore.reset}>Reset</Button>
-		</Card>
-		<Card title="Graph Type"
-			><Button
-				on:click={() => {
-					filterStore.selectGraphType(GraphType.PLANE);
-				}}>Plane mode</Button
-			></Card
+	<div class="mb-4 flex justify-end mr-1">
+		<Button
+			size={ButtonSize.SM}
+			color={isFilterBarOpen ? ButtonColor.PRIMARY : ButtonColor.SECONDARY}
+			on:click={_toggleFilterBar}
 		>
-		{#if $filterStore.graphOptions}
-			<Card title="Visualization options">
-				<div class="flex flex-col gap-2">
-					<!-- {#if typeof $dataStore.combinedSchema['mode'] !== 'undefined'}
+			<div class="py-1">
+				<SettingsIcon />
+			</div>
+		</Button>
+	</div>
+	{#if isFilterBarOpen}
+		<div transition:fadeSlide={{ duration: 100 }}>
+			<!-- <Card>Available preloaded tables {$filterStore.preloadedTables.length}</Card> -->
+			<Card>
+				<div class="flex justify-between items-center">
+					<h3 class="font-semibold text-lg">Loaded table</h3>
+					<Button size={ButtonSize.SM} on:click={filterStore.reset}>
+						<svelte:fragment slot="trailing">
+							<RefreshCcwIcon size="12" />
+						</svelte:fragment>
+						Reset</Button
+					>
+				</div>
+				<ul>
+					{#each Object.entries($dataStore.tables) as [tableName, table]}
+						<li class="flex py-1 justify-between items-center">
+							<div>{tableName}</div>
+							<Button variant={ButtonVariant.LINK} size={ButtonSize.SM}><XIcon size="15" /></Button>
+						</li>
+					{/each}
+				</ul>
+				<Dialog size="small">
+					<Button slot="trigger" size={ButtonSize.SM}>
+						<svelte:fragment slot="trailing">
+							<PlusIcon size="12" />
+						</svelte:fragment>
+						Load More</Button
+					>
+
+					<TableSelection />
+				</Dialog>
+				{#if Object.keys($dataStore.tables).length > 0}
+					<Divider />
+					<h3 class="font-semibold text-lg mb-2">Graph Type</h3>
+					{#each Object.values(GraphType) as graphType}
+						<Button
+							color={graphType === $filterStore.graphOptions?.getType()
+								? ButtonColor.PRIMARY
+								: ButtonColor.SECONDARY}
+							on:click={() => filterStore.selectGraphType(graphType)}
+						>
+							<div class="flex gap-2 flex-col items-center">
+								<LayersIcon />
+								<p class="text-sm">{graphType}</p>
+							</div>
+						</Button>
+					{/each}
+					{#if optionsStore && $filterStore.graphOptions}
+						<Divider />
+						<h3 class="font-semibold text-lg">Visualization options</h3>
+						<div class="flex flex-col gap-2">
+							<!-- {#if typeof $dataStore.combinedSchema['mode'] !== 'undefined'}
 				<DropdownSelect
 					label="Groupings"
 					singular
@@ -101,87 +140,23 @@
 					}))}
 				/>
 			{/if} -->
-					{#each Object.entries($filterStore.graphOptions.filterOptions) as [key, value]}
-						{#if value?.type === 'string'}
-							<DropdownSelect
-								label={value.label || key}
-								singular
-								onSelect={onOptionSelected}
-								meta={key}
-								values={value.options}
-								{optionConstructor}
-							/>
-						{:else if value?.type === 'number'}
-							<Slider
-								label={key}
-								initialValue={filterOptions[key]}
-								value={filterOptions[key]}
-								min={Math.min(...value.options)}
-								max={Math.max(...value.options)}
-								diplayFunction={sliderDisplay(key)}
-								{onInput}
-							/>
-						{/if}
-					{/each}
-					<!--
-					<DropdownSelect
-						label={`${axis} Axis`}
-						singular
-						selected={$filterStore.graphOptions?.options[axis] !== undefined
-							? [$filterStore.graphOptions?.options[axis]]
-							: undefined}
-						onSelect={(selected) => {
-							setAxisOptions(axis, selected.length > 0 ? selected[0] : undefined);
-						}}
-						options={Object.entries($dataStore.combinedSchema)
-							.filter(([_, value]) => value === 'number')
-							.map(([key]) => ({
-								label: key,
-								value: key
-							}))}
-					/>
-				{/each} -->
-					<Button color="primary" size="lg" on:click={applyFilter}>Visualize</Button>
-				</div>
-			</Card>
-		{/if}
-		{#if $dataStore.combinedSchema}
-			<!-- <Card title="Filters">
-				<div class="flex flex-col gap-2 h-[300px] overflow-y-scroll">
-					{#each Object.entries($dataStore.commonFilterOptions) as [filterName, filter], idx}
-						<div>
-							{#if filter.type === 'string'}
-								<DropdownSelect
-									label={filterName}
-									onSelect={(selected) => {
-										selectedFilterOptions[filterName] = {
-											options: selected,
-											type: filter.type
-										};
-									}}
-									options={filter.options.map((entry) => ({
-										label: entry,
-										value: entry
-									}))}
-								/>
-							{:else if filter.type === 'number'}
-								<Slider
-									label={filterName}
-									min={Math.min(...filter.options)}
-									max={Math.max(...filter.options)}
-									diplayFunction={sliderDisplay(filterName)}
-									onInput={(value) => {
-										selectedFilterOptions[filterName] = {
-											options: [value],
-											type: filter.type
-										};
-									}}
-								/>
-							{/if}
+							<div class="mb-4">
+								{#each Object.entries($filterStore.graphOptions.filterOptions ?? {}) as [key, value]}
+									{#if typeof value !== 'undefined'}
+										<OptionRenderer
+											onValueChange={$filterStore.graphOptions.setFilterOption}
+											option={value}
+											state={$optionsStore}
+											{key}
+										/>
+									{/if}
+								{/each}
+							</div>
+							<Button color="secondary" on:click={applyFilter}>Reset</Button>
 						</div>
-					{/each}
-				</div>
-			</Card> -->
-		{/if}
+					{/if}
+				{/if}
+			</Card>
+		</div>
 	{/if}
 </div>

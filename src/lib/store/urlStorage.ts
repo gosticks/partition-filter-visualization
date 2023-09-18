@@ -54,6 +54,59 @@ export const defaultUrlEncoder = (
 export type UrlDecoder = typeof defaultUrlDecoder;
 export type UrlEncoder = typeof defaultUrlEncoder;
 
+export const withSingleKeyUrlStorage = <S>(
+	store: Writable<S>,
+	key: string,
+	encoder: (state: S) => string | null,
+	decoder: (value?: string | null) => S
+) => {
+	// Restore state from storage
+	const params = new URLSearchParams(location.search);
+
+	// Set initial store state
+	store.set(decoder(params.get(key)));
+
+	const encodeValues = (store: S) => {
+		const params = new URLSearchParams(location.search);
+
+		const encodedValue = encoder(store);
+		if (encodedValue === null || encodedValue === undefined) {
+			params.delete(key);
+			return params;
+		}
+		params.set(key, encodedValue);
+
+		return params;
+	};
+
+	// Wrap update with storage functionality
+	const oldUpdate = store.update;
+	store.update = (updater: Updater<S>) => {
+		oldUpdate((state) => {
+			const newState = updater(state);
+			const params = encodeValues(newState);
+
+			// Check if anything has changed
+			if (params.toString() === location.search.slice(1)) {
+				return newState;
+			}
+			history.replaceState(null, '', `${location.pathname}?${params.toString()}`);
+
+			return newState;
+		});
+	};
+
+	const oldSet = store.set;
+	store.set = (state: S) => {
+		oldSet(state);
+		const newState = get(store);
+		const params = encodeValues(newState);
+		history.replaceState(null, '', `${location.pathname}?${params.toString()}`);
+	};
+
+	return store;
+};
+
 export const withUrlStorage = <S extends object, T extends EncodableTypes = EncodableTypes>(
 	store: Writable<S>,
 	storeKeys: Partial<Record<keyof S, T>>,
@@ -96,7 +149,7 @@ export const withUrlStorage = <S extends object, T extends EncodableTypes = Enco
 			}
 
 			const encodedValue = encoder(key.toString(), type, value);
-			if (encodedValue === null) {
+			if (encodedValue === null || encodedValue === undefined) {
 				params.delete(key.toString());
 				return;
 			}

@@ -28,6 +28,7 @@ import { AxisRenderer } from './AxisRenderer';
 import * as THREE from 'three';
 
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls';
+import { Easing, Tween } from '@tweenjs/tween.js';
 
 const grayColorList = [
 	'#2B2B2B', // Charcoal Gray
@@ -394,9 +395,25 @@ export class Minimap {
 
 		console.log('Looking at', lookDirection, this.trackedCamera);
 
-		const cameraPosition = lookDirection.multiplyScalar(300);
-		this.camera.position.copy(cameraPosition);
-		this.camera.lookAt(lookDirection);
+		const initialLookAt = this.camera.position.clone();
+		const cameraTarget = lookDirection.multiplyScalar(300);
+
+		// Compute distance between current camera position and target to compute duration
+		const distance = initialLookAt.distanceTo(cameraTarget);
+		const duration = Math.min(200, distance * 2);
+
+		new Tween(initialLookAt)
+			.to(cameraTarget, duration) // 2000 milliseconds
+			.easing(Easing.Cubic.In) // Easing type
+			.onUpdate(() => {
+				this.camera.position.set(initialLookAt.x, initialLookAt.y, initialLookAt.z);
+				// Called during the update of the tween. Useful if you need to perform actions during the animation.
+			})
+			.start();
+
+		// const cameraPosition = lookDirection.multiplyScalar(300);
+		// this.camera.position.copy(cameraPosition);
+		// this.camera.lookAt(lookDirection);
 
 		// Clear face selection to avoid issues
 		this.clearFaceSelection();

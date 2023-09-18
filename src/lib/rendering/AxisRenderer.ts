@@ -14,6 +14,8 @@ export interface AxisOptions {
 	lineWidth: number;
 	lineColor: THREE.ColorRepresentation;
 	label: AxisLabelOptions;
+	segments?: number;
+	labelForSegment?: (segment: number) => string;
 }
 
 export interface AxisRendererOptions {
@@ -24,6 +26,12 @@ export interface AxisRendererOptions {
 	x: AxisOptions;
 	y: AxisOptions;
 	z: AxisOptions;
+}
+
+export enum Axis {
+	X = 'x',
+	Y = 'y',
+	Z = 'z'
 }
 
 export const defaultAxisLabelOptions = {
@@ -50,7 +58,8 @@ const defaultAxisRendererOptions: AxisRendererOptions = {
 		label: {
 			...defaultAxisLabelOptions,
 			text: 'x'
-		}
+		},
+		segments: 10
 	},
 	y: {
 		...defaultAxisOptions,
@@ -67,6 +76,59 @@ const defaultAxisRendererOptions: AxisRendererOptions = {
 		}
 	}
 };
+
+class TextTexture extends THREE.CanvasTexture {
+	private canvas?: HTMLCanvasElement;
+	private context?: CanvasRenderingContext2D;
+
+	constructor(text: string, options: AxisLabelOptions) {
+		// Create a canvas element
+		const canvas = document.createElement('canvas');
+		canvas.width = text.length * options.fontSize;
+		canvas.height = options.fontSize * options.fontLineHeight;
+
+		// Get the 2D rendering context of the canvas
+		const context = canvas.getContext('2d');
+
+		if (!context) {
+			throw new Error('Failed to create canvas context');
+		}
+
+		// Set the font properties
+		context.font = `${options.fontSize}px ${options.font}`;
+
+		// Set the text color
+		context.fillStyle = new THREE.Color(options.color).getStyle();
+
+		// Set the text alignment and baseline
+		context.textAlign = 'center';
+		context.textBaseline = 'middle';
+
+		// Calculate the text position in the center of the canvas
+		const canvasWidth = canvas.width;
+		const canvasHeight = canvas.height;
+		const textX = canvasWidth / 2;
+		const textY = canvasHeight / 2;
+
+		// Render the text on the canvas
+		context.fillText(text, textX, textY);
+
+		// Create a texture from the canvas
+		super(canvas);
+
+		this.canvas = canvas;
+		this.context = context;
+
+		// TODO: maybe reuse canvas if we update the labels frequently
+		// Remove the canvas from the DOM
+		// document.removeChild(textCanvas);
+	}
+
+	dispose(): void {
+		this.canvas?.remove();
+		super.dispose();
+	}
+}
 
 export class AxisRenderer extends THREE.Object3D {
 	private options: AxisRendererOptions;
@@ -143,10 +205,73 @@ export class AxisRenderer extends THREE.Object3D {
 		line.scale.set(scaleFactor.x, scaleFactor.y, scaleFactor.z);
 		axis.add(line);
 
+		// Draw line segments
+		console.log('!!!Drawing segments', options.segments, scaleFactor);
+		if (options.segments) {
+			const segmentDirection = direction
+				.clone()
+				.applyAxisAngle(new THREE.Vector3(1, 0, 1), Math.PI / 2);
+
+			console.log('Segment direction');
+			const segmentGap = 1 / (options.segments ?? 1);
+			const geometry = new THREE.BufferGeometry().setFromPoints([
+				new THREE.Vector3(0, 0, 0),
+				// Get 90 deg angle to direction vector
+				new THREE.Vector3(100, 0, 0)
+			]);
+			for (let i = 0; i <= options.segments; i++) {
+				const material = new MeshLineMaterial({
+					color: options.lineColor,
+					lineWidth: options.lineWidth
+				});
+
+				const segmentLine = new THREE.Mesh(geometry, material);
+
+				segmentLine.position.set(0, 0, 0);
+
+				segmentLine.scale.set(scaleFactor.x, scaleFactor.y, scaleFactor.z);
+
+				axis.add(segmentLine);
+				const labelText =
+					options.labelForSegment?.(i) ?? (i / options.segments).toPrecision(2).toString();
+				const textWidth = labelText.length * 0.75;
+				const label = new THREE.Sprite(
+					new THREE.SpriteMaterial({
+						transparent: true,
+						depthWrite: false,
+						map: new TextTexture(labelText, {
+							...options.label,
+							fontSize: options.label.fontSize * 0.5
+						})
+					})
+				);
+
+				const labelOffset = direction
+					.clone()
+					.multiply(this.options.size.clone().multiplyScalar(i / options.segments));
+
+				const sizeScale = 4 / options.segments;
+				const nonMainAxisOffset = 0.2 + 0.1 * sizeScale;
+				label.position.set(
+					labelOffset.x === 0 ? -nonMainAxisOffset * this.options.labelScale : labelOffset.x,
+					labelOffset.y === 0 ? -nonMainAxisOffset * this.options.labelScale : labelOffset.y,
+					labelOffset.z === 0 ? -nonMainAxisOffset * this.options.labelScale : labelOffset.z
+				);
+				label.scale
+					.set(
+						this.options.labelScale * textWidth,
+						this.options.labelScale,
+						this.options.labelScale
+					)
+					.multiplyScalar(sizeScale);
+				axis.add(label);
+			}
+		}
 		const label = new THREE.Sprite(
 			new THREE.SpriteMaterial({
 				transparent: true,
-				map: this.createTextTexture(options.label)
+				depthWrite: false,
+				map: new TextTexture(options.label.text, options.label)
 			})
 		);
 
@@ -167,51 +292,4 @@ export class AxisRenderer extends THREE.Object3D {
 
 		return axis;
 	};
-
-	private createTextTexture(options: AxisLabelOptions): THREE.Texture | null {
-		let textCanvas: HTMLCanvasElement | undefined = undefined;
-		let textContext: CanvasRenderingContext2D | undefined = undefined;
-		// Create a canvas element
-		const canvas = document.createElement('canvas');
-		canvas.width = options.text.length * options.fontSize;
-		canvas.height = options.fontSize * options.fontLineHeight;
-
-		// Get the 2D rendering context of the canvas
-		const context = canvas.getContext('2d');
-
-		if (!context) {
-			return null;
-		}
-
-		textCanvas = canvas;
-		textContext = context;
-
-		// Set the font properties
-		textContext.font = `${options.fontSize}px ${options.font}`;
-
-		// Set the text color
-		textContext.fillStyle = new THREE.Color(options.color).getStyle();
-
-		// Set the text alignment and baseline
-		textContext.textAlign = 'center';
-		textContext.textBaseline = 'middle';
-
-		// Calculate the text position in the center of the canvas
-		const canvasWidth = textCanvas.width;
-		const canvasHeight = textCanvas.height;
-		const textX = canvasWidth / 2;
-		const textY = canvasHeight / 2;
-
-		// Render the text on the canvas
-		textContext.fillText(options.text, textX, textY);
-
-		// Create a texture from the canvas
-		const texture = new THREE.CanvasTexture(textCanvas);
-
-		// TODO: maybe reuse canvas if we update the labels frequently
-		// Remove the canvas from the DOM
-		// document.removeChild(textCanvas);
-
-		return texture;
-	}
 }

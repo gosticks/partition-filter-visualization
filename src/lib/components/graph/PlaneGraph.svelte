@@ -6,7 +6,8 @@
 	import Card from '../Card.svelte';
 	import type { PlaneGraphOptions } from '$lib/store/filterStore/graphs/plane';
 	import type { Unsubscriber } from 'svelte/store';
-	import Button from '../Button.svelte';
+	import Button from '../button/Button.svelte';
+	import type { Axis } from '$lib/rendering/AxisRenderer';
 
 	export let options: PlaneGraphOptions;
 
@@ -25,6 +26,7 @@
 
 	const updateWithData = (data?: IPlaneRendererData) => {
 		if (!data || !dataRenderer) return;
+		dataRenderer.setAxisLabelRenderer(labelForAxis);
 		dataRenderer.updateWithData(data);
 		layerVisibility = dataRenderer.getLayerVisibility();
 	};
@@ -39,6 +41,11 @@
 		dataRenderer?.destroy();
 		unsubscriber?.();
 	});
+
+	const labelForAxis = (axis: Axis, segment: number) => {
+		$dataStore?.layers
+		return segment.toFixed(2) *;
+	};
 
 	const toggleLayerVisibility = (index: number) => {
 		dataRenderer.toggleLayerVisibility(index);

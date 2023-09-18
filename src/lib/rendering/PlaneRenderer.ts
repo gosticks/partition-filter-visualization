@@ -3,7 +3,7 @@ import { GraphRenderer } from './GraphRenderer';
 import { DataPlaneShapeMaterial } from './materials/DataPlaneMaterial';
 import { DataPlaneShapeGeometry } from './geometry/DataPlaneGeometry';
 import { graphColors } from './colors';
-import { AxisRenderer, defaultAxisLabelOptions } from './AxisRenderer';
+import { Axis, AxisRenderer, defaultAxisLabelOptions } from './AxisRenderer';
 
 export interface IPlaneRendererData {
 	// A list of ordered planes (e.g. bottom to top)
@@ -29,12 +29,14 @@ export class PlaneRenderer extends GraphRenderer<IPlaneRendererData> {
 	public data?: IPlaneRendererData;
 	private gridHelper?: THREE.GridHelper;
 	private group?: THREE.Group;
-	private depth = 0;
-	private width = 0;
+	private dataDepth = 0;
+	private dataWidth = 0;
 	private layers: THREE.Group[] = [];
-
+	private scale = 2;
 	private min = 0;
 	private max = 0;
+
+	private axisLabelRenderer?: (axis: Axis, segment: number) => string;
 
 	// Dots displayed on top of each data layer
 	private selectedInstanceId: number | undefined;
@@ -62,6 +64,10 @@ export class PlaneRenderer extends GraphRenderer<IPlaneRendererData> {
 		}
 	}
 
+	setAxisLabelRenderer(renderer?: (axis: Axis, segment: number) => string): void {
+		this.axisLabelRenderer = renderer;
+	}
+
 	setup(renderContainer: HTMLElement, scene: THREE.Scene, camera: THREE.Camera): void {
 		super.setup(renderContainer, scene, camera);
 
@@ -70,10 +76,9 @@ export class PlaneRenderer extends GraphRenderer<IPlaneRendererData> {
 	}
 
 	setScale(scale: THREE.Vector3): void {
-		console.log('Setting scale', scale);
 		this.size = scale;
-		this.group?.scale.copy(scale).multiplyScalar(0.25);
-		// this.group?.scale.copy(scale).multiply(dataScale).multiplyScalar(0.25);
+		this.group?.position.setY(-0.1 * scale.y);
+		this.group?.scale.copy(scale).multiplyScalar(1 / (this.scale * 2));
 	}
 
 	getIntersections(raycaster: THREE.Raycaster): THREE.Intersection[] {
@@ -118,9 +123,9 @@ export class PlaneRenderer extends GraphRenderer<IPlaneRendererData> {
 
 			if (this.onDataPointSelected) {
 				const point = new THREE.Vector3(
-					this.selectedInstanceId % this.width,
+					this.selectedInstanceId % this.dataDepth,
 					this.selectedLayerIndex,
-					Math.floor(this.selectedInstanceId / this.width)
+					Math.floor(this.selectedInstanceId / this.dataWidth)
 				);
 
 				const value = this.data?.layers[meshIndex].points[point.z][point.x];
@@ -197,11 +202,11 @@ export class PlaneRenderer extends GraphRenderer<IPlaneRendererData> {
 		const sphereGeo = new THREE.SphereGeometry(0.008);
 
 		this.data = data;
-		const dataWidth = data.layers[0].points[0].length;
 		let globalMin = Infinity;
 		let globalMax = -Infinity;
 
 		this.layers = data.layers.map((layer, index) => {
+			console.log('Layer:', layer.name, 'Min:', layer.min, 'Max:', layer.max);
 			globalMax = Math.max(globalMax, layer.max);
 			globalMin = Math.min(globalMin, layer.min);
 
@@ -213,7 +218,7 @@ export class PlaneRenderer extends GraphRenderer<IPlaneRendererData> {
 			const mat = new THREE.MeshLambertMaterial({
 				color: color,
 				opacity: 1,
-				transparent: true,
+				depthWrite: true,
 				// clipIntersection: true,
 				// clipShadows: true,
 				side: THREE.DoubleSide
@@ -225,8 +230,8 @@ export class PlaneRenderer extends GraphRenderer<IPlaneRendererData> {
 			// Add metadata to mesh
 			mesh.userData = { index, name: layer.name, meta: layer.meta };
 
-			this.depth = geo.planeDims.depth;
-			this.width = geo.planeDims.width;
+			this.dataDepth = geo.planeDims.depth;
+			this.dataWidth = geo.planeDims.width;
 
 			group.add(layerGroup);
 			return layerGroup;
@@ -249,7 +254,7 @@ export class PlaneRenderer extends GraphRenderer<IPlaneRendererData> {
 				continue;
 			}
 
-			const sphereMat = new THREE.MeshBasicMaterial({ color: 0xeeeeff });
+			const sphereMat = new THREE.MeshBasicMaterial({ color: 0xeeeeff, depthWrite: false });
 			const dotMesh = new THREE.InstancedMesh(sphereGeo, sphereMat, geo.pointsPerPlane);
 			dotMesh.userData = { index };
 			// dotMesh.renderOrder = 10;
@@ -277,10 +282,15 @@ export class PlaneRenderer extends GraphRenderer<IPlaneRendererData> {
 			layerGroup.children[0].scale.y = dataScaleFactor;
 
 			layerGroup.add(dotMesh);
+
+			// Move layer group by tine amount to avoid z-fighting
+			// layerGroup.position.y = index * 0.00001;
 		}
 
 		this.min = globalMin;
 		this.max = globalMax;
+
+		console.log('Min:', this.min, 'Max:', this.max);
 
 		// const geometry = new DataPlaneShapeGeometry(highestValues, undefined);
 
@@ -291,37 +301,82 @@ export class PlaneRenderer extends GraphRenderer<IPlaneRendererData> {
 		// group.add(mesh);
 
 		this.group = group;
+		this.setupGridHelper();
+		this.setupAxisRenderer();
+
+		this.setScale(this.size);
+
+		this.scene?.add(group);
+	}
+
+	private setupAxisRenderer() {
 		this.axisRenderer = new AxisRenderer({
 			// labelScale: 10,
 			size: new THREE.Vector3(2, 2, 2),
 			labelScale: 0.15,
 			x: {
-				label: { text: data.labels?.x ?? 'x' }
+				label: { text: this.data?.labels?.x ?? 'x' },
+				segments: this.dataWidth - 1,
+				labelForSegment: this.axisLabelRenderer
+					? (segment: number) => this.axisLabelRenderer?.(Axis.Y, segment)
+					: undefined
 			},
 			y: {
-				label: { text: data.labels?.y ?? 'y' }
+				label: { text: this.data?.labels?.y ?? 'y' },
+				segments: 100,
+				labelForSegment: this.axisLabelRenderer
+					? (segment: number) => this.axisLabelRenderer?.(Axis.Y, segment)
+					: undefined
 			},
 			z: {
-				label: { text: data.labels?.z ?? 'z' }
+				label: { text: this.data?.labels?.z ?? 'z' },
+				segments: this.dataDepth - 1,
+				labelForSegment: this.axisLabelRenderer
+					? (segment: number) => this.axisLabelRenderer?.(Axis.Z, segment)
+					: undefined
 			}
 		});
 		this.axisRenderer.position.x = -1;
 		this.axisRenderer.position.z = -1;
-		this.group.add(this.axisRenderer);
-		this.gridHelper = new THREE.GridHelper(2 * 4, (dataWidth - 1) * 4, 0x888888, 0x888888);
 
-		// Move grid helper by half a section to align with rendering
-		this.gridHelper.position.x += 1 / (dataWidth - 1);
-		this.gridHelper.position.z += 1 / (dataWidth - 1);
+		this.group?.add(this.axisRenderer);
+	}
 
-		this.group?.add(this.gridHelper);
+	private setupGridHelper() {
+		const baseScale = 2;
+		const overlapFactor = 1;
 
-		this.setScale(this.size);
+		const numWidthTiles = this.dataWidth - 1;
+		const numDepthTiles = this.dataDepth - 1;
+		const isWidthSmaller = numWidthTiles < numDepthTiles;
+		const largerSide = isWidthSmaller ? numDepthTiles : numWidthTiles;
+
+		this.gridHelper = new THREE.GridHelper(
+			baseScale * overlapFactor,
+			largerSide * overlapFactor,
+			0x888888,
+			0x888888
+		);
 
 		// Offset grid by half of the size
-		// gridHelper.position.x = -size / 2;
-		// gridHelper.position.z = -size / 2;
+		// this.gridHelper.position.x = 1 / numWidthTiles;
+		// this.gridHelper.position.z = -1 / numDepthTiles
+		// FIXME: random missalignment with some X/Z proportions
+		// Scale other axis to match
+		if (isWidthSmaller) {
+			const zSegmentSize = baseScale / largerSide / 2;
+			const xSegmentSize = zSegmentSize * (numDepthTiles / numWidthTiles);
+			this.gridHelper.scale.x = numDepthTiles / numWidthTiles;
+			// this.gridHelper.position.x = -xSegmentSize;
+			// this.gridHelper.position.z = -zSegmentSize;
+		} else {
+			const xSegmentSize = baseScale / largerSide;
+			const zSegmentSize = xSegmentSize * (numWidthTiles / numDepthTiles);
+			this.gridHelper.scale.z = numWidthTiles / numDepthTiles;
+			// this.gridHelper.position.z = -zSegmentSize;
+			// this.gridHelper.position.x = -xSegmentSize;
+		}
 
-		this.scene?.add(group);
+		this.group?.add(this.gridHelper);
 	}
 }

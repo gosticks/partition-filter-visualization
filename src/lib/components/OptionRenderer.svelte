@@ -1,0 +1,86 @@
+<script lang="ts">
+	import Slider from './Slider.svelte';
+
+	import DropdownSelect from './DropdownSelect.svelte';
+
+	import type { GraphFilterOption } from '$lib/store/filterStore/types';
+
+	type T = $$Generic;
+	export let key: keyof T;
+	export let option: GraphFilterOption<T>;
+
+	export let state: T | undefined = undefined;
+
+	export let style: string | undefined = undefined;
+
+	export let onValueChange: (key: keyof T, value?: T[keyof T]) => void;
+
+	const keyAsString = key.toString();
+
+	const onInput = (value: number, label?: string) => {
+		onValueChange(key, value as T[keyof T]);
+	};
+
+	const optionConstructor = (value: string, index: number, meta: unknown) => ({
+		label: value,
+		value: value,
+		id: index,
+		initiallySelected: state?.[meta as keyof T] === value
+	});
+
+	const onOptionSelected = (selected: { label: string; value: string }[], meta?: unknown) => {
+		const key = meta as keyof T;
+		if (selected.length > 0) {
+			onValueChange(key, selected[0].value as T[keyof T]);
+		} else {
+			onValueChange(key, undefined as T[keyof T]);
+		}
+	};
+
+	const sliderDisplay = (value: number) => {
+		switch (key) {
+			case 'size':
+				return `${(value / 1024 / 1024).toFixed(3)} MB`;
+			default:
+				return `${value}`;
+		}
+	};
+</script>
+
+<div {style}>
+	{#if option.type === 'string'}
+		<DropdownSelect
+			label={option.label || keyAsString}
+			singular
+			onSelect={onOptionSelected}
+			meta={key}
+			values={option.options}
+			{optionConstructor}
+			optionOrderer={(a, b) => a.label.localeCompare(b.label)}
+		/>
+	{:else if option.type === 'number'}
+		{@const min = Math.min(...option.options)}
+		{@const max = Math.max(...option.options)}
+		{@const initialValue = state?.[key]}
+		<Slider
+			label={option.label}
+			{initialValue}
+			{min}
+			{max}
+			displayFunction={sliderDisplay}
+			onChange={onInput}
+		/>
+	{:else if option.type === 'row'}
+		<div class="flex justify-stretch gap-2">
+			{#each option.items as item, index}
+				<svelte:self
+					{state}
+					style="flex-shrink: 0; flex-grow: {option.grow?.[index] ?? 1};"
+					{onValueChange}
+					option={item}
+					key={option.keys[index]}
+				/>
+			{/each}
+		</div>
+	{/if}
+</div>

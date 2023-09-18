@@ -32,7 +32,7 @@ export class DataPlaneShapeGeometry extends THREE.BufferGeometry {
 		data: Data,
 		previousData: Data | undefined = undefined,
 		normalized = false,
-		interpolateZeroes = true,
+		interpolateZeroes = false,
 		private drawsSideWalls = false,
 		private drawsBottom = false
 	) {
@@ -67,8 +67,8 @@ export class DataPlaneShapeGeometry extends THREE.BufferGeometry {
 			}
 		}
 
-		this.width = this.normalizedData[0].length;
-		this.depth = this.normalizedData.length;
+		this.depth = this.normalizedData[0].length;
+		this.width = this.normalizedData.length;
 
 		if (previousData) {
 			if (previousData.length !== this.depth || previousData[0].length !== this.width) {
@@ -77,8 +77,8 @@ export class DataPlaneShapeGeometry extends THREE.BufferGeometry {
 		}
 
 		if (interpolateZeroes) {
-			for (let z = 0; z < this.normalizedData.length; z++) {
-				for (let x = 0; x < this.normalizedData[z].length; x++) {
+			for (let x = 0; x < this.normalizedData.length; x++) {
+				for (let z = 0; z < this.normalizedData[x].length; z++) {
 					// Only interpolate within surface
 					if (
 						z < 1 ||
@@ -89,7 +89,7 @@ export class DataPlaneShapeGeometry extends THREE.BufferGeometry {
 						continue;
 					}
 
-					const value = this.normalizedData[z][x];
+					const value = this.normalizedData[x][z];
 					if (value === 0) {
 						const interpolatedValue = this.interpolate(this.normalizedData, z, x);
 						if (interpolatedValue !== null) {
@@ -202,7 +202,7 @@ export class DataPlaneShapeGeometry extends THREE.BufferGeometry {
 
 				// Add top plane coordinates
 				vertices[vertexIdx] = (x / (width - 1)) * 2.0 - 1.0; //x
-				vertices[vertexIdx + 1] = normalizedData[z][x]; //y
+				vertices[vertexIdx + 1] = normalizedData[x][z]; //y
 				vertices[vertexIdx + 2] = (z / (depth - 1)) * 2.0 - 1.0; //z
 
 				if (this.drawsBottom) {
