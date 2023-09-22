@@ -100,37 +100,63 @@
 </script>
 
 <div class="plane-graph-ui legend absolute isolate left-2 top-16 w-[250px]">
-	<Card title="Layers">
-		{#if $dataStore}
-			{#each layerVisibility as visible, index}
-				{@const layer = $dataStore.layers[index]}
-				<!-- svelte-ignore a11y-click-events-have-key-events -->
-				<div
-					class="flex gap-4 pb-2 cursor-pointer"
-					class:opacity-30={!visible}
-					on:click={() => toggleLayerVisibility(index)}
-				>
-					<div
-						class="w-5 h-5 rounded-full bg-slate-300"
-						style={`background-color: ${layer.color ?? '#eeeeee'};`}
-					/>
-					<p>{layer.name}</p>
-				</div>
-			{/each}
-		{/if}
-		<Button
-			size={ButtonSize.SM}
-			color={ButtonColor.SECONDARY}
-			class="mt-2"
-			disabled={layerVisibility.every((l) => l === true)}
-			on:click={showAllLayers}>Show all</Button
-		>
-		<Button
-			size={ButtonSize.SM}
-			color={ButtonColor.SECONDARY}
-			class="mt-2"
-			disabled={layerVisibility.every((l) => l === false)}
-			on:click={hideAllLayers}>Hide all</Button
-		>
+	<Card title="Layers" noPad>
+		<div class="max-h-96 px-4 py-2 border-b dark:border-background-800 border-t overflow-auto">
+			{#if $dataStore}
+				{#each layerVisibility as visible, index}
+					{@const layer = $dataStore.layers[index]}
+					<!-- svelte-ignore a11y-click-events-have-key-events -->
+					<div class="pb-2">
+						<div
+							class="flex gap-4 pb items-center justify-between cursor-pointer"
+							class:opacity-30={!visible}
+							on:click={() => toggleLayerVisibility(index)}
+						>
+							<p class="font-semibold">{layer.name}</p>
+							<div
+								class="w-4 h-4 rounded-full bg-slate-300"
+								style={`background-color: ${layer.color ?? '#eeeeee'};`}
+							/>
+						</div>
+						{#if layer.layers}
+							<ul class="pl-2 pr-[2px] overflow-clip">
+								{#each layer.layers as subLayer, index}
+									<li class="flex gap-2 justify-between items-center cursor-pointer">
+										<div class="flex gap-1 flex-shrink items-center">
+											<p
+												class="w-6 h-8 -mt-7 border-b border-l border-slate-300 pointer-events-none dark:border-background-700"
+											/>
+											<p class="text-sm flex-shrink text-ellipsis overflow-hidden">
+												{subLayer.name}
+											</p>
+										</div>
+										<div
+											class="w-3 h-3 flex-shrink-0 rounded-full bg-slate-300"
+											style={`background-color: ${subLayer.color ?? '#eeeeee'};`}
+										/>
+									</li>
+								{/each}
+							</ul>
+						{/if}
+					</div>
+				{/each}
+			{/if}
+		</div>
+		<div class="px-4 pb-2">
+			<Button
+				size={ButtonSize.SM}
+				color={ButtonColor.SECONDARY}
+				class="mt-2"
+				disabled={layerVisibility.every((l) => l === true)}
+				on:click={showAllLayers}>Show all</Button
+			>
+			<Button
+				size={ButtonSize.SM}
+				color={ButtonColor.SECONDARY}
+				class="mt-2"
+				disabled={layerVisibility.every((l) => l === false)}
+				on:click={hideAllLayers}>Hide all</Button
+			>
+		</div>
 	</Card>
 </div>

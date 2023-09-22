@@ -10,6 +10,10 @@ interface ITiledDataRow {
 	name: string;
 }
 
+export type MinValue = number;
+export type MaxValue = number;
+export type ValueRange = [MinValue, MaxValue];
+
 export type ITiledDataOptions = {
 	xColumnName: string;
 	yColumnName: string;
@@ -69,7 +73,7 @@ export const dataStoreFilterExtension = (store: BaseStoreType) => {
 		tableName: string,
 		columnName: string,
 		scale: DataScaling
-	): Promise<[number, number]> => {
+	): Promise<ValueRange> => {
 		const query = `SELECT MIN(${getSqlScaleWrapper(
 			scale,
 			columnName,
@@ -95,10 +99,10 @@ export const dataStoreFilterExtension = (store: BaseStoreType) => {
 		tableName: string,
 		options: ITiledDataOptions,
 		tileAggregationMode: 'min' | 'max' | 'avg' | 'sum' = 'min',
-		groupBy?: string,
-		xRange?: [number, number],
-		yRange?: [number, number],
-		zRange?: [number, number]
+		xRange?: ValueRange,
+		yRange?: ValueRange,
+		zRange?: ValueRange,
+		where?: { columnName: string; value: string }
 	): Promise<ITiledDataRow[]> => {
 		const xTileCount = options.xTileCount ?? options.tileCount;
 		const zTileCount = options.zTileCount ?? options.tileCount;
@@ -120,14 +124,14 @@ export const dataStoreFilterExtension = (store: BaseStoreType) => {
 		// FIXME: this currently incorrectly pairs up x and z values within a mode/group
 		const query = `
 		SELECT
-			${groupBy ? 'mode,' : ''}
+			${where ? `"${where.columnName}",` : ''}
 			${tileAggregationMode}(${yColValue}) AS y,
 			FLOOR((${xColValue} - ${xMin}) / ${xBucketSize}) AS x,
 		   	FLOOR((${zColValue} - ${zMin}) / ${zBucketSize}) AS z
 	FROM "${tableName}"
-	${groupBy ? `WHERE mode = '${groupBy}'` : ''}
+	${where ? `WHERE "${where.columnName}" = ${where.value}` : ''}
 	${options.scaleY === DataScaling.LOG ? `WHERE "${options.yColumnName}" >= 0` : ''}
-	GROUP BY ${groupBy ? 'mode,' : ''} z, x
+	GROUP BY ${where ? `"${where.columnName}"` : ''} z, x
 	ORDER BY z ASC, x ASC;
 	`;
 		// GROUP BY ${groupBy ? 'mode,' : ''} z, x, name, "${options.zColumnName}", "${options.xColumnName}"
@@ -148,11 +152,11 @@ export const dataStoreFilterExtension = (store: BaseStoreType) => {
 
 	const getTiledData = async (
 		tableName: string,
-		groupBy?: string,
 		_options: Partial<ITiledDataOptions> = {},
-		xRange?: [number, number],
-		yRange?: [number, number],
-		zRange?: [number, number]
+		xRange?: ValueRange,
+		yRange?: ValueRange,
+		zRange?: ValueRange,
+		where?: { columnName: string; value: string }
 	): Promise<{
 		data: Float32Array[];
 		min: number;
@@ -165,7 +169,7 @@ export const dataStoreFilterExtension = (store: BaseStoreType) => {
 		};
 
 		try {
-			const rows = await getTiledRows(tableName, options, 'max', groupBy, xRange, yRange, zRange);
+			const rows = await getTiledRows(tableName, options, 'max', xRange, yRange, zRange, where);
 
 			console.log('Options', options);
 

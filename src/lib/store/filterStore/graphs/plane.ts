@@ -4,9 +4,10 @@ import { get, readonly, writable, type Readable, type Writable } from 'svelte/st
 import { GraphOptions, GraphType } from '../types';
 import { DataScaling } from '$lib/store/dataStore/types';
 import { graphColors } from '$lib/rendering/colors';
-import type { ITiledDataOptions } from '$lib/store/dataStore/filterActions';
+import type { ITiledDataOptions, ValueRange } from '$lib/store/dataStore/filterActions';
 import { urlDecodeObject, urlEncodeObject, withSingleKeyUrlStorage } from '$lib/store/urlStorage';
 import { withLogMiddleware } from '$lib/store/logMiddleware';
+import notificationStore from '$lib/store/notificationStore';
 
 type RequiredOptions = ITiledDataOptions & {
 	groupBy: string;
@@ -194,6 +195,26 @@ export class PlaneGraphOptions extends GraphOptions<
 		return get(this._optionsStore);
 	}
 
+	public async getGlobalRange(
+		columnName: string,
+		scaling: DataScaling
+	): Promise<ValueRange | null> {
+		const data = get(dataStore);
+		const tables = Object.keys(data.tables);
+
+		try {
+			const result = await Promise.all(
+				tables.map((table) => dataStore.getMinMax(table, columnName, scaling))
+			);
+			return result.reduce(
+				(acc, [min, max]) => [Math.min(acc[0], min), Math.max(acc[1], max)],
+				[0, -Infinity]
+			);
+		} catch {
+			return null;
+		}
+	}
+
 	public async applyOptionsIfValid() {
 		const state = get(this._optionsStore);
 		if (state.isValid !== true) {
@@ -209,28 +230,13 @@ export class PlaneGraphOptions extends GraphOptions<
 			// const options = await dataStore.getDistinctValues('bloom', state.groupBy);
 			const tables = Object.keys(data.tables);
 
-			const xAxisMinMax = await Promise.all(
-				tables.map((table) => dataStore.getMinMax(table, state.xColumnName, state.scaleX))
-			);
-			const yAxisMinMax = await Promise.all(
-				tables.map((table) => dataStore.getMinMax(table, state.yColumnName, state.scaleY))
-			);
-			const zAxisMinMax = await Promise.all(
-				tables.map((table) => dataStore.getMinMax(table, state.zColumnName, state.scaleZ))
-			);
-
-			const xAxisRange = xAxisMinMax.reduce(
-				(acc, [min, max]) => [Math.min(acc[0], min), Math.max(acc[1], max)],
-				[0, -Infinity]
-			);
-			const yAxisRange = yAxisMinMax.reduce(
-				(acc, [min, max]) => [Math.min(acc[0], min), Math.max(acc[1], max)],
-				[0, -Infinity]
-			);
-			const zAxisRange = zAxisMinMax.reduce(
-				(acc, [min, max]) => [Math.min(acc[0], min), Math.max(acc[1], max)],
-				[0, -Infinity]
-			);
+			const xAxisRange = await this.getGlobalRange(state.xColumnName, state.scaleX);
+			const yAxisRange = await this.getGlobalRange(state.yColumnName, state.scaleY);
+			const zAxisRange = await this.getGlobalRange(state.zColumnName, state.scaleZ);
+			if (!xAxisRange || !yAxisRange || !zAxisRange) {
+				notificationStore.error({ message: 'Data ranges in data invalid' });
+				return;
+			}
 
 			console.log('Z axis min/max', zAxisRange);
 			console.log('X axis min/max', xAxisRange);
@@ -240,7 +246,6 @@ export class PlaneGraphOptions extends GraphOptions<
 				tables.map((table) =>
 					dataStore.getTiledData(
 						table,
-						undefined,
 						state as RequiredOptions,
 						xAxisRange,
 						yAxisRange,
@@ -249,8 +254,47 @@ export class PlaneGraphOptions extends GraphOptions<
 				)
 			);
 
+			// If group by set also query groupBy data
+			const childLayers = await Promise.all(
+				tables.map(async (table) => {
+					const values = await dataStore.getDistinctValues(table, state.groupBy);
+					if (values.length > 20) {
+						const error = `Too many options returned by group by number=${values.length} (limit 10)`;
+						notificationStore.error({
+							message: error
+						});
+						throw new Error(error);
+					}
+
+					const data = await Promise.all(
+						values.map((value) =>
+							dataStore.getTiledData(
+								table,
+								state as RequiredOptions,
+								xAxisRange,
+								yAxisRange,
+								zAxisRange,
+								{ columnName: state.groupBy, value: value as string }
+							)
+						)
+					);
+
+					return data.map((value, index) => ({
+						points: value.data,
+						min: value.min,
+						max: value.max,
+						name: values[index] as string,
+						color: graphColors[index % graphColors.length],
+						meta: {
+							rows: value.queryResult
+						}
+					}));
+				})
+			);
+
 			const layers = promise.map((data, index) => ({
 				points: data.data,
+				layers: childLayers[index],
 				min: data.min,
 				max: data.max,
 				name: tables[index] as string,

@@ -4,14 +4,20 @@ import { DataPlaneShapeGeometry } from './geometry/DataPlaneGeometry';
 import { graphColors } from './colors';
 import { AxisRenderer, type AxisLabelRenderer } from './AxisRenderer';
 
-interface IPlaneData {
+export interface IPlaneData {
 	points: (Float32Array | number[])[];
 	min: number;
 	max: number;
 	name: string;
 	meta?: Record<string, unknown>;
 	color?: string;
+	// if set allows to render an additional set of layers
+	// belonging to this layers e.g. top layer: filter (bloom,...), child layers: mode (Naive, Sectorized,...)
+	layers?: Omit<IPlaneData, 'layers'>[];
 }
+
+export type IChildPlaneData = Omit<IPlaneData, 'layers'>[];
+
 export interface IPlaneRendererData {
 	// A list of ordered planes (e.g. bottom to top)
 	// each plane is a 2D array of points
@@ -198,7 +204,12 @@ export class PlaneRenderer extends GraphRenderer<IPlaneRendererData> {
 		// return [];
 	}
 
-	private renderPlane(planeData: IPlaneData, index: number, color: THREE.Color) {
+	private renderPlane(
+		planeData: IPlaneData,
+		index: number,
+		color: THREE.Color,
+		childIndex?: number
+	) {
 		const plane = planeData.points;
 		const geo = new DataPlaneShapeGeometry(plane, undefined, true);
 
@@ -213,7 +224,7 @@ export class PlaneRenderer extends GraphRenderer<IPlaneRendererData> {
 		const mesh = new THREE.Mesh(geo, mat);
 
 		// Add metadata to mesh
-		mesh.userData = { index, name: planeData.name, meta: planeData.meta };
+		mesh.userData = { index, name: planeData.name, meta: planeData.meta, childIndex };
 
 		this.dataDepth = geo.planeDims.depth;
 		this.dataWidth = geo.planeDims.width;
@@ -280,14 +291,23 @@ export class PlaneRenderer extends GraphRenderer<IPlaneRendererData> {
 		let globalMin = Infinity;
 		let globalMax = -Infinity;
 
-		const meshes = data.layers.map((planeData, index) => {
+		const meshes: ReturnType<PlaneRenderer['renderPlane']>[] = new Array(data.layers.length);
+		const childLayers: ReturnType<PlaneRenderer['renderPlane']>[][] = new Array(data.layers.length);
+
+		for (const [index, planeData] of data.layers.entries()) {
 			globalMax = Math.max(globalMax, planeData.max);
 			globalMin = Math.min(globalMin, planeData.min);
 			const color = new THREE.Color(planeData.color ?? colorPalette[index % colorPalette.length]);
-			const planeMesh = this.renderPlane(planeData, index, color);
+			meshes[index] = this.renderPlane(planeData, index, color);
 
-			return planeMesh;
-		});
+			childLayers[index] =
+				planeData.layers?.map((childData, childIndex) => {
+					const color = new THREE.Color(
+						childData.color ?? colorPalette[index % colorPalette.length]
+					);
+					return this.renderPlane(childData, index, color, childIndex);
+				}) ?? [];
+		}
 
 		this.min = globalMin;
 		this.max = globalMax;
@@ -308,12 +328,23 @@ export class PlaneRenderer extends GraphRenderer<IPlaneRendererData> {
 		for (const [i, mesh] of meshes.entries()) {
 			const group = new THREE.Group();
 
+			const parentLayerGroup = new THREE.Group();
+
 			// set scaling
 			// - only scale layers
 			mesh.scale.y = dataScaleFactor;
 
-			group.add(mesh);
-			group.add(dotMeshes[i]);
+			parentLayerGroup.add(mesh);
+			parentLayerGroup.add(dotMeshes[i]);
+			group.add(parentLayerGroup);
+
+			// render and scale child layers
+			if (childLayers[i].length !== 0) {
+				const childLayerGroup = new THREE.Group();
+				childLayerGroup.add(...childLayers[i]);
+				childLayerGroup.scale.y = dataScaleFactor;
+				group.add(childLayerGroup);
+			}
 
 			this.planeGroup.add(group);
 		}
@@ -344,25 +375,26 @@ export class PlaneRenderer extends GraphRenderer<IPlaneRendererData> {
 	/////////////////////////////////
 
 	toggleLayerVisibility(layerIndex: number): boolean {
-		const layer = this.planes[layerIndex];
+		const layer = this.planes[layerIndex].children[0];
 		layer.visible = !layer.visible;
 
 		return layer.visible;
 	}
 
 	getLayerVisibility(): boolean[] {
-		return this.planes.map((plane) => plane.visible);
+		// first layer is the main layer
+		return this.planes.map((plane) => plane.children[0].visible);
 	}
 
 	showAllLayers(): void {
 		this.planes.forEach((plane) => {
-			plane.visible = true;
+			plane.children[0].visible = true;
 		});
 	}
 
 	hideAllLayers(): void {
 		this.planes.forEach((plane) => {
-			plane.visible = false;
+			plane.children[0].visible = false;
 		});
 	}
 
