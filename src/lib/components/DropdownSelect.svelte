@@ -28,8 +28,6 @@
 	export let values: R[] | undefined = undefined;
 	export let optionConstructor: OptionConstructor | undefined = undefined;
 
-	let dummy = 0;
-
 	$: {
 		selectionLabel = labelForSelection(options.filter((o) => selection.has(o.value)));
 	}
@@ -158,9 +156,13 @@
 				{/each}
 			</ul>
 			{#if !singular}
-				<div class="border-t p-4 flex justify-end gap-2">
-					<Button size="sm" color="primary" on:click={selectAll}>Select all</Button>
-					<Button size="sm" on:click={clearAll}>Clear</Button>
+				<div
+					class="sticky bottom-0 left-0 right-0 border-t dark:border-t-background-700 bg-background-50 dark:bg-background-800 backdrop-blur-sm"
+				>
+					<div class="p-2 flex justify-end gap-2">
+						<Button size="sm" color="primary" on:click={selectAll}>Select all</Button>
+						<Button size="sm" on:click={clearAll}>Clear</Button>
+					</div>
 				</div>
 			{/if}
 		</div>

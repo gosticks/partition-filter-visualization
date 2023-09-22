@@ -1,28 +1,15 @@
 import {
 	BoxGeometry,
-	BufferGeometry,
 	Mesh,
 	MeshBasicMaterial,
-	Object3D,
 	OrthographicCamera,
 	Raycaster,
 	Scene,
 	Vector2,
 	WebGLRenderer,
-	type Face,
 	Color,
 	Vector3,
-	TubeGeometry,
-	CurvePath,
-	Curve,
-	CylinderGeometry,
-	Euler,
-	DirectionalLight,
-	TetrahedronGeometry,
-	SphereGeometry,
-	EdgesGeometry,
-	LineSegments,
-	LineBasicMaterial
+	DirectionalLight
 } from 'three';
 import { AxisRenderer } from './AxisRenderer';
 import * as THREE from 'three';
@@ -43,26 +30,75 @@ const grayColorList = [
 	'#D6D6D6' // Very Light Gray
 ];
 
+enum SelectionType {
+	side,
+	edge,
+	corner
+}
 export class Minimap {
-	private scene: Scene;
+	private scene!: Scene;
 	private orientationCube?: Mesh<BoxGeometry, MeshBasicMaterial[]>;
 	private orientationEdges?: THREE.Group;
 	private renderer: THREE.WebGLRenderer;
 	private camera: THREE.Camera;
 	private trackedCamera: THREE.Camera | undefined = undefined;
+
 	private raycaster = new Raycaster();
+	private stopped = false;
+
+	private cubeSize = 20;
+	private bevelSize = 0.1;
+
+	public selectionColor = new Color(0xffff00);
+	public color = new Color(grayColorList[9]);
+	public borderColor = new Color(grayColorList[3]);
+
 	private mousePosition: THREE.Vector2 = new Vector2(0, 0);
 	private mouseClientPosition: THREE.Vector2 = new Vector2(0, 0);
 	private mouseInside = false;
-	private stopped = false;
-	private cubeSize = 20;
-	private bevelSize = 0.075;
+	private mouseDownPos = { x: 0, y: 0 };
+	private mouseUpPos = { x: 0, y: 0 };
+	private controls!: OrbitControls;
 
-	private controls: OrbitControls;
+	private selection?: {
+		type: SelectionType;
+		index: number;
+	};
 
-	private previousFaceIndex: number | null = null;
+	constructor(element: HTMLElement) {
+		const bounds = element.getBoundingClientRect();
+		this.camera = new OrthographicCamera(
+			bounds.width / -8,
+			bounds.width / 8,
+			bounds.height / 8,
+			bounds.height / -8,
+			-bounds.width * 4,
+			bounds.width * 4
+		);
+		this.camera.position.z = Math.min(bounds.width, bounds.height);
 
-	onCanvasHover(event: MouseEvent) {
+		this.setupEvents(element);
+		this.setupScene();
+		this.renderCube();
+		this.renderCubeEdges();
+
+		// Setup renderer
+		this.renderer = new WebGLRenderer({ antialias: true, alpha: true });
+		this.renderer.setPixelRatio(window.devicePixelRatio);
+		this.renderer.setClearColor(0x000000, 0);
+		this.renderer.setSize(bounds.width, bounds.height);
+		element.appendChild(this.renderer.domElement);
+
+		this.setupControls();
+
+		this.startAnimationLoop();
+	}
+
+	destroy() {
+		this.stopped = true;
+	}
+
+	private onCanvasHover(event: MouseEvent) {
 		// Normalize mouse position
 		const bounds = this.renderer.domElement.getBoundingClientRect();
 		this.mouseClientPosition.x = event.clientX - bounds.left;
@@ -71,40 +107,9 @@ export class Minimap {
 		this.mousePosition.x = (this.mouseClientPosition.x / bounds.width) * 2 - 1;
 		this.mousePosition.y = -(this.mouseClientPosition.y / bounds.height) * 2 + 1.0;
 	}
-	onCanvasClick(event: MouseEvent) {
-		if (this.previousFaceIndex !== null) {
-			this.lookAtFace(this.previousFaceIndex);
-		}
-	}
 
-	// round-edged box
-	createBoxWithRoundedEdges(
-		width: number,
-		height: number,
-		depth: number,
-		r: number,
-		smoothness: number
-	) {
-		const shape = new THREE.Shape();
-		const eps = 0.00001;
-		const radius = r - eps;
-		shape.absarc(eps, eps, eps, -Math.PI / 2, -Math.PI, true);
-		shape.absarc(eps, height - radius * 2, eps, Math.PI, Math.PI / 2, true);
-		shape.absarc(width - radius * 2, height - radius * 2, eps, Math.PI / 2, 0, true);
-		shape.absarc(width - radius * 2, eps, eps, 0, -Math.PI / 2, true);
-		const geometry = new THREE.ExtrudeGeometry(shape, {
-			//   amount: depth - radius0 * 2,
-			bevelEnabled: true,
-			bevelSegments: 1,
-			steps: 1,
-			bevelSize: radius,
-			bevelThickness: r,
-			curveSegments: smoothness
-		});
-
-		geometry.center();
-
-		return geometry;
+	private onCanvasClick(event: MouseEvent) {
+		this.lookAtSelection();
 	}
 
 	setupControls() {
@@ -118,22 +123,7 @@ export class Minimap {
 		this.controls.dampingFactor = 0.1;
 	}
 
-	private mouseDownPos = { x: 0, y: 0 };
-	private mouseUpPos = { x: 0, y: 0 };
-
-	constructor(element: HTMLElement) {
-		const bounds = element.getBoundingClientRect();
-		this.camera = new OrthographicCamera(
-			bounds.width / -8,
-			bounds.width / 8,
-			bounds.height / 8,
-			bounds.height / -8,
-			-bounds.width * 4,
-			bounds.width * 4
-		);
-		console.log('bounds', bounds);
-		this.camera.position.z = Math.min(bounds.width, bounds.height);
-
+	private setupEvents(element: HTMLElement) {
 		// Setup event listeners
 		element.addEventListener('mousemove', this.onCanvasHover.bind(this));
 
@@ -159,28 +149,41 @@ export class Minimap {
 		element.addEventListener('mouseleave', () => {
 			this.mouseInside = false;
 		});
+	}
 
+	private setupScene() {
 		this.scene = new Scene();
+
+		// side lines
+		// TODO: fixme render lines on top of cube
+
+		// Add light to scene
+		const light = new DirectionalLight(0xffffff, 1);
+		light.position.set(0, 0, 1);
+	}
+
+	private renderCube() {
 		const cubeGeometry = new BoxGeometry(1, 1, 1);
 
 		const materials = [
-			new MeshBasicMaterial({ color: grayColorList[8] }),
-			new MeshBasicMaterial({ color: grayColorList[8] }),
-			new MeshBasicMaterial({ color: grayColorList[8] }),
-			new MeshBasicMaterial({ color: grayColorList[8] }),
-			new MeshBasicMaterial({ color: grayColorList[8] }),
-			new MeshBasicMaterial({ color: grayColorList[8] })
+			new MeshBasicMaterial({ color: this.color }),
+			new MeshBasicMaterial({ color: this.color }),
+			new MeshBasicMaterial({ color: this.color }),
+			new MeshBasicMaterial({ color: this.color }),
+			new MeshBasicMaterial({ color: this.color }),
+			new MeshBasicMaterial({ color: this.color })
 		];
 		this.orientationCube = new Mesh(cubeGeometry, materials);
 		this.orientationCube.scale.set(this.cubeSize, this.cubeSize, this.cubeSize);
 		this.scene.add(this.orientationCube);
-		const bevelSize = 0.075;
+	}
 
+	private renderCubeEdges() {
 		// Create beveled edge for one edge (as an example)
 		const edgeShape = new THREE.Shape();
 		edgeShape.moveTo(0, 0);
-		edgeShape.lineTo(bevelSize, 0);
-		edgeShape.lineTo(0.0, bevelSize);
+		edgeShape.lineTo(this.bevelSize, 0);
+		edgeShape.lineTo(0.0, this.bevelSize);
 		edgeShape.lineTo(0, 0);
 
 		const extrudeSettings = {
@@ -188,23 +191,6 @@ export class Minimap {
 			depth: 1,
 			bevelEnabled: false
 		};
-
-		const edgeMaterial = new THREE.MeshBasicMaterial({ color: 0xff0000 });
-
-		const colors = [
-			0xff0000, // front top edge
-			0x00ff00, // back top edge
-			0x0000ff, // left top edge
-			0xffff00, // right top edge
-			0xff00ff, // front bottom edge
-			0x00ffff, // back bottom edge
-			0xffccff, // left bottom edge
-			0x000000, // right bottom edge
-			0xff0000, // X/Y Edge (right,front)
-			0x00ff00, // X/Y Edge (right,back)
-			0x0000ff, // X/Y Edge (left,back)
-			0xccefb0 // X/Y Edge (left,front)
-		];
 
 		// Position and add all 12 beveled edges
 		const edgesPositionsRotations = [
@@ -226,152 +212,64 @@ export class Minimap {
 			{ pos: [-0.5, -0.5, 0.5], rot: [-Math.PI / 2, 0, Math.PI] } // Front top edge
 		];
 
-		this.orientationEdges = new THREE.Group();
+		const orientationEdges = new THREE.Group();
 
 		edgesPositionsRotations.forEach((edgeInfo, index) => {
 			const edgeGeometry = new THREE.ExtrudeGeometry(edgeShape, extrudeSettings);
-			const edgeMaterial = new THREE.MeshBasicMaterial({ color: grayColorList[7] });
+			const edgeMaterial = new THREE.MeshBasicMaterial({ color: this.color });
 			const edge = new THREE.Mesh(edgeGeometry, edgeMaterial);
+
 			edge.position.set(...edgeInfo.pos).multiplyScalar(this.cubeSize);
 			edge.scale.multiplyScalar(this.cubeSize);
 			edge.rotation.set(...edgeInfo.rot);
 
-			this.orientationEdges!.add(edge);
+			edge.userData.index = index;
+			orientationEdges.add(edge);
 
 			// Add outline
 			const edgeOutline = new THREE.EdgesGeometry(edgeGeometry);
 			const edgeOutlineMesh = new THREE.LineSegments(
 				edgeOutline,
-				new THREE.LineBasicMaterial({ color: 0x000000 })
+				new THREE.LineBasicMaterial({ color: this.borderColor })
 			);
 			edgeOutlineMesh.position.copy(edge.position);
 			edgeOutlineMesh.scale.copy(edge.scale);
 			edgeOutlineMesh.rotation.copy(edge.rotation);
-			this.orientationEdges!.add(edgeOutlineMesh);
+
+			// pass index to mesh for later selection handling
+
+			orientationEdges.add(edgeOutlineMesh);
 		});
 
+		this.orientationEdges = orientationEdges;
 		this.scene.add(this.orientationEdges);
 
-		// Draw tringles everywhere where two edges meet
-		const triangleSideSize = Math.sqrt(Math.pow(bevelSize, 2) + Math.pow(bevelSize, 2));
-		const points = [
-			new Vector2(0, 0),
-			new Vector2(0, triangleSideSize),
-			new Vector2(triangleSideSize, 0)
-		];
-
-		const triangleShape = new THREE.Shape(points);
-		const triangleGeo = new THREE.ShapeGeometry(triangleShape);
-
-		const triangleMaterial = new THREE.MeshBasicMaterial({
-			color: 0x0edfee,
-			side: THREE.DoubleSide
-		});
-		const triangleMesh = new THREE.Mesh(triangleGeo, triangleMaterial);
-
-		// triangleMesh.rotation.setFromVector3(new Vector3(0, Math.PI / 2, 0));
-
-		// triangleMesh.position.set(0.5, 0.65, 0.5).multiplyScalar(cubeSize);
-		// triangleMesh.scale.multiplyScalar(cubeSize);
-
-		this.scene.add(triangleMesh);
-
-		// const triangleMaterial = new THREE.MeshBasicMaterial({ color: 0x000000 });
-		// const trianglePositionsRotations = [
-		// 	// Top horizontal edges
-		// 	{ pos: [0.5, 0.5, 0.5], rot: [0, -Math.PI / 2, 0] }, // Front top edge
-		// 	{ pos: [-0.5, 0.5, -0.5], rot: [0, Math.PI / 2, 0] }, // Back top edge
-		// 	{ pos: [-0.5, 0.5, -0.5], rot: [0, 0, Math.PI / 2] }, // Left top edge
-		// 	{ pos: [0.5, 0.5, -0.5], rot: [0, 0, 0] }, // Right top edge
-
-		// 	// Bottom horizontal edges
-		// 	{ pos: [0.5, -0.5, 0.5], rot: [0, -Math.PI / 2, -Math.PI / 2] }, // Front bottom edge
-		// 	{ pos: [-0.5, -0.5, -0.5], rot: [0, Math.PI / 2, -Math.PI / 2] }, // Back bottom edge
-		// 	{ pos: [-0.5, -0.5, -0.5], rot: [0, 0, Math.PI] }, // left bottom edge
-		// 	{ pos: [0.5, -0.5, -0.5], rot: [0, 0, -Math.PI / 2] }, // right bottom edge
-
-		// 	{ pos: [0.5, 0.5, 0.5], rot: [Math.PI / 2, 0, 0] }, // X/Y Edge (right,front)
-		// 	{ pos: [0.5, -0.5, -0.5], rot: [-Math.PI / 2, 0, 0] }, // X/Y Edge (right,back)
-
-		// const testGeo = this.createBoxWithRoundedEdges(1, 1, 1, 0.1, 1);
-
-		// const cubeMaterial = new MeshBasicMaterial({ color: 0x00ff00, wireframe: true });
-		// this.orientationCube = new Mesh(cubeGeometry, materials);
-		// const testMesh = new Mesh(testGeo, materials);
-		// testMesh.scale.set(cubeSize, cubeSize, cubeSize);
-		// this.scene.add(testMesh);
-
-		// // Edges for the impression of beveled edge
-		// const edges = new EdgesGeometry(testGeo);
-		// const line = new LineSegments(edges, new LineBasicMaterial({ color: 0x000000 }));
-		// line.scale.set(cubeSize, cubeSize, cubeSize);
-		// this.scene.add(line);
-
-		// const sidePositions = [
-		// 	new Vector3(1, 0, 1),
-		// 	new Vector3(-1, 0, 1),
-		// 	new Vector3(-1, 0, -1),
-		// 	new Vector3(1, 0, -1)
+		// Setup corner triangles
+		// // FIXME: not correct positions yet
+		// const triangleSideSize = Math.sqrt(Math.pow(bevelSize, 2) + Math.pow(bevelSize, 2));
+		// const points = [
+		// 	new Vector2(0, 0),
+		// 	new Vector2(0, triangleSideSize),
+		// 	new Vector2(triangleSideSize, 0)
 		// ];
 
-		// const rotationAxis = [new Vector3(1, 0, 0), new Vector3(0, 1, 0), new Vector3(0, 0, 1)];
+		// const triangleShape = new THREE.Shape(points);
+		// const triangleGeo = new THREE.ShapeGeometry(triangleShape);
 
-		// for (const axis of rotationAxis) {
-		// 	const tube = new CylinderGeometry(0.5, 0.5, cubeSize, 10, 1, false);
-		// 	for (const side of sidePositions) {
-		// 		const tubeMesh = new Mesh(tube, new MeshBasicMaterial({ color: 0xff9933 }));
-		// 		tubeMesh.rotation.setFromVector3(axis.clone().multiplyScalar(Math.PI / 2));
-		// 		// Rotate side vector
-		// 		const rotatedSide = side.clone().applyAxisAngle(axis, Math.PI / 2);
-		// 		tubeMesh.position.copy(rotatedSide).multiplyScalar((cubeSize / 2) * 1.2);
-		// 		// tubeMesh.position.copy(side).multiplyScalar(cubeSize / 2);
-		// 		this.scene.add(tubeMesh);
-		// 	}
-		// }
+		// const triangleMaterial = new THREE.MeshBasicMaterial({
+		// 	color: 0x0edfee,
+		// 	side: THREE.DoubleSide
+		// });
+		// const triangleMesh = new THREE.Mesh(triangleGeo, triangleMaterial);
 
-		// // Draw pyramid on all corners
-		// const pyramidGeo = new SphereGeometry(1.25);
-		// for (const y of [1, -1]) {
-		// 	for (const side of sidePositions) {
-		// 		const pyramidMesh = new Mesh(pyramidGeo, new MeshBasicMaterial({ color: 0xffcc33 }));
-
-		// 		pyramidMesh.position.copy(side);
-		// 		pyramidMesh.position.y = y;
-		// 		pyramidMesh.position.multiplyScalar((cubeSize / 2) * 1.2);
-
-		// 		this.scene.add(pyramidMesh);
-		// 	}
-		// }
-
-		// side lines
-		// TODO: fixme render lines on top of cube
-
-		// Add light to scene
-		const light = new DirectionalLight(0xffffff, 1);
-		light.position.set(0, 0, 1);
-
-		// Setup renderer
-		this.renderer = new WebGLRenderer({ antialias: true, alpha: true });
-		this.renderer.setPixelRatio(window.devicePixelRatio);
-		this.renderer.setClearColor(0x000000, 0);
-		this.renderer.setSize(bounds.width, bounds.height);
-		element.appendChild(this.renderer.domElement);
-
-		this.setupControls();
-
-		this.startAnimationLoop();
+		// this.scene.add(triangleMesh);
 	}
-
-	destroy() {
-		this.stopped = true;
-	}
-
-	private lookAtFace(cubeFaceIndex: number) {
+	private lookAtFaceDirection(cubeFaceIndex: number): THREE.Vector3 | null {
+		console.log('looking at side', cubeFaceIndex);
 		let lookDirection: THREE.Vector3 | null = null;
-		console.log('Looking at face', cubeFaceIndex);
 		switch (cubeFaceIndex) {
 			case 0:
-				lookDirection = new Vector3(0, 0, -1);
+				lookDirection = new Vector3(1, 0, 0);
 				break;
 			case 1:
 				lookDirection = new Vector3(-1, 0, 0);
@@ -389,19 +287,64 @@ export class Minimap {
 				lookDirection = new Vector3(0, 0, -1);
 				break;
 		}
-		if (!lookDirection || !this.trackedCamera) {
+
+		return lookDirection;
+	}
+
+	private lookAtEdgeDirection(edgeIndex: number) {
+		console.log('looking at edge', edgeIndex);
+		switch (edgeIndex) {
+			case 0:
+				return new Vector3(0, 1, 1);
+			case 1:
+				return new Vector3(0, 1, -1);
+			case 2:
+				return new Vector3(-1, 1, 0);
+			case 3:
+				return new Vector3(1, 1, 0);
+			case 4:
+				return new Vector3(0, -1, 1);
+			case 5:
+				return new Vector3(0, -1, -1);
+			case 6:
+				return new Vector3(-1, -1);
+			case 7:
+				return new Vector3(1, -1);
+		}
+
+		return null;
+	}
+
+	private lookAtSelection() {
+		if (!this.selection) {
 			return;
 		}
 
-		console.log('Looking at', lookDirection, this.trackedCamera);
+		let lookDirection: Vector3 | null = null;
 
+		switch (this.selection.type) {
+			case SelectionType.side:
+				lookDirection = this.lookAtFaceDirection(this.selection.index);
+				break;
+			case SelectionType.edge:
+				lookDirection = this.lookAtEdgeDirection(this.selection.index);
+				break;
+			case SelectionType.corner:
+				// FIXME: implement corner selection
+				console.error('Not implemented');
+		}
+
+		if (lookDirection === null) {
+			return;
+		}
 		const initialLookAt = this.camera.position.clone();
 		const cameraTarget = lookDirection.multiplyScalar(300);
 
-		// Compute distance between current camera position and target to compute duration
+		// Compute distance between current camera position and target to compute animation duration
 		const distance = initialLookAt.distanceTo(cameraTarget);
 		const duration = Math.min(200, distance * 2);
 
+		// Animate camera
 		new Tween(initialLookAt)
 			.to(cameraTarget, duration) // 2000 milliseconds
 			.easing(Easing.Cubic.In) // Easing type
@@ -410,79 +353,154 @@ export class Minimap {
 				// Called during the update of the tween. Useful if you need to perform actions during the animation.
 			})
 			.start();
-
-		// const cameraPosition = lookDirection.multiplyScalar(300);
-		// this.camera.position.copy(cameraPosition);
-		// this.camera.lookAt(lookDirection);
-
-		// Clear face selection to avoid issues
-		this.clearFaceSelection();
 	}
 
-	private colorForFaceIndex(faceIndex: number): THREE.ColorRepresentation {
-		return grayColorList[4 + faceIndex];
-	}
-	private clearFaceSelection() {
-		if (this.previousFaceIndex !== null) {
-			const material = this.orientationCube!.material[this.previousFaceIndex];
-			const oldColor =
-				material.userData.color ?? new Color(this.colorForFaceIndex(this.previousFaceIndex));
-			material.color = oldColor;
-			material.needsUpdate = true;
-			this.previousFaceIndex = null;
+	private handleEdgeSelection(): boolean {
+		if (!this.orientationEdges) {
+			return false;
 		}
-	}
-
-	private setFaceSelection(faceIndex: number) {
-		// Do nothing if already selected to avoid overwriting old color
-		if (this.previousFaceIndex === faceIndex) {
-			return;
-		}
-		const material = this.orientationCube!.material[faceIndex];
-		const oldColor = material.color;
-		if (!material.userData.color) {
-			material.userData.color = oldColor;
+		const intersections = this.raycaster.intersectObjects(this.orientationEdges.children);
+		if (intersections.length === 0) {
+			return false;
 		}
 
-		material.color = new Color(0xff0000);
-		material.needsUpdate = true;
-		this.previousFaceIndex = faceIndex;
-	}
-
-	private renderFaceSelection() {
-		// Check for UI interaction
-		if (!this.mouseInside) {
-			this.clearFaceSelection();
-			return;
-		}
-		this.raycaster.setFromCamera(this.mousePosition, this.camera);
-
-		const edgeIntersections = this.raycaster.intersectObjects(this.orientationEdges!.children);
-
-		if (edgeIntersections.length > 0) {
-			edgeIntersections[0].object.material.color = new Color(0xff0000);
-			return;
+		const object = intersections.find((el) => el.object.userData.index !== undefined)
+			?.object as THREE.Mesh;
+		if (!object) {
+			return false;
 		}
 
-		const intersects = this.raycaster.intersectObject(this.orientationCube!);
+		const index = object.userData.index;
+
+		// if selection did not change
+		// return selection handled but do nothing else to prevent further search
 		if (
-			intersects.length > 0 &&
-			intersects[0].object === this.orientationCube &&
-			intersects[0].faceIndex !== undefined
+			this.selection &&
+			this.selection.type === SelectionType.side &&
+			index === this.selection.index
 		) {
-			// convert triangle faces to cube face index
-			const cubeFaceIndex = Math.floor(intersects[0].faceIndex / 2);
-			if (this.previousFaceIndex !== cubeFaceIndex) {
-				this.clearFaceSelection();
-			}
+			return true;
+		}
 
-			this.setFaceSelection(cubeFaceIndex);
+		this.clearSelection();
 
+		// If we selected some other geometry ignore hit test
+		if (index === undefined) {
+			return false;
+		}
+
+		// Update selection
+		this.selection = {
+			type: SelectionType.edge,
+			index: index
+		};
+
+		return true;
+	}
+
+	private handleSideSelection(): boolean {
+		if (!this.orientationEdges || !this.orientationCube) {
+			return false;
+		}
+
+		const intersects = this.raycaster.intersectObject(this.orientationCube);
+		if (intersects.length === 0) {
+			return false;
+		}
+
+		const faceIndex = intersects[0].faceIndex;
+		if (faceIndex === undefined) {
+			return false;
+		}
+
+		const cubeFaceIndex = Math.floor(faceIndex / 2);
+
+		// If selection matches current element do nothing just mark event as handled
+		if (
+			this.selection &&
+			this.selection.type === SelectionType.side &&
+			this.selection.index === cubeFaceIndex
+		) {
+			return true;
+		}
+
+		this.clearSelection();
+
+		this.selection = {
+			type: SelectionType.side,
+			index: cubeFaceIndex
+		};
+
+		return true;
+	}
+
+	private clearSelection() {
+		this.applyColorToSelectedObject(this.color);
+		this.selection = undefined;
+	}
+
+	private applyColorToSelectedObject(color: THREE.Color) {
+		if (!this.selection) {
 			return;
 		}
-		if (this.previousFaceIndex !== null) {
-			this.clearFaceSelection();
+
+		// Find matching element and restore original material
+		switch (this.selection.type) {
+			case SelectionType.side: {
+				if (!this.orientationCube) {
+					break;
+				}
+				const material = this.orientationCube.material[this.selection.index];
+				material.color = color;
+				material.needsUpdate = true;
+
+				break;
+			}
+			case SelectionType.edge: {
+				if (!this.orientationEdges) {
+					break;
+				}
+
+				const mesh = this.orientationEdges.children.find(
+					(el) => el.userData.index === this.selection?.index
+				) as Mesh<THREE.ExtrudeGeometry, MeshBasicMaterial> | undefined;
+				if (!mesh) {
+					break;
+				}
+
+				mesh.material.color = color;
+				mesh.material.needsUpdate = true;
+
+				break;
+			}
+			case SelectionType.corner: {
+				console.error('Not implemented yet');
+				break;
+			}
 		}
+	}
+
+	private renderSelection() {
+		this.applyColorToSelectedObject(this.selectionColor);
+	}
+
+	private updateSelection() {
+		if (!this.mouseInside) {
+			this.clearSelection();
+			return;
+		}
+
+		if (this.handleEdgeSelection()) {
+			this.renderSelection();
+			return;
+		}
+
+		if (this.handleSideSelection()) {
+			this.renderSelection();
+			return;
+		}
+
+		this.clearSelection();
 	}
 
 	private startAnimationLoop() {
@@ -491,13 +509,12 @@ export class Minimap {
 		}
 
 		if (this.trackedCamera) {
-			this.renderFaceSelection();
-			// // console.log('rendering');
-			// this.scene.quaternion.copy(this.trackedCamera.quaternion).conjugate();
-			// this.scene.up.copy(this.trackedCamera.up);
-			// this.renderer.render(this.scene, this.camera);
-
 			this.controls.update();
+
+			// Update raycaster but only if mouse moved
+			this.raycaster.setFromCamera(this.mousePosition, this.camera);
+
+			this.updateSelection();
 			this.renderer.render(this.scene, this.camera);
 
 			// Set target camera to match the one we're tracking

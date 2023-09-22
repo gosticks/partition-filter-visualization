@@ -221,15 +221,15 @@ export class PlaneGraphOptions extends GraphOptions<
 
 			const xAxisRange = xAxisMinMax.reduce(
 				(acc, [min, max]) => [Math.min(acc[0], min), Math.max(acc[1], max)],
-				[Infinity, -Infinity]
+				[0, -Infinity]
 			);
 			const yAxisRange = yAxisMinMax.reduce(
 				(acc, [min, max]) => [Math.min(acc[0], min), Math.max(acc[1], max)],
-				[Infinity, -Infinity]
+				[0, -Infinity]
 			);
 			const zAxisRange = zAxisMinMax.reduce(
 				(acc, [min, max]) => [Math.min(acc[0], min), Math.max(acc[1], max)],
-				[Infinity, -Infinity]
+				[0, -Infinity]
 			);
 
 			console.log('Z axis min/max', zAxisRange);
@@ -267,8 +267,15 @@ export class PlaneGraphOptions extends GraphOptions<
 					y: state.yColumnName,
 					z: state.zColumnName
 				},
-				normalized: false,
-				scaleY: 10
+				ranges: {
+					x: xAxisRange,
+					y: yAxisRange,
+					z: zAxisRange
+				},
+				tileRange: {
+					x: state.xTileCount ?? state.tileCount,
+					z: state.zTileCount ?? state.tileCount
+				}
 			});
 		} catch (e) {
 			console.error('Failed to load tiled data:', e);

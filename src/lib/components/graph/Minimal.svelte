@@ -31,6 +31,6 @@
 </script>
 
 <div
-	class="minimap absolute isolate left-0 bottom-20 w-[200px] h-[200px]"
+	class="minimap absolute isolate z-10 right-0 bottom-0 w-[190px] h-[190px]"
 	bind:this={renderTargetEl}
 />

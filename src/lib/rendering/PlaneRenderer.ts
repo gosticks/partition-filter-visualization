@@ -1,56 +1,75 @@
 import * as THREE from 'three';
 import { GraphRenderer } from './GraphRenderer';
-import { DataPlaneShapeMaterial } from './materials/DataPlaneMaterial';
 import { DataPlaneShapeGeometry } from './geometry/DataPlaneGeometry';
 import { graphColors } from './colors';
-import { Axis, AxisRenderer, defaultAxisLabelOptions } from './AxisRenderer';
+import { AxisRenderer, type AxisLabelRenderer } from './AxisRenderer';
 
+interface IPlaneData {
+	points: (Float32Array | number[])[];
+	min: number;
+	max: number;
+	name: string;
+	meta?: Record<string, unknown>;
+	color?: string;
+}
 export interface IPlaneRendererData {
 	// A list of ordered planes (e.g. bottom to top)
 	// each plane is a 2D array of points
-	layers: {
-		points: (Float32Array | number[])[];
-		min: number;
-		max: number;
-		name: string;
-		meta?: Record<string, unknown>;
-		color?: string;
-	}[];
+	layers: IPlaneData[];
 	labels: {
 		x?: string;
 		y?: string;
 		z?: string;
 	};
-	normalized?: boolean;
-	scaleY?: number;
+	tileRange: {
+		x: number;
+		z: number;
+	};
+	ranges: {
+		x: [number, number];
+		y: [number, number];
+		z: [number, number];
+	};
 }
 
 export class PlaneRenderer extends GraphRenderer<IPlaneRendererData> {
 	public data?: IPlaneRendererData;
-	private gridHelper?: THREE.GridHelper;
-	private group?: THREE.Group;
+	private grids?: THREE.Group;
 	private dataDepth = 0;
 	private dataWidth = 0;
-	private layers: THREE.Group[] = [];
-	private scale = 2;
+	private planeGroup: THREE.Group = new THREE.Group();
+	private get planes() {
+		return this.planeGroup.children as THREE.Group[];
+	}
+
 	private min = 0;
 	private max = 0;
 
-	private axisLabelRenderer?: (axis: Axis, segment: number) => string;
+	private axisLabelRenderer?: AxisLabelRenderer;
+
+	// factor used for normalizing data into range from 0, 1 along Y axis
+	// 1 / [maximum Y axis value in data]
+	// is NaN if used before data is loaded
+	private get yAxisNormalizationFactor() {
+		if (this.max === 0) {
+			return NaN;
+		}
+
+		return 1 / this.max;
+	}
 
 	// Dots displayed on top of each data layer
 	private selectedInstanceId: number | undefined;
 	private selectedLayerIndex: number | undefined;
+	private raycaster = new THREE.Raycaster();
 
 	private axisRenderer?: AxisRenderer;
 
-	// Getter for all bar blocks managed by the renderer
-	get children(): THREE.Object3D[] {
-		return this.group?.children ?? [];
-	}
+	// override readonly type = 'PlaneRenderer';
 
 	constructor() {
 		super();
+		console.log('Setup complete');
 	}
 
 	onResize(evt: UIEvent): void {
@@ -59,12 +78,11 @@ export class PlaneRenderer extends GraphRenderer<IPlaneRendererData> {
 
 	destroy(): void {
 		console.log('Destroying plane renderer');
-		if (this.group) {
-			this.scene?.remove(this.group);
-		}
+		this.cleanup();
+		this.scene?.remove(this);
 	}
 
-	setAxisLabelRenderer(renderer?: (axis: Axis, segment: number) => string): void {
+	setAxisLabelRenderer(renderer?: AxisLabelRenderer): void {
 		this.axisLabelRenderer = renderer;
 	}
 
@@ -75,115 +93,174 @@ export class PlaneRenderer extends GraphRenderer<IPlaneRendererData> {
 		// renderTargetHTMLElement.addEventListener('resize', this.onResize.bind(this));
 	}
 
-	setScale(scale: THREE.Vector3): void {
-		this.size = scale;
-		this.group?.position.setY(-0.1 * scale.y);
-		this.group?.scale.copy(scale).multiplyScalar(1 / (this.scale * 2));
-	}
+	onBeforeRender = (
+		renderer: THREE.WebGLRenderer,
+		scene: THREE.Scene,
+		camera: THREE.Camera,
+		geometry: THREE.BufferGeometry<THREE.NormalBufferAttributes>,
+		material: THREE.Material,
+		group: THREE.Group
+	) => {
+		// Update axis renderer
+		this.axisRenderer?.onBeforeRender(renderer, scene, camera, geometry, material, group);
+
+		if (!this.grids) {
+			return;
+		}
+
+		const cameraDirection = new THREE.Vector3();
+		camera.getWorldDirection(cameraDirection);
+		const defaultNormal = new THREE.Vector3(0, 1, 0);
+		const grids = this.grids.children as THREE.GridHelper[];
+		// compute distance to camera and select 3th closest sides
+		const closestGrids = grids
+			.map((grid, idx) => [idx, grid.position.distanceTo(camera.position)])
+			.sort(([, a], [, b]) => a - b);
+
+		const gridsToHide = 3;
+
+		// hide two closest grids
+		for (let i = 0; i < grids.length; i++) {
+			const [idx, distance] = closestGrids[i];
+			const grid = grids[idx];
+			const material = grid.material;
+			let opacity = 0;
+			if (i >= gridsToHide) {
+				const gridNormal = defaultNormal.clone().transformDirection(grid.matrixWorld);
+				const dot = cameraDirection.dot(gridNormal);
+				opacity = Math.max(Math.abs(dot), 0);
+			}
+
+			if (Array.isArray(material)) {
+				material.forEach((mat) => {
+					mat.opacity = opacity;
+					mat.transparent = true;
+					mat.needsUpdate = true;
+				});
+			} else {
+				material.opacity = opacity;
+				material.transparent = true;
+				material.needsUpdate = true;
+			}
+		}
+	};
 
 	getIntersections(raycaster: THREE.Raycaster): THREE.Intersection[] {
-		const intersection = raycaster.intersectObjects(this.children, true);
-		if (!intersection.length) {
-			return [];
-		}
-
-		// Filter out instanced geometry
-		const index = intersection.findIndex(
-			(i) =>
-				i.instanceId !== undefined &&
-				this.layers[(i.object as THREE.InstancedMesh).userData.index].visible
-		);
-
-		if (index == -1) {
-			if (this.selectedInstanceId !== undefined) {
-				// Color in selected instance
-				this.selectedInstanceId = undefined;
-				this.selectedLayerIndex = undefined;
-				this.onDataPointSelected?.();
-			}
-
-			// Bypass invisible layers
-			return intersection.filter((i) => i.object.visible && i.object.parent.visible);
-		}
-
-		const instanceId = intersection[index].instanceId as number;
-
-		const mesh = intersection[index].object as THREE.InstancedMesh;
-		const meshIndex = mesh.userData.index;
-		if (this.selectedLayerIndex !== meshIndex && instanceId !== this.selectedInstanceId) {
-			this.selectedInstanceId = instanceId;
-			this.selectedLayerIndex = mesh.userData.index;
-
-			// Color in selected instance
-			const color = new THREE.Color(0xff00ff);
-			mesh.setColorAt(instanceId, color);
-			if (mesh.instanceColor) {
-				mesh.instanceColor.needsUpdate = true;
-			}
-
-			if (this.onDataPointSelected) {
-				const point = new THREE.Vector3(
-					this.selectedInstanceId % this.dataDepth,
-					this.selectedLayerIndex,
-					Math.floor(this.selectedInstanceId / this.dataWidth)
-				);
-
-				const value = this.data?.layers[meshIndex].points[point.z][point.x];
-
-				console.log(value);
-
-				this.onDataPointSelected(point, {
-					value,
-					layer: this.data?.layers[meshIndex],
-					layerIndex: meshIndex,
-					instanceId
-				});
-			}
-		}
-
 		return [];
+		// const intersection = raycaster.intersectObjects(this.children, true);
+		// if (!intersection.length) {
+		// 	return [];
+		// }
+		// // Filter out instanced geometry
+		// const index = intersection.findIndex(
+		// 	(i) =>
+		// 		i.instanceId !== undefined &&
+		// 		this.layers[(i.object as THREE.InstancedMesh).userData.index].visible
+		// );
+		// if (index == -1) {
+		// 	if (this.selectedInstanceId !== undefined) {
+		// 		// Color in selected instance
+		// 		this.selectedInstanceId = undefined;
+		// 		this.selectedLayerIndex = undefined;
+		// 		this.onDataPointSelected?.();
+		// 	}
+		// 	// Bypass invisible layers
+		// 	return intersection.filter((i) => i.object.visible && i.object.parent.visible);
+		// }
+		// const instanceId = intersection[index].instanceId as number;
+		// const mesh = intersection[index].object as THREE.InstancedMesh;
+		// const meshIndex = mesh.userData.index;
+		// if (this.selectedLayerIndex !== meshIndex && instanceId !== this.selectedInstanceId) {
+		// 	this.selectedInstanceId = instanceId;
+		// 	this.selectedLayerIndex = mesh.userData.index;
+		// 	// Color in selected instance
+		// 	const color = new THREE.Color(0xff00ff);
+		// 	mesh.setColorAt(instanceId, color);
+		// 	if (mesh.instanceColor) {
+		// 		mesh.instanceColor.needsUpdate = true;
+		// 	}
+		// 	if (this.onDataPointSelected) {
+		// 		const point = new THREE.Vector3(
+		// 			this.selectedInstanceId % this.dataDepth,
+		// 			this.selectedLayerIndex,
+		// 			Math.floor(this.selectedInstanceId / this.dataWidth)
+		// 		);
+		// 		const value = this.data?.layers[meshIndex].points[point.z][point.x];
+		// 		console.log(value);
+		// 		this.onDataPointSelected(point, {
+		// 			value,
+		// 			layer: this.data?.layers[meshIndex],
+		// 			layerIndex: meshIndex,
+		// 			instanceId
+		// 		});
+		// 	}
+		// }
+		// return [];
 	}
 
-	cleanup(): void {
-		// Remove all previous layers
-		this.layers.forEach((layer) => {
-			this.group?.remove(layer);
-			layer.clear();
-		});
+	private renderPlane(planeData: IPlaneData, index: number, color: THREE.Color) {
+		const plane = planeData.points;
+		const geo = new DataPlaneShapeGeometry(plane, undefined, true);
 
-		// Remove axis renderer
-		if (this.axisRenderer) {
-			this.axisRenderer.destroy();
-			this.axisRenderer = undefined;
+		const mat = new THREE.MeshLambertMaterial({
+			color: color,
+			opacity: 1,
+			depthWrite: true,
+			// clipIntersection: true,
+			// clipShadows: true,
+			side: THREE.DoubleSide
+		});
+		const mesh = new THREE.Mesh(geo, mat);
+
+		// Add metadata to mesh
+		mesh.userData = { index, name: planeData.name, meta: planeData.meta };
+
+		this.dataDepth = geo.planeDims.depth;
+		this.dataWidth = geo.planeDims.width;
+
+		return mesh;
+	}
+
+	private renderPlaneDots(
+		layerGeometry: DataPlaneShapeGeometry,
+		index: number,
+		color: THREE.ColorRepresentation = 0xeeeeff
+	): THREE.InstancedMesh {
+		const pointBuffer = layerGeometry.buffer;
+		if (!pointBuffer) {
+			throw new Error(
+				'Cannot render layer dots without previously buffered DataPlaneShapeGeometry'
+			);
 		}
 
-		if (this.group) {
-			this.scene?.remove(this.group);
-			this.group.clear();
+		const sphereGeo = new THREE.SphereGeometry(0.008);
+
+		const sphereMat = new THREE.MeshBasicMaterial({ color: color, depthWrite: false });
+		const dotMesh = new THREE.InstancedMesh(sphereGeo, sphereMat, layerGeometry.pointsPerPlane);
+		dotMesh.userData = { index };
+		// dotMesh.renderOrder = 10;
+		dotMesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+		// Set position of each dot
+		const matrix = new THREE.Matrix4();
+		const yAxisScaleFactor = this.yAxisNormalizationFactor;
+		for (let i = 0; i < layerGeometry.pointsPerPlane; i++) {
+			const idx = i * DataPlaneShapeGeometry.pointComponentSize;
+
+			// Apply scale
+
+			matrix.setPosition(
+				pointBuffer[idx],
+				pointBuffer[idx + 1] * yAxisScaleFactor,
+				pointBuffer[idx + 2]
+			);
+
+			dotMesh.setMatrixAt(i, matrix);
 		}
-	}
 
-	toggleLayerVisibility(layerIndex: number): boolean {
-		const layer = this.layers[layerIndex];
-		layer.visible = !layer.visible;
+		dotMesh.instanceMatrix.needsUpdate = true;
+		dotMesh.computeBoundingSphere();
 
-		return layer.visible;
-	}
-
-	getLayerVisibility(): boolean[] {
-		return this.layers.map((layer) => layer.visible);
-	}
-
-	showAllLayers(): void {
-		this.layers.forEach((layer) => {
-			layer.visible = true;
-		});
-	}
-
-	hideAllLayers(): void {
-		this.layers.forEach((layer) => {
-			layer.visible = false;
-		});
+		return dotMesh;
 	}
 
 	updateWithData(
@@ -195,163 +272,137 @@ export class PlaneRenderer extends GraphRenderer<IPlaneRendererData> {
 			console.warn('No data provided');
 			return;
 		}
-
 		this.cleanup();
 
-		const group = new THREE.Group();
-		const sphereGeo = new THREE.SphereGeometry(0.008);
+		this.planeGroup = new THREE.Group();
 
 		this.data = data;
 		let globalMin = Infinity;
 		let globalMax = -Infinity;
 
-		this.layers = data.layers.map((layer, index) => {
-			console.log('Layer:', layer.name, 'Min:', layer.min, 'Max:', layer.max);
-			globalMax = Math.max(globalMax, layer.max);
-			globalMin = Math.min(globalMin, layer.min);
+		const meshes = data.layers.map((planeData, index) => {
+			globalMax = Math.max(globalMax, planeData.max);
+			globalMin = Math.min(globalMin, planeData.min);
+			const color = new THREE.Color(planeData.color ?? colorPalette[index % colorPalette.length]);
+			const planeMesh = this.renderPlane(planeData, index, color);
 
-			const plane = layer.points;
-			const layerGroup = new THREE.Group();
-			const geo = new DataPlaneShapeGeometry(plane, undefined, true);
-			const color = new THREE.Color(layer.color ?? colorPalette[index % colorPalette.length]);
-
-			const mat = new THREE.MeshLambertMaterial({
-				color: color,
-				opacity: 1,
-				depthWrite: true,
-				// clipIntersection: true,
-				// clipShadows: true,
-				side: THREE.DoubleSide
-			});
-			const mesh = new THREE.Mesh(geo, mat);
-
-			layerGroup.add(mesh);
-
-			// Add metadata to mesh
-			mesh.userData = { index, name: layer.name, meta: layer.meta };
-
-			this.dataDepth = geo.planeDims.depth;
-			this.dataWidth = geo.planeDims.width;
-
-			group.add(layerGroup);
-			return layerGroup;
+			return planeMesh;
 		});
-
-		let dataScaleFactor = globalMax - globalMin;
-		dataScaleFactor = dataScaleFactor === 0 ? 1 : dataScaleFactor;
-		dataScaleFactor = 1 / dataScaleFactor;
-
-		// With the scale known we can now draw the layer points
-		for (const [index, layerGroup] of this.layers.entries()) {
-			const geo = (layerGroup.children[0] as THREE.Mesh).geometry as DataPlaneShapeGeometry;
-
-			if (!geo) {
-				continue;
-			}
-
-			const pointBuffer = geo.buffer;
-			if (!pointBuffer) {
-				continue;
-			}
-
-			const sphereMat = new THREE.MeshBasicMaterial({ color: 0xeeeeff, depthWrite: false });
-			const dotMesh = new THREE.InstancedMesh(sphereGeo, sphereMat, geo.pointsPerPlane);
-			dotMesh.userData = { index };
-			// dotMesh.renderOrder = 10;
-			dotMesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
-			// Set position of each dot
-			const matrix = new THREE.Matrix4();
-			for (let i = 0; i < geo.pointsPerPlane; i++) {
-				const idx = i * DataPlaneShapeGeometry.pointComponentSize;
-
-				// Apply scale
-
-				matrix.setPosition(
-					pointBuffer[idx],
-					pointBuffer[idx + 1] * dataScaleFactor,
-					pointBuffer[idx + 2]
-				);
-
-				dotMesh.setMatrixAt(i, matrix);
-			}
-
-			dotMesh.instanceMatrix.needsUpdate = true;
-			dotMesh.computeBoundingSphere();
-
-			// Scale data
-			layerGroup.children[0].scale.y = dataScaleFactor;
-
-			layerGroup.add(dotMesh);
-
-			// Move layer group by tine amount to avoid z-fighting
-			// layerGroup.position.y = index * 0.00001;
-		}
 
 		this.min = globalMin;
 		this.max = globalMax;
 
-		console.log('Min:', this.min, 'Max:', this.max);
+		const dataScaleFactor = 1 / globalMax;
 
-		// const geometry = new DataPlaneShapeGeometry(highestValues, undefined);
+		// Render dots and scale layers
+		const dotMeshes = meshes.map((planeMesh, index) => {
+			const geo = planeMesh.geometry as DataPlaneShapeGeometry;
+			if (!geo) {
+				throw Error('Plane mesh be initialized before dot geometry can be created');
+			}
 
-		// // Create a material with the custom fragment shader
-		// const material = new DataPlaneShapeMaterial(new THREE.Color(0xff00ff));
+			return this.renderPlaneDots(geo, index);
+		});
 
-		// const mesh = new THREE.Mesh(geometry, material);
-		// group.add(mesh);
+		// Combine meshes and dotmeshes to create layer groups
+		for (const [i, mesh] of meshes.entries()) {
+			const group = new THREE.Group();
 
-		this.group = group;
+			// set scaling
+			// - only scale layers
+			mesh.scale.y = dataScaleFactor;
+
+			group.add(mesh);
+			group.add(dotMeshes[i]);
+
+			this.planeGroup.add(group);
+		}
+
+		// Move plane group to be centered at 0,0,0
+		this.planeGroup.position.set(-0.5, 0, -0.5);
+
+		this.add(this.planeGroup);
+
 		this.setupGridHelper();
 		this.setupAxisRenderer();
-
-		this.setScale(this.size);
-
-		this.scene?.add(group);
+		// this.setScale(this.scale);
 	}
+
+	cleanup(): void {
+		// Remove axis renderer
+		if (this.axisRenderer) {
+			this.axisRenderer.destroy();
+			this.axisRenderer = undefined;
+		}
+		this.planeGroup.clear();
+		this.grids?.clear();
+		this.clear();
+	}
+
+	////////////////////////////////
+	// PlaneRenderer specific methods
+	/////////////////////////////////
+
+	toggleLayerVisibility(layerIndex: number): boolean {
+		const layer = this.planes[layerIndex];
+		layer.visible = !layer.visible;
+
+		return layer.visible;
+	}
+
+	getLayerVisibility(): boolean[] {
+		return this.planes.map((plane) => plane.visible);
+	}
+
+	showAllLayers(): void {
+		this.planes.forEach((plane) => {
+			plane.visible = true;
+		});
+	}
+
+	hideAllLayers(): void {
+		this.planes.forEach((plane) => {
+			plane.visible = false;
+		});
+	}
+
+	////////////////////////////////
+	// Private helpers
+	/////////////////////////////////
 
 	private setupAxisRenderer() {
 		this.axisRenderer = new AxisRenderer({
 			// labelScale: 10,
-			size: new THREE.Vector3(2, 2, 2),
-			labelScale: 0.15,
+			size: new THREE.Vector3(1, 1, 1),
+			labelScale: 0.075,
+			labelForSegment: this.axisLabelRenderer,
 			x: {
-				label: { text: this.data?.labels?.x ?? 'x' },
-				segments: this.dataWidth - 1,
-				labelForSegment: this.axisLabelRenderer
-					? (segment: number) => this.axisLabelRenderer?.(Axis.Y, segment)
-					: undefined
+				labelText: this.data?.labels?.x ?? 'x',
+				segments: this.dataWidth - 1
 			},
 			y: {
-				label: { text: this.data?.labels?.y ?? 'y' },
-				segments: 100,
-				labelForSegment: this.axisLabelRenderer
-					? (segment: number) => this.axisLabelRenderer?.(Axis.Y, segment)
-					: undefined
+				labelText: this.data?.labels?.y ?? 'y',
+				segments: 10
 			},
 			z: {
-				label: { text: this.data?.labels?.z ?? 'z' },
-				segments: this.dataDepth - 1,
-				labelForSegment: this.axisLabelRenderer
-					? (segment: number) => this.axisLabelRenderer?.(Axis.Z, segment)
-					: undefined
+				labelText: this.data?.labels?.z ?? 'z',
+				segments: this.dataDepth - 1
 			}
 		});
-		this.axisRenderer.position.x = -1;
-		this.axisRenderer.position.z = -1;
 
-		this.group?.add(this.axisRenderer);
+		// center axis ar (0,0,0)
+		this.axisRenderer.position.set(-0.5, 0, -0.5);
+
+		this.add(this.axisRenderer);
 	}
 
-	private setupGridHelper() {
-		const baseScale = 2;
-		const overlapFactor = 1;
-
+	private createGrid(baseScale = 1, overlapFactor = 1) {
 		const numWidthTiles = this.dataWidth - 1;
 		const numDepthTiles = this.dataDepth - 1;
 		const isWidthSmaller = numWidthTiles < numDepthTiles;
 		const largerSide = isWidthSmaller ? numDepthTiles : numWidthTiles;
 
-		this.gridHelper = new THREE.GridHelper(
+		const gridHelper = new THREE.GridHelper(
 			baseScale * overlapFactor,
 			largerSide * overlapFactor,
 			0x888888,
@@ -366,17 +417,45 @@ export class PlaneRenderer extends GraphRenderer<IPlaneRendererData> {
 		if (isWidthSmaller) {
 			const zSegmentSize = baseScale / largerSide / 2;
 			const xSegmentSize = zSegmentSize * (numDepthTiles / numWidthTiles);
-			this.gridHelper.scale.x = numDepthTiles / numWidthTiles;
+			gridHelper.scale.x = numDepthTiles / numWidthTiles;
 			// this.gridHelper.position.x = -xSegmentSize;
 			// this.gridHelper.position.z = -zSegmentSize;
 		} else {
 			const xSegmentSize = baseScale / largerSide;
 			const zSegmentSize = xSegmentSize * (numWidthTiles / numDepthTiles);
-			this.gridHelper.scale.z = numWidthTiles / numDepthTiles;
+			gridHelper.scale.z = numWidthTiles / numDepthTiles;
 			// this.gridHelper.position.z = -zSegmentSize;
 			// this.gridHelper.position.x = -xSegmentSize;
 		}
 
-		this.group?.add(this.gridHelper);
+		return gridHelper;
+	}
+
+	private setupGridHelper() {
+		if (this.grids) {
+			this.grids.clear();
+		} else {
+			this.grids = new THREE.Group();
+		}
+
+		// Draw a grid for each side
+		const orientations = [
+			[new THREE.Vector3(0, 1, 0), new THREE.Vector3(0, 1, 0)],
+			[new THREE.Vector3(0, 0, 0), new THREE.Vector3(0, 0, 0)],
+			[new THREE.Vector3(1, 0, 0), new THREE.Vector3(0, 0.5, -0.5)],
+			[new THREE.Vector3(0, 0, 1), new THREE.Vector3(-0.5, 0.5, 0)],
+			[new THREE.Vector3(-1, 0, 0), new THREE.Vector3(0, 0.5, 0.5)],
+			[new THREE.Vector3(0, 0, 1), new THREE.Vector3(0.5, 0.5, 0)]
+		];
+
+		for (const [orientation, offset] of orientations) {
+			const grid = this.createGrid();
+
+			grid.setRotationFromAxisAngle(orientation, Math.PI / 2);
+			grid.position.set(offset.x, offset.y, offset.z);
+			this.grids.add(grid);
+		}
+
+		this.add(this.grids);
 	}
 }

@@ -2,34 +2,35 @@
 	import { onMount } from 'svelte';
 	import '@fontsource/inter';
 	import '../app.css';
-	import { Theme, settingsStore } from '$lib/store/SettingsStore';
+	import settingsStore, { Theme } from '$lib/store/SettingsStore';
 	import notificationStore from '$lib/store/notificationStore';
 	import Button from '$lib/components/button/Button.svelte';
 	import { XIcon } from 'svelte-feather-icons';
 	import { ButtonColor, ButtonSize, ButtonVariant } from '$lib/components/button/type';
+	import { browser } from '$app/environment';
 
 	function setDarkMode(enabled: boolean) {
 		if (enabled) {
 			document.documentElement.classList.add('dark');
-			localStorage.theme = Theme.Dark;
 		} else {
 			document.documentElement.classList.remove('dark');
-			localStorage.theme = Theme.Light;
 		}
 	}
-
 	onMount(() => {
-		const initialDark =
-			localStorage.theme === Theme.Dark ||
-			window.matchMedia('(prefers-color-scheme: dark)').matches;
-		setDarkMode(initialDark);
-		$settingsStore.theme = initialDark ? Theme.Dark : Theme.Light;
+		// No theme setup on server side
+		if (!browser) {
+			return;
+		}
 
 		// Monitor browser preference for dark mode
 		window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', (e) => {
 			const newColorScheme = e.matches ? Theme.Dark : Theme.Light;
-			$settingsStore.theme = newColorScheme;
 			setDarkMode(newColorScheme === Theme.Dark);
+			settingsStore.updateTheme(newColorScheme);
+		});
+
+		settingsStore.subscribe((store) => {
+			setDarkMode(store.theme === Theme.Dark);
 		});
 	});
 </script>

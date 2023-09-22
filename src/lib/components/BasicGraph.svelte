@@ -18,6 +18,7 @@
 	import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass';
 	import { OutlinePass } from 'three/examples/jsm/postprocessing/OutlinePass';
 	import Stats from './graph/Stats.svelte';
+	import Graph2D from './graph/Graph2D.svelte';
 
 	export let onHover: (position: THREE.Vector2, object?: THREE.Object3D) => void = () => {};
 
@@ -145,30 +146,18 @@
 		const animate = (time: number) => {
 			// call all before subscribers
 			for (const subscriber of beforeSubscribers) {
-				subscriber();
+				subscriber(renderer, scene, camera);
 			}
+			// Update tween for all animations
 			TWEEN.update(time);
+
 			controls.update();
-
-			// if (mousePosition) {
-			// 	// Handle selection
-			// 	raycaster.setFromCamera(mousePosition, camera);
-
-			// 	// const intersections = dataRenderer.getIntersections(raycaster);
-
-			// 	// if (intersections.length === 0) {
-			// 	// 	outlinePass.selectedObjects = [];
-			// 	// 	onHover(mouseClientPosition, undefined);
-			// 	// } else {
-			// 	// 	outlinePass.selectedObjects = [intersections[0].object];
-			// 	// 	onHover(mouseClientPosition, intersections[0].object);
-			// 	// }
-			// }
-
 			composer.render();
+
 			for (const subscriber of afterSubscribers) {
-				subscriber();
+				subscriber(renderer, scene, camera);
 			}
+
 			requestAnimationFrame(animate);
 		};
 
@@ -256,18 +245,18 @@
 	}
 </script>
 
-<div class="relative w-screen h-[80vh]">
-	<div
-		bind:this={containerElement}
-		on:mousemove={handleHover}
-		on:click={handleClick}
-		class="w-full h-full overflow-hidden isolate"
-	/>
-	<!-- Render children only after setup complete -->
-	{#if isSetupComplete}
-		<slot />
-		<Stats />
-	{/if}
+<div>
+	<div class="relative w-screen h-screen">
+		<div bind:this={containerElement} class="w-full h-full overflow-hidden isolate" />
+		<!-- Render children only after setup complete -->
+		{#if isSetupComplete}
+			<slot />
+			<Stats />
+		{/if}
+	</div>
+	<div class="absolute pointer-events-none bottom-0 left-2">
+		<Graph2D />
+	</div>
 </div>
 
 <style lang="scss">

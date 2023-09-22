@@ -2,7 +2,7 @@
 	import { onMount, onDestroy } from 'svelte';
 	import type { editor } from 'monaco-editor';
 	import { browser } from '$app/environment';
-	import { settingsStore } from '$lib/store/SettingsStore';
+	import settingsStore from '$lib/store/SettingsStore';
 
 	let editorContainer: HTMLDivElement;
 	export let editor: editor.IStandaloneCodeEditor;

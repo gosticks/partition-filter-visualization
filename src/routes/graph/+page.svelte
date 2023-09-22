@@ -73,13 +73,6 @@
 		{#if $filterStore.selectedTables.length !== 0}
 			<FilterSidebar />
 		{/if}
-		<div class="fixed bottom-5 left-5">
-			<Dialog size={'large'}>
-				<Button slot="trigger" color={ButtonColor.PRIMARY} size={ButtonSize.LG}>SQL Editor</Button>
-				<svelte:fragment slot="title">SQL Query Editor</svelte:fragment>
-				<QueryEditor />
-			</Dialog>
-		</div>
 		{#if $filterStore.selectedPoint && hoverPosition}
 			<div
 				class="absolute pointer-events-none"

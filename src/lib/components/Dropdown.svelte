@@ -4,6 +4,8 @@
 	import Button from './button/Button.svelte';
 	import { ChevronDownIcon, ChevronUpIcon } from 'svelte-feather-icons';
 	import { ButtonSize } from './button/type';
+	import { relativePortal } from '$lib/actions/portal';
+	import clickOutside, { type ActionClickOutsideOptions } from '$lib/actions/clickOutside';
 
 	export let isOpen: boolean = false;
 	export let disabled: boolean = false;
@@ -12,11 +14,15 @@
 	let className: string | undefined = undefined;
 	export { className as class };
 
-	let popoverElement: HTMLDivElement;
+	const outsideActionParams: ActionClickOutsideOptions = {
+		onClickOutside
+	};
 
-	function toggleDropdown() {
+	const toggleDropdown = () => {
+		console.log('hello there before', isOpen);
 		isOpen = !isOpen;
-	}
+		console.log('hello there after', isOpen);
+	};
 
 	interface $$Slots {
 		button: {};
@@ -32,30 +38,15 @@
 			`
 		};
 	}
-	function handleClickOutside(event: MouseEvent) {
-		if (popoverElement && !popoverElement.contains(event.target as Node)) {
-			isOpen = false;
-		}
+
+	function onClickOutside() {
+		isOpen = false;
 	}
-
-	// Close the dropdown when clicking outside
-	onMount(() => {
-		if (browser) {
-			window.addEventListener('click', handleClickOutside);
-		}
-	});
-
-	onDestroy(() => {
-		if (browser) {
-			window.removeEventListener('click', handleClickOutside);
-		}
-	});
 </script>
 
 <div
 	class="relative mb-2 ring-offset-2 rounded-md ring-offset-background-50 dark:ring-offset-background-800 {className}"
 	class:ring-4={isOpen}
-	bind:this={popoverElement}
 >
 	<Button
 		size={ButtonSize.MD}
@@ -74,8 +65,10 @@
 
 	{#if isOpen}
 		<div
+			use:clickOutside={outsideActionParams}
+			use:relativePortal
 			transition:fadeSlide={{ duration: 100 }}
-			class="z-10 origin-top-left absolute left-0 mt-2 w-64 overflow-hidden rounded-xl shadow-2xl shadow-background-700 dark:shadow-background-950 bg-background-50 dark:bg-background-800 ring-background-200/5 dark:ring-background-950/5 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500"
+			class="z-1000 origin-top-left absolute left-0 mt-2 w-64 overflow-hidden rounded-xl shadow-2xl shadow-background-700 dark:shadow-background-950 bg-background-50/80 dark:bg-background-800/95 backdrop-blur-sm ring-background-200/5 dark:ring-background-950/5 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500"
 		>
 			<div class="dropdown-content w-full h-full overflow-y-auto max-h-[350px]">
 				<div role="none">

@@ -33,7 +33,7 @@
 </script>
 
 <div
-	class="border-4 rounded-xl p-6 border-background-300 dark:border-background-700 text-center border-dotted"
+	class="border-4 rounded-xl p-6 border-background-300/70 dark:border-background-700/60 text-center border-dotted"
 	class:dragging={isDragging}
 	on:dragenter={handleDragEnter}
 	on:dragover={handleDragOver}

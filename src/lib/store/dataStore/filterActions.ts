@@ -74,7 +74,9 @@ export const dataStoreFilterExtension = (store: BaseStoreType) => {
 			scale,
 			columnName,
 			'"'
-		)}) AS min, MAX(${getSqlScaleWrapper(scale, columnName, '"')}) AS max FROM ${tableName}`;
+		)}) AS min, MAX(${getSqlScaleWrapper(scale, columnName, '"')}) AS max FROM ${tableName}
+		${scale === DataScaling.LOG ? `WHERE "${columnName}" >= 0` : ''}
+		`;
 
 		const resp = await store.executeQuery(query);
 		if (!resp) {
@@ -89,11 +91,6 @@ export const dataStoreFilterExtension = (store: BaseStoreType) => {
 		return [rows[0].min, rows[0].max];
 	};
 
-	const getMultiTableColumnRange = async (
-		tableNames: string[],
-		columnName: string,
-	 )
-
 	const getTiledRows = async (
 		tableName: string,
 		options: ITiledDataOptions,
@@ -107,63 +104,34 @@ export const dataStoreFilterExtension = (store: BaseStoreType) => {
 		const zTileCount = options.zTileCount ?? options.tileCount;
 
 		// Compute ranges for each axis
-		const [xMin, xMax] = xRange ?? (await getMinMax(tableName, options.xColumnName, options.scaleX));
-		const [yMin, yMax] = yRange ?? (await getMinMax(tableName, options.yColumnName, options.scaleY));
-		const [zMin, zMax] = zRange ?? (await getMinMax(tableName, options.zColumnName, options.scaleZ));
+		const [xMin, xMax] =
+			xRange ?? (await getMinMax(tableName, options.xColumnName, options.scaleX));
+		const [zMin, zMax] =
+			zRange ?? (await getMinMax(tableName, options.zColumnName, options.scaleZ));
+
+		// Compute bucket aggregation sizes
+		const xBucketSize = (xMax - xMin) / xTileCount;
+		const zBucketSize = (zMax - zMin) / zTileCount;
+
+		const xColValue = getSqlScaleWrapper(options.scaleX, options.xColumnName, '"');
+		const zColValue = getSqlScaleWrapper(options.scaleZ, options.zColumnName, '"');
+		const yColValue = getSqlScaleWrapper(options.scaleY, options.yColumnName, '"');
 
 		// FIXME: this currently incorrectly pairs up x and z values within a mode/group
-		const query = `WITH
-	"${options.xColumnName}_min_max_x" AS (
-		SELECT MIN(${getSqlScaleWrapper(options.scaleX, options.xColumnName, '"')}) AS "min_${
-			options.xColumnName
-		}_x", MAX(${getSqlScaleWrapper(options.scaleX, options.xColumnName, '"')}) AS "max_${
-			options.xColumnName
-		}_x"
-		FROM "${tableName}"
-	),
-	"${options.zColumnName}_min_max_z" AS (
-		SELECT MIN(${getSqlScaleWrapper(options.scaleZ, options.zColumnName, '"')}) AS "min_${
-			options.zColumnName
-		}_z", MAX(${getSqlScaleWrapper(options.scaleZ, options.zColumnName, '"')}) AS "max_${
-			options.zColumnName
-		}_z"
-		FROM "${tableName}"
-	),
-	"${options.xColumnName}_bucket_sizes_x" AS (
-		SELECT ("max_${options.xColumnName}_x" - "min_${options.xColumnName}_x") / ${xTileCount} AS "${
-			options.xColumnName
-		}_bucket_size_x"
-		FROM "${options.xColumnName}_min_max_x"
-	),
-	"${options.zColumnName}_bucket_sizes_z" AS (
-		SELECT ("max_${options.zColumnName}_z" - "min_${options.zColumnName}_z") / ${zTileCount} AS "${
-			options.zColumnName
-		}_bucket_size_z"
-		FROM "${options.zColumnName}_min_max_z"
-	)
-	SELECT ${groupBy ? 'mode,' : ''}
-		"${options.zColumnName}", "${options.xColumnName}",
-		   ${getSqlScaleWrapper(options.scaleY, `${tileAggregationMode}("${options.yColumnName}")`)} AS y,
-		   FLOOR((${getSqlScaleWrapper(options.scaleX, options.xColumnName, '"')} - "min_${
-			options.xColumnName
-		}_x") / "${options.xColumnName}_bucket_size_x") AS x,
-		   FLOOR((${getSqlScaleWrapper(options.scaleZ, options.zColumnName, '"')} - "min_${
-			options.zColumnName
-		}_z") / "${options.zColumnName}_bucket_size_z") AS z,
-		   MIN(${getSqlScaleWrapper(options.scaleX, options.xColumnName, '"')}) as "min_${
-			options.xColumnName
-		}_x",
-		   MIN(${getSqlScaleWrapper(options.scaleZ, options.zColumnName, '"')}) as "min_${
-			options.zColumnName
-		}_z"
+		const query = `
+		SELECT
+			${groupBy ? 'mode,' : ''}
+			${tileAggregationMode}(${yColValue}) AS y,
+			FLOOR((${xColValue} - ${xMin}) / ${xBucketSize}) AS x,
+		   	FLOOR((${zColValue} - ${zMin}) / ${zBucketSize}) AS z
 	FROM "${tableName}"
-	CROSS JOIN "${options.xColumnName}_min_max_x"
-	CROSS JOIN "${options.xColumnName}_bucket_sizes_x"
-	CROSS JOIN "${options.zColumnName}_min_max_z"
-	CROSS JOIN "${options.zColumnName}_bucket_sizes_z"
 	${groupBy ? `WHERE mode = '${groupBy}'` : ''}
-	GROUP BY ${groupBy ? 'mode,' : ''} z, x, name, "${options.zColumnName}", "${options.xColumnName}"
-	ORDER BY z ASC, x ASC`;
+	${options.scaleY === DataScaling.LOG ? `WHERE "${options.yColumnName}" >= 0` : ''}
+	GROUP BY ${groupBy ? 'mode,' : ''} z, x
+	ORDER BY z ASC, x ASC;
+	`;
+		// GROUP BY ${groupBy ? 'mode,' : ''} z, x, name, "${options.zColumnName}", "${options.xColumnName}"
+		// ORDER BY z ASC, x ASC;
 
 		try {
 			const resp = await store.executeQuery(query);
@@ -197,7 +165,9 @@ export const dataStoreFilterExtension = (store: BaseStoreType) => {
 		};
 
 		try {
-			const rows = await getTiledRows(tableName, options, 'min', groupBy, xRange, yRange, zRange);
+			const rows = await getTiledRows(tableName, options, 'max', groupBy, xRange, yRange, zRange);
+
+			console.log('Options', options);
 
 			// Transform rows into a 2D array for display
 			const data = Array.from(
@@ -209,6 +179,9 @@ export const dataStoreFilterExtension = (store: BaseStoreType) => {
 			let max = Number.MIN_VALUE;
 
 			rows.forEach((r) => {
+				if (r.x < 0 || r.z < 0 || Number.isNaN(r.y)) {
+					return;
+				}
 				min = Math.min(min, r.y);
 				max = Math.max(max, r.y);
 				data[r.x][r.z] = r.y;

@@ -1,9 +1,9 @@
-import { Vector3 } from 'three';
+import { Object3D, Vector3 } from 'three';
 
-export abstract class GraphRenderer<T = unknown, InstanceMetaInfo = any> {
+export abstract class GraphRenderer<T = unknown, InstanceMetaInfo = any> extends Object3D {
 	public scene: THREE.Scene | undefined = undefined;
 	public camera: THREE.Camera | undefined = undefined;
-	public size: THREE.Vector3 = new Vector3(1, 1, 1);
+	// public size: THREE.Vector3 = new Vector3(1, 1, 1);
 	public renderContainer: HTMLElement | undefined = undefined;
 
 	public onDataPointSelected:
@@ -19,7 +19,12 @@ export abstract class GraphRenderer<T = unknown, InstanceMetaInfo = any> {
 
 		// Set initial size
 		const bounds = renderContainer.getBoundingClientRect();
-		this.size = new Vector3(bounds.width, bounds.width, bounds.width);
+		// NOTE: apply reasonable scaling for graph may differ per graph implementation
+		const size = Math.min(bounds.width, bounds.height) * 0.6;
+		this.scale.set(size, size, size);
+		// Center in screen
+		this.position.y = -0.5 * size;
+		// this.position.x = -0.5 * size;
 	}
 
 	/**
@@ -29,6 +34,4 @@ export abstract class GraphRenderer<T = unknown, InstanceMetaInfo = any> {
 	abstract updateWithData(data: T, colorPalette?: THREE.ColorRepresentation[]): void;
 
 	abstract getIntersections(raycaster: THREE.Raycaster): THREE.Intersection[];
-
-	abstract setScale(scale: THREE.Vector3): void;
 }

@@ -4,6 +4,7 @@
 	import type { FilterEntry } from '../../routes/graph/proxy+page.server';
 	import DropZone from './DropZone.svelte';
 	import DropdownSelect from './DropdownSelect.svelte';
+	import Divider from './base/Divider.svelte';
 
 	function onSelectTable(selectionOptions: { label: string; value: FilterEntry }[]) {
 		const selectedTables = $filterStore.preloadedTables.filter(
@@ -21,9 +22,9 @@
 <p class="mb-2">from filter data provided by us</p>
 <DropdownSelect onSelect={onSelectTable} options={$filterStore.preloadedTables} />
 <div class="flex mt-5 mb-5 items-center justify-center">
-	<div class="border-t dark:border-background-700 w-full" />
+	<Divider />
 	<div class="mx-4 opacity-50">OR</div>
-	<div class="border-t w-full dark:border-background-700" />
+	<Divider />
 </div>
 <p class="mb-2">your own dataset in CSV format</p>
 <DropZone onFileDropped={filesDropped} />

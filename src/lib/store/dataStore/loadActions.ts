@@ -285,7 +285,7 @@ export const dataStoreLoadExtension = (store: BaseStoreType, dataStore: Writable
 
 			// Check if references are already loaded
 			// FIXME: for not assume we are reloading same samples and skip
-			// TODO: add check or delete databases
+			// TODO: add check or te databases
 			if (Object.keys(grouped).every((tableName) => !!get(dataStore).tables[tableName])) {
 				console.log('All tables are already loaded, skipping');
 				return;
@@ -363,6 +363,32 @@ export const dataStoreLoadExtension = (store: BaseStoreType, dataStore: Writable
 			store.tables = {};
 			return store;
 		});
+	};
+
+	const removeTable = async (tableName: string) => {
+		const { sharedConnection: conn } = get(dataStore);
+
+		if (!conn) {
+			return;
+		}
+
+		const tables = await store.getTables();
+		const table = tables.find((t) => t === tableName);
+		if (!table) {
+			return;
+		}
+
+		try {
+			await store.executeQuery(`DROP TABLE "${tableName}"`);
+
+			computeCombinedTableSchema();
+		} catch (e) {
+			notificationStore.addNotification({
+				id: Date.now(),
+				type: 'error',
+				message: `Could not delete table ${tableName}`
+			});
+		}
 	};
 
 	// Export public API

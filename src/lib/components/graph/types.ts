@@ -2,7 +2,11 @@ import * as THREE from 'three';
 
 export type GraphUnsubscribe = () => void;
 
-export type GraphRenderLoopCallback = () => void;
+export type GraphRenderLoopCallback = (
+	renderer: THREE.WebGLRenderer,
+	scene: THREE.Scene,
+	camera: THREE.Camera
+) => void;
 
 // let displatFilter: ;
 export type GraphService = {

@@ -2,6 +2,7 @@
 	import { browser } from '$app/environment';
 	import { onMount, onDestroy } from 'svelte';
 	import { fade, fly } from 'svelte/transition';
+	import { defaultPortalRootClass, portal } from '$lib/actions/portal';
 
 	type DialogSize = 'small' | 'medium' | 'large';
 
@@ -43,13 +44,14 @@
 	<!-- svelte-ignore a11y-click-events-have-key-events -->
 	<div
 		role="dialog"
+		use:portal
 		transition:fade={{ duration: 100 }}
-		class="modal-overlay fixed top-0 bottom-0 left-0 right-0 w-full h-full bg-opacity-80 dark:bg-opacity-60 bg-slate-200 dark:bg-background-950"
+		class="modal-overlay {defaultPortalRootClass} fixed top-0 bottom-0 left-0 right-0 w-full h-full bg-opacity-80 dark:bg-opacity-60 bg-slate-200 dark:bg-background-950"
 		on:mousedown|self={toggleDialog}
 	>
 		<div
 			transition:fly={{ y: -120, delay: 25, duration: 150 }}
-			class="modal rounded-3xl shadow-xl bg-background-50 dark:bg-background-800 {size}"
+			class="modal rounded-3xl shadow-xl backdrop-blur-lg bg-background-50/75 dark:bg-background-900/75 {size}"
 		>
 			{#if $$slots.title}<div class="pb-4 mb-2 border-b">
 					<h2 class="font-bold text-xl"><slot name="title" /></h2>

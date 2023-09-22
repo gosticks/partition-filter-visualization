@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { dataStore } from '$lib/store/dataStore/DataStore';
-	import filterStore, { type IFilterStoreGraphOptions } from '$lib/store/filterStore/FilterStore';
+	import filterStore from '$lib/store/filterStore/FilterStore';
+	import settingsStore, { Theme } from '$lib/store/SettingsStore';
 	import { onMount } from 'svelte';
 	import Button from './button/Button.svelte';
 	import Card from './Card.svelte';
@@ -9,17 +10,19 @@
 	import OptionRenderer from './OptionRenderer.svelte';
 	import Divider from './base/Divider.svelte';
 	import {
+		InfoIcon,
 		LayersIcon,
+		MoonIcon,
 		PlusIcon,
 		RefreshCcwIcon,
 		SettingsIcon,
-		Trash2Icon,
+		SunIcon,
 		XIcon
 	} from 'svelte-feather-icons';
 	import { ButtonColor, ButtonSize, ButtonVariant } from './button/type';
 	import Dialog from './Dialog.svelte';
-	import DropZone from './DropZone.svelte';
 	import TableSelection from './TableSelection.svelte';
+	import QueryEditor from './QueryEditor.svelte';
 
 	let optionsStore: GraphOptions['optionsStore'] | undefined;
 	let isFilterBarOpen: boolean = true;
@@ -64,15 +67,36 @@
 	}
 </script>
 
-<div class="absolute right-4 pt-4 t-0 bottom-0 w-96 min-h-full overflow-y-auto">
-	<div class="mb-4 flex justify-end mr-1">
+<div class="absolute right-4 pt-4 t-0 top-0 w-96 max-h-full overflow-y-auto">
+	<div class="mb-4 gap-3 flex justify-end mr-1">
 		<Button
-			size={ButtonSize.SM}
+			size={ButtonSize.LG}
+			color={ButtonColor.SECONDARY}
+			on:click={settingsStore.toggleThemeMode}
+		>
+			<div class="py">
+				{#if $settingsStore.theme === Theme.Dark}
+					<MoonIcon size="20" />
+				{:else}
+					<SunIcon size="20" />
+				{/if}
+			</div>
+		</Button>
+		<Dialog size={'large'}>
+			<Button slot="trigger" color={ButtonColor.SECONDARY} size={ButtonSize.LG}>
+				<InfoIcon slot="leading" size="20" />
+				SQL Editor
+			</Button>
+			<svelte:fragment slot="title">SQL Query Editor</svelte:fragment>
+			<QueryEditor />
+		</Dialog>
+		<Button
+			size={ButtonSize.LG}
 			color={isFilterBarOpen ? ButtonColor.PRIMARY : ButtonColor.SECONDARY}
 			on:click={_toggleFilterBar}
 		>
-			<div class="py-1">
-				<SettingsIcon />
+			<div class="py">
+				<SettingsIcon size="20" />
 			</div>
 		</Button>
 	</div>
