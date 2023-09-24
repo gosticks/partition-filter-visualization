@@ -1,8 +1,10 @@
 <script lang="ts">
-	import Label from './base/Label.svelte';
-	import { beforeUpdate } from 'svelte';
+	import { select } from 'd3';
 
-	import { CheckCircleIcon, CheckIcon, MailIcon, PhoneIcon } from 'svelte-feather-icons';
+	import Label from './base/Label.svelte';
+	import { createEventDispatcher } from 'svelte';
+
+	import { CheckIcon } from 'svelte-feather-icons';
 	import Dropdown from './Dropdown.svelte';
 	import Button from './button/Button.svelte';
 
@@ -13,13 +15,15 @@
 	export let label: string | undefined = undefined;
 
 	// Data type
-
 	type T = $$Generic;
 	type R = $$Generic;
 	type M = $$Generic;
 	type Option = { label: string; value: T; id?: number; initiallySelected?: boolean };
-
 	type OptionConstructor = (value: R, index: number, meta: unknown) => Option;
+
+	interface $$Events {
+		select: CustomEvent<{ selected: Option[]; meta?: unknown }>;
+	}
 
 	export let selection = new Set<T>();
 
@@ -28,6 +32,8 @@
 	export let meta: M | undefined = undefined;
 	export let values: R[] | undefined = undefined;
 	export let optionConstructor: OptionConstructor | undefined = undefined;
+
+	const selectDispatch = createEventDispatcher();
 
 	$: {
 		selectionLabel = labelForSelection(options.filter((o) => selection.has(o.value)));
@@ -60,16 +66,13 @@
 		}
 	}
 
-	// add on select action
-	export let onSelect: (selected: Option[], meta?: unknown) => void | undefined;
-
 	let selectionLabel = labelForSelection(options.filter((o) => selection.has(o.value)));
 
 	function internalOnSelect(option: Option) {
 		// In singular mode we only allow one selection
 		if (singular) {
 			selection = new Set<T>([option.value]);
-			onSelect?.([option], meta);
+			selectDispatch('select', { selected: [option], meta });
 			return;
 		}
 
@@ -82,17 +85,26 @@
 
 		const selectedOptions = options.filter((o) => selection.has(o.value));
 
-		onSelect?.(selectedOptions, meta);
+		selectDispatch('select', {
+			selected: selectedOptions,
+			meta
+		});
 	}
 
 	function clearAll() {
 		selection = new Set<T>();
-		onSelect?.([], meta);
+		selectDispatch('select', {
+			selected: [],
+			meta
+		});
 	}
 
 	function selectAll() {
 		selection = new Set<T>(options.map((o) => o.value));
-		onSelect?.(options, meta);
+		selectDispatch('select', {
+			selected: options,
+			meta
+		});
 	}
 
 	// Computes the button text based on current selection

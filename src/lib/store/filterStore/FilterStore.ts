@@ -4,11 +4,9 @@ import type { FilterEntry } from '../../../routes/graph/proxy+page.server';
 import {
 	withUrlStorage,
 	type UrlEncoder,
-	urlEncodeObject,
 	defaultUrlEncoder,
 	type UrlDecoder,
-	defaultUrlDecoder,
-	urlDecodeObject
+	defaultUrlDecoder
 } from '../urlStorage';
 import {
 	type IFilterStore,
@@ -17,8 +15,9 @@ import {
 	GraphOptions,
 	GraphType
 } from './types';
-import { PlaneGraphOptions, type PlaneGraphState } from './graphs/plane';
+import { PlaneGraphOptions } from './graphs/plane';
 import { defaultLogOptions, withLogMiddleware } from '../logMiddleware';
+import notificationStore from '../notificationStore';
 
 export interface IFilterStoreGraphOptions {
 	type: GraphType.PLANE;
@@ -118,10 +117,30 @@ const _filterStore = () => {
 		}
 	};
 
+	const reloadCurrentGraph = () => {
+		// reload state with table changes
+		const state = get(store);
+		if (state.graphOptions) {
+			state.graphOptions.reloadFilterOptions();
+			state.graphOptions.applyOptionsIfValid();
+		}
+	};
+
 	return {
 		set,
 		update,
 		subscribe,
+
+		removeTable: async (tableName: string) => {
+			try {
+				await dataStore.removeTable(tableName);
+				await reloadCurrentGraph();
+			} catch {
+				notificationStore.error({
+					message: `Failed to remove table "${tableName}"`
+				});
+			}
+		},
 
 		reset: () => {
 			dataStore.resetDatabase();
@@ -153,12 +172,11 @@ const _filterStore = () => {
 					await selectTables(selectedTables);
 
 					if (_graphOptions && _graphOptions !== null) {
-						_graphOptions.reloadFilterOptions();
 						update((store) => {
-							store.graphOptions = _graphOptions;
+							store.graphOptions = _graphOptions ?? undefined;
 							return store;
 						});
-						await _graphOptions.applyOptionsIfValid();
+						await reloadCurrentGraph();
 					}
 				} catch (e) {
 					console.error('Failed to load selected tables:', e);
@@ -181,7 +199,16 @@ const _filterStore = () => {
 				}))
 			);
 
-			return selectTables(tableReferences);
+			try {
+				await selectTables(tableReferences);
+				await reloadCurrentGraph();
+				return;
+			} catch {
+				notificationStore.error({
+					message: 'Failed to load external tables',
+					description: tables.map((table) => table.name).join(',')
+				});
+			}
 		},
 
 		selectGraphType: async (graphType: GraphType) => {

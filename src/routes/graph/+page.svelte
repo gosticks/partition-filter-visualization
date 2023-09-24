@@ -1,28 +1,20 @@
 <script lang="ts">
 	import type { PageServerData } from './$types';
-	import Button from '$lib/components/button/Button.svelte';
-	import DropdownSelect from '$lib/components/DropdownSelect.svelte';
 	import BasicGraph from '$lib/components/BasicGraph.svelte';
 	import LoadingOverlay from '$lib/components/LoadingOverlay.svelte';
 	import type { Vector2 } from 'three';
 	import { dataStore } from '$lib/store/dataStore/DataStore';
 	import { browser } from '$app/environment';
 	import { onMount } from 'svelte';
-	import Card from '$lib/components/Card.svelte';
-	import Dialog from '$lib/components/Dialog.svelte';
-	import QueryEditor from '$lib/components/QueryEditor.svelte';
 	import FilterSidebar from '$lib/components/FilterSidebar.svelte';
 	import GridBackground from '$lib/components/GridBackground.svelte';
 	import MessageCard from '$lib/components/MessageCard.svelte';
-	import DropZone from '$lib/components/DropZone.svelte';
 	import filterStore, { type IFilterStoreGraphOptions } from '$lib/store/filterStore/FilterStore';
 	import Minimal from '$lib/components/graph/Minimal.svelte';
 	import PlaneGraph from '$lib/components/graph/PlaneGraph.svelte';
-	import { GraphOptions } from '$lib/store/filterStore/types';
 	import { PlaneGraphOptions } from '$lib/store/filterStore/graphs/plane';
-	import type { FilterEntry } from './proxy+page.server';
-	import TableSelection from '$lib/components/TableSelection.svelte';
-	import { ButtonColor, ButtonSize } from '$lib/components/button/type';
+	import TableSelection from '$lib/components/tableSelection/TableSelection.svelte';
+	import type { TableSelectionEvent } from '$lib/components/tableSelection/types';
 
 	export let data: PageServerData;
 
@@ -33,10 +25,15 @@
 		await filterStore.initWithPreloadedTables(data.filters);
 	});
 
-	let hoverPosition: Vector2 | undefined = undefined;
+	function onTableSelected(evt: TableSelectionEvent) {
+		const { buildInTables, externalTables } = evt.detail;
+		if (buildInTables) {
+			filterStore.selectBuildInTables(buildInTables.map((option) => option.value));
+		}
 
-	function onHover(position: Vector2, object?: THREE.Object3D) {
-		hoverPosition = position;
+		if (externalTables && externalTables.fileList) {
+			dataStore.loadEntriesFromFileList(externalTables.fileList);
+		}
 	}
 </script>
 
@@ -55,17 +52,12 @@
 					</div>
 				</div>
 			{:else}
-				<!-- <div class="flex-grow flex-shrink">
-					<div class="flex flex-col">
-						<BasicGraph {onHover} />
-					</div>
-				</div> -->
 				<GridBackground />
 			{/if}
 			{#if $filterStore.selectedTables.length === 0}
 				<div class="h-full w-full flex flex-col gap-10 justify-center items-center">
 					<MessageCard>
-						<TableSelection />
+						<TableSelection on:select={onTableSelected} />
 					</MessageCard>
 				</div>
 			{/if}

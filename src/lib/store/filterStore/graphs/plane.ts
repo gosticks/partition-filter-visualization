@@ -2,7 +2,7 @@ import type { IPlaneChildData, IPlaneRendererData } from '$lib/rendering/PlaneRe
 import { dataStore } from '$lib/store/dataStore/DataStore';
 import { get, readonly, writable, type Readable, type Writable } from 'svelte/store';
 import { GraphOptions, GraphType } from '../types';
-import { DataScaling } from '$lib/store/dataStore/types';
+import { DataAggregation, DataScaling } from '$lib/store/dataStore/types';
 import { colorBrewer, graphColors } from '$lib/rendering/colors';
 import type { ITiledDataOptions, ValueRange } from '$lib/store/dataStore/filterActions';
 import { urlDecodeObject, urlEncodeObject, withSingleKeyUrlStorage } from '$lib/store/urlStorage';
@@ -127,6 +127,13 @@ export class PlaneGraphOptions extends GraphOptions<
 				options: stringTableColumns,
 				label: 'Group By'
 			},
+			aggregation: {
+				type: 'string',
+				label: 'Aggregation',
+				required: true,
+				options: Object.values(DataAggregation),
+				default: DataAggregation.MIN
+			},
 			xColumnName: {
 				type: 'row',
 				keys: ['xColumnName', 'scaleX'],
@@ -140,7 +147,7 @@ export class PlaneGraphOptions extends GraphOptions<
 					},
 					{
 						type: 'string',
-						options: [DataScaling.LINEAR, DataScaling.LOG],
+						options: Object.values(DataScaling),
 						label: 'X Scale',
 						required: true
 					}
@@ -159,7 +166,7 @@ export class PlaneGraphOptions extends GraphOptions<
 					},
 					{
 						type: 'string',
-						options: [DataScaling.LINEAR, DataScaling.LOG],
+						options: Object.values(DataScaling),
 						label: 'Y Scale',
 						required: true
 					}
@@ -234,7 +241,7 @@ export class PlaneGraphOptions extends GraphOptions<
 		// Get all layers
 		try {
 			const tables = Object.keys(data.tables);
-
+			console.debug('loading data from tables', tables);
 			const xAxisRange = await this.getGlobalRange(state.xColumnName, state.scaleX);
 			const yAxisRange = await this.getGlobalRange(state.yColumnName, state.scaleY);
 			const zAxisRange = await this.getGlobalRange(state.zColumnName, state.scaleZ);

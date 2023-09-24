@@ -1,6 +1,5 @@
 import type { BaseStoreType } from './DataStore';
-import { DataScaling, type FilterOptions, type IDataStore } from './types';
-import { type Writable } from 'svelte/store';
+import { DataAggregation, DataScaling, type FilterOptions, type IDataStore } from './types';
 
 interface ITiledDataRow {
 	mode: string;
@@ -24,6 +23,7 @@ export type ITiledDataOptions = {
 	scaleY: DataScaling;
 	scaleX: DataScaling;
 	scaleZ: DataScaling;
+	aggregation: DataAggregation;
 };
 
 // Store extension containing actions to load data, transform & drop data
@@ -98,7 +98,6 @@ export const dataStoreFilterExtension = (store: BaseStoreType) => {
 	const getTiledRows = async (
 		tableName: string,
 		options: ITiledDataOptions,
-		tileAggregationMode: 'min' | 'max' | 'avg' | 'sum' = 'min',
 		xRange?: ValueRange,
 		yRange?: ValueRange,
 		zRange?: ValueRange,
@@ -125,7 +124,7 @@ export const dataStoreFilterExtension = (store: BaseStoreType) => {
 		const query = `
 		SELECT
 			${where ? `"${where.columnName}",` : ''}
-			${tileAggregationMode}(${yColValue}) AS y,
+			${options.aggregation}(${yColValue}) AS y,
 			FLOOR((${xColValue} - ${xMin}) / ${xBucketSize}) AS x,
 		   	FLOOR((${zColValue} - ${zMin}) / ${zBucketSize}) AS z
 	FROM "${tableName}"
@@ -169,7 +168,7 @@ export const dataStoreFilterExtension = (store: BaseStoreType) => {
 		};
 
 		try {
-			const rows = await getTiledRows(tableName, options, 'max', xRange, yRange, zRange, where);
+			const rows = await getTiledRows(tableName, options, xRange, yRange, zRange, where);
 
 			// Transform rows into a 2D array for display
 			const data = Array.from(

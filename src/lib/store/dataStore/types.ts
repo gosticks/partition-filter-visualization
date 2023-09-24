@@ -8,6 +8,13 @@ export enum DataScaling {
 	LOG = 'log'
 }
 
+export enum DataAggregation {
+	MIN = 'min',
+	MAX = 'max',
+	AVG = 'avg',
+	SUM = 'sum'
+}
+
 export interface ITableEntry {
 	name: string;
 	dataUrl: string;

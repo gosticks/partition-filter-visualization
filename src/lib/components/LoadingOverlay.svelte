@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { portal } from '$lib/actions/portal';
 	import { fade } from 'svelte/transition';
 
 	export let isLoading: boolean = false;
@@ -7,6 +8,7 @@
 <div
 	class="fixed isolate inset-0 flex items-center justify-center backdrop-blur-sm z-50"
 	class:visible={isLoading}
+	use:portal
 	transition:fade
 >
 	<div class="fixed inset-0 bg-gray-800 dark:bg-gray-950 opacity-75" />

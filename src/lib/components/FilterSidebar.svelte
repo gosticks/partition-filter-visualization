@@ -2,7 +2,7 @@
 	import { dataStore } from '$lib/store/dataStore/DataStore';
 	import filterStore from '$lib/store/filterStore/FilterStore';
 	import settingsStore, { Theme } from '$lib/store/SettingsStore';
-	import { onMount } from 'svelte';
+	import { getContext, onMount } from 'svelte';
 	import Button from './button/Button.svelte';
 	import Card from './Card.svelte';
 	import { GraphOptions, GraphType } from '$lib/store/filterStore/types';
@@ -19,10 +19,12 @@
 		XIcon
 	} from 'svelte-feather-icons';
 	import { ButtonColor, ButtonSize, ButtonVariant } from './button/type';
-	import Dialog from './Dialog.svelte';
-	import TableSelection from './TableSelection.svelte';
+	import Dialog from './dialog/Dialog.svelte';
+	import TableSelection from './tableSelection/TableSelection.svelte';
 	import QueryEditor from './QueryEditor.svelte';
 	import { fadeSlide } from '$lib/transitions/fadeSlide';
+	import { type DialogContextService, DialogSize } from './dialog/types';
+	import type { TableSelectionEvent } from './tableSelection/types';
 
 	let optionsStore: GraphOptions['optionsStore'] | undefined;
 	let isFilterBarOpen: boolean = true;
@@ -31,6 +33,17 @@
 
 	$: if ($filterStore.graphOptions) {
 		optionsStore = $filterStore.graphOptions.optionsStore;
+	}
+
+	function onTableSelect(evt: TableSelectionEvent) {
+		const { buildInTables, externalTables } = evt.detail;
+		if (buildInTables) {
+			filterStore.selectBuildInTables(buildInTables.map((option) => option.value));
+		}
+
+		if (externalTables && externalTables.fileList) {
+			dataStore.loadEntriesFromFileList(externalTables.fileList);
+		}
 	}
 
 	function _toggleFilterBar() {
@@ -53,7 +66,7 @@
 				{/if}
 			</div>
 		</Button>
-		<Dialog size={'large'}>
+		<Dialog size={DialogSize.large}>
 			<Button slot="trigger" color={ButtonColor.SECONDARY} size={ButtonSize.LG}>
 				<InfoIcon slot="leading" size="20" />
 				SQL Editor
@@ -88,22 +101,27 @@
 						<li class="flex py-1 justify-between items-center">
 							<div>{tableName}</div>
 							<Button
-								on:click={() => dataStore.removeTable(tableName)}
+								on:click={() => filterStore.removeTable(tableName)}
 								variant={ButtonVariant.LINK}
 								size={ButtonSize.SM}><XIcon size="15" /></Button
 							>
 						</li>
 					{/each}
 				</ul>
-				<Dialog size="small">
+				<Dialog size={DialogSize.small}>
 					<Button slot="trigger" size={ButtonSize.SM}>
 						<svelte:fragment slot="trailing">
 							<PlusIcon size="12" />
 						</svelte:fragment>
 						Load More</Button
 					>
-
-					<TableSelection />
+					{@const dialogCtx = getContext('dialog')}
+					<TableSelection
+						on:select={(selection) => {
+							onTableSelect(selection);
+							dialogCtx.close();
+						}}
+					/>
 				</Dialog>
 				{#if Object.keys($dataStore.tables).length > 0}
 					<Divider />

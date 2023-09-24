@@ -5,17 +5,20 @@
 	import {
 		PlaneRenderer,
 		type IPlaneRendererData,
-		type IPlaneSelection
+		type IPlaneSelection,
+		type IPlaneData
 	} from '$lib/rendering/PlaneRenderer';
 	import Card from '../Card.svelte';
 	import type { PlaneGraphOptions } from '$lib/store/filterStore/graphs/plane';
 	import type { Unsubscriber } from 'svelte/store';
+	import { dataStore as dbStore } from '$lib/store/dataStore/DataStore';
 	import Button from '../button/Button.svelte';
 	import { Axis } from '$lib/rendering/AxisRenderer';
 	import { ButtonColor, ButtonSize } from '../button/type';
 	import { Vector2, Vector3 } from 'three';
 	import { fade } from 'svelte/transition';
-	import SliceSelection from './SliceSelection.svelte';
+	import LayerGroup from '../layerLegend/LayerGroup.svelte';
+	import type { LayerSelectionEvent } from '../layerLegend/event';
 
 	export let options: PlaneGraphOptions;
 
@@ -68,7 +71,11 @@
 
 		threeDomContainer.addEventListener('mousemove', onMouseMove);
 
-		unsubscriber = options.dataStore.subscribe(updateWithData);
+		let dataUnsub = options.dataStore.subscribe(updateWithData);
+
+		unsubscriber = () => {
+			dataUnsub();
+		};
 	});
 
 	onDestroy(() => {
@@ -108,13 +115,12 @@
 		return value.toFixed(2).toString();
 	};
 
-	const toggleLayerVisibility = (index: number) => {
-		dataRenderer.toggleLayerVisibility(index);
-		layerVisibility = dataRenderer.getLayerVisibility();
-	};
-
-	const toggleSublayerVisibility = (index: number, subindex: number) => {
-		dataRenderer.toggleSublayerVisibiliry(index, subindex);
+	const onLayerSelected = (evt: CustomEvent<LayerSelectionEvent<IPlaneData, any>>) => {
+		if (evt.detail.subIndex !== undefined) {
+			dataRenderer.toggleSublayerVisibility(evt.detail.index, evt.detail.subIndex);
+		} else {
+			dataRenderer.toggleLayerVisibility(evt.detail.index);
+		}
 		layerVisibility = dataRenderer.getLayerVisibility();
 	};
 
@@ -144,57 +150,21 @@
 	};
 </script>
 
-<SliceSelection
+<!-- <SliceSelection
 	scale={0.6}
 	x={normalizedValueForSelection(Axis.X, selection)}
 	z={normalizedValueForSelection(Axis.Z, selection)}
-/>
+/> -->
 <div class="plane-graph-ui legend absolute isolate left-2 top-16 w-[250px]">
 	<Card title="Layers" noPad>
 		<div class="max-h-96 px-4 py-2 border-b dark:border-background-800 border-t overflow-auto">
 			{#if $dataStore}
-				{#each layerVisibility as [visible, childVisibility], index}
-					{@const layer = $dataStore.layers[index]}
-					<!-- svelte-ignore a11y-click-events-have-key-events -->
-					<div class="pb-2">
-						<div
-							class="flex gap-4 pb items-center justify-between cursor-pointer"
-							class:opacity-30={!visible}
-							on:click={() => toggleLayerVisibility(index)}
-						>
-							<p class="font-semibold">{layer.name}</p>
-							<div
-								class="w-4 h-4 rounded-full border border-slate-800"
-								style={`background-color: ${layer.color ?? '#eeeeee'};`}
-							/>
-						</div>
-						{#if layer.layers}
-							<ul class="pl-2 pr-[2px] overflow-clip">
-								{#each layer.layers as subLayer, subindex}
-									{@const sublayerVisible = childVisibility[subindex]}
-									<li
-										class="flex gap-2 justify-between items-center cursor-pointer"
-										on:click={() => toggleSublayerVisibility(index, subindex)}
-										class:opacity-30={!sublayerVisible}
-									>
-										<div class="flex gap-1 flex-shrink items-center">
-											<p
-												class="w-6 h-8 -mt-7 border-b border-l border-slate-300 pointer-events-none dark:border-background-700"
-											/>
-											<p class="text-sm flex-shrink text-ellipsis overflow-hidden">
-												{subLayer.name}
-											</p>
-										</div>
-										<div
-											class="w-3 h-3 flex-shrink-0 rounded-full border border-slate-800"
-											style={`background-color: ${subLayer.color ?? '#eeeeee'};`}
-										/>
-									</li>
-								{/each}
-							</ul>
-						{/if}
-					</div>
-				{/each}
+				<LayerGroup
+					selection={selection?.layer}
+					on:select={onLayerSelected}
+					{layerVisibility}
+					layers={$dataStore.layers}
+				/>
 			{/if}
 		</div>
 		<div class="px-4 pb-2">
@@ -202,26 +172,51 @@
 				size={ButtonSize.SM}
 				color={ButtonColor.SECONDARY}
 				class="mt-2"
-				disabled={layerVisibility.every((l) => l === true)}
+				disabled={layerVisibility.every(
+					([l, children]) => l === true && children.every((l) => l === true)
+				)}
 				on:click={showAllLayers}>Show all</Button
 			>
 			<Button
 				size={ButtonSize.SM}
 				color={ButtonColor.SECONDARY}
 				class="mt-2"
-				disabled={layerVisibility.every((l) => l === false)}
+				disabled={layerVisibility.every(
+					([l, children]) => l !== true && children.every((l) => l !== true)
+				)}
 				on:click={hideAllLayers}>Hide all</Button
 			>
 		</div>
 	</Card>
-	{#if selection}
+	{#if selection && $dataStore}
 		<div
 			transition:fade={{ duration: 75 }}
-			class="absolute px-3 py-2 rounded-lg border backdrop-blur-md border-slate-900 bg-slate-700/80 text-slate-100 w-48"
+			class="absolute px-3 py-2 rounded-lg border backdrop-blur-md border-slate-900 bg-slate-700/80 text-slate-100"
 			style="left: {mouseClientPosition.x}px; top: {mouseClientPosition.y -
 				40}px; font-family: monospace;"
 		>
-			{selection.layer.name} - ({selection.x}, {selection.y}, {selection.z})
+			<div class="flex justify-between whitespace-nowrap gap-2 flex-nowrap">
+				<div>
+					<div
+						class="flex-shrink-0 rounded-full border border-slate-800"
+						style={`background-color: ${selection.layer.color}; width: 12px; height:12px; display: inline-block;`}
+					/>
+					<span class="font-bold">{selection.layer.name}</span>
+				</div>
+				<span class="text-slate-400">x:{selection.x} z:{selection.z}</span>
+			</div>
+			<div class="flex justify-between gap-2">
+				<span>[x]{$dataStore.labels.x}:</span>
+				<span>{selection.normalizedCoords.x * $dataStore.ranges.x[1]}</span>
+			</div>
+			<div class="flex justify-between gap-2">
+				<span>[y]{$dataStore.labels.y}:</span>
+				<span>{selection.normalizedCoords.y * $dataStore.ranges.y[1]}</span>
+			</div>
+			<div class="flex justify-between gap-2">
+				<span>[z]{$dataStore.labels.z}:</span>
+				<span>{selection.normalizedCoords.z * $dataStore.ranges.z[1]}</span>
+			</div>
 		</div>
 	{/if}
 </div>

@@ -56,15 +56,18 @@ export type SimpleGraphFilterOption =
 					type: 'string';
 					options: string[];
 					label: string;
+					default?: string;
 			  }
 			| {
 					type: 'number';
 					options: number[];
 					label: string;
+					default?: number;
 			  }
 			| {
 					type: 'boolean';
 					label: string;
+					default?: boolean;
 			  }
 	  ) & {
 			required?: boolean;

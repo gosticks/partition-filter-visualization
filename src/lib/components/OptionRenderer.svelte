@@ -28,7 +28,10 @@
 		initiallySelected: state?.[meta as keyof T] === value
 	});
 
-	const onOptionSelected = (selected: { label: string; value: string }[], meta?: unknown) => {
+	const onOptionSelected = (
+		evt: CustomEvent<{ selected: { label: string; value: string }[]; meta?: unknown }>
+	) => {
+		const { meta, selected } = evt.detail;
 		const key = meta as keyof T;
 		if (selected.length > 0) {
 			onValueChange(key, selected[0].value as T[keyof T]);
@@ -53,7 +56,7 @@
 			label={option.label || keyAsString}
 			singular
 			required={option.required}
-			onSelect={onOptionSelected}
+			on:select={onOptionSelected}
 			meta={key}
 			values={option.options}
 			{optionConstructor}

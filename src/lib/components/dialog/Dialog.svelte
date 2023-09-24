@@ -1,12 +1,11 @@
 <script lang="ts">
 	import { browser } from '$app/environment';
-	import { onMount, onDestroy } from 'svelte';
+	import { onMount, onDestroy, setContext } from 'svelte';
 	import { fade, fly } from 'svelte/transition';
 	import { defaultPortalRootClass, portal } from '$lib/actions/portal';
+	import { DialogSize, type DialogContextService } from './types';
 
-	type DialogSize = 'small' | 'medium' | 'large';
-
-	export let size: DialogSize = 'medium';
+	export let size: DialogSize = DialogSize.medium;
 	export let dialogOpen = false;
 	let className: string | undefined = undefined;
 	export { className as class };
@@ -29,6 +28,15 @@
 
 		window.removeEventListener('touchmove', preventBodyScroll);
 		window.removeEventListener('wheel', preventBodyScroll);
+	});
+
+	setContext<DialogContextService>('dialog', {
+		close: () => (dialogOpen = false),
+		open: () => (dialogOpen = true),
+		toggle: () => {
+			toggleDialog();
+			return dialogOpen;
+		}
 	});
 
 	const toggleDialog = () => {
@@ -71,7 +79,7 @@
 		display: flex;
 		align-items: center;
 		justify-content: center;
-		z-index: 9999;
+		z-index: 10;
 	}
 	.modal {
 		padding: 20px;
