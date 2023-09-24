@@ -16,6 +16,7 @@ import * as THREE from 'three';
 
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls';
 import { Easing, Tween } from '@tweenjs/tween.js';
+import { colorBrewer } from './colors';
 
 const grayColorList = [
 	'#2B2B2B', // Charcoal Gray
@@ -49,7 +50,7 @@ export class Minimap {
 	private cubeSize = 20;
 	private bevelSize = 0.1;
 
-	public selectionColor = new Color(0xffff00);
+	public selectionColor = new Color(colorBrewer.RdYlBu[4][1]);
 	public color = new Color(grayColorList[9]);
 	public borderColor = new Color(grayColorList[3]);
 
@@ -158,8 +159,8 @@ export class Minimap {
 		// TODO: fixme render lines on top of cube
 
 		// Add light to scene
-		const light = new DirectionalLight(0xffffff, 1);
-		light.position.set(0, 0, 1);
+		// const light = new DirectionalLight(0xffffff, 1);
+		// light.position.set(0, 0, 1);
 	}
 
 	private renderCube() {

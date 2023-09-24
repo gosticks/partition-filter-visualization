@@ -51,20 +51,23 @@ export function setObjectValue<T extends object, P extends Paths<T>>(
 }
 
 export type SimpleGraphFilterOption =
-	| {
-			type: 'string';
+	| (
+			| {
+					type: 'string';
+					options: string[];
+					label: string;
+			  }
+			| {
+					type: 'number';
+					options: number[];
+					label: string;
+			  }
+			| {
+					type: 'boolean';
+					label: string;
+			  }
+	  ) & {
 			required?: boolean;
-			options: string[];
-			label: string;
-	  }
-	| {
-			type: 'number';
-			options: number[];
-			label: string;
-	  }
-	| {
-			type: 'boolean';
-			label: string;
 	  };
 
 export type GraphFilterOption<T> =
@@ -111,11 +114,6 @@ export interface IFilterStore {
 	// filterOptions: FilterOptions;
 	selectedTables: ITableReference[];
 	graphOptions?: GraphOptions;
-	selectedPoint?: {
-		dataPosition: THREE.Vector3;
-		instanceId: number;
-		meta: Record<string, unknown>;
-	};
 }
 
 export enum TableSource {

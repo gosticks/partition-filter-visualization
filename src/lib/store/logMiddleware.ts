@@ -1,5 +1,5 @@
-import type { Subscriber, Writable } from 'svelte/store';
-
+import { get, type Subscriber, type Writable } from 'svelte/store';
+import { detailedDiff } from 'deep-object-diff';
 export const defaultLogOptions = {
 	color: 'blue'
 };
@@ -9,7 +9,11 @@ export const withLogMiddleware = <S extends object>(
 	name: string,
 	options: typeof defaultLogOptions = defaultLogOptions
 ) => {
+	// let oldState: S = JSON.parse(JSON.stringify(sanitizeObject(get(store))));
 	const log: Subscriber<S> = (state: S) => {
+		// const sanitizedState = sanitizeObject(state);
+		// const diff = detailedDiff(oldState, sanitizeObject);
+		// oldState = JSON.parse(JSON.stringify(sanitizeObject));
 		console.debug(`%c[${name}]`, `color: ${options.color}`, { state });
 	};
 

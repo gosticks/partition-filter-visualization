@@ -73,6 +73,34 @@ const _baseStore = () => {
 		promise = initDuckDB();
 	}
 
+	const withQueryLogger = async <T>(query: string, promise: Promise<T>): Promise<T> => {
+		const start = performance.now();
+		let result: T | undefined;
+		let err: unknown;
+		try {
+			result = await promise;
+		} catch (e) {
+			err = e;
+		} finally {
+			const end = performance.now();
+			// Push query to history
+			update((store) => {
+				store.previousQueries.push({
+					query,
+					success: err === undefined,
+					executionTime: end - start
+				});
+				return store;
+			});
+		}
+
+		if (err) {
+			throw err;
+		}
+
+		return result!;
+	};
+
 	const executeQuery = async (query: string) => {
 		try {
 			await promise;
@@ -85,19 +113,7 @@ const _baseStore = () => {
 			return;
 		}
 
-		const start = performance.now();
-		const result = await conn.query(query);
-		const end = performance.now();
-		// Push query to history
-		update((store) => {
-			store.previousQueries.push({
-				query,
-				executionTime: end - start
-			});
-			return store;
-		});
-
-		return result;
+		return withQueryLogger(query, conn.query(query));
 	};
 
 	return {

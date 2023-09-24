@@ -23,5 +23,5 @@ export interface IDataStore {
 	tables: Record<string, ITableEntry>;
 	// Table schema shared across all tables
 	combinedSchema: TableSchema;
-	previousQueries: { query: string; executionTime: number }[];
+	previousQueries: { query: string; success: boolean; executionTime: number }[];
 }

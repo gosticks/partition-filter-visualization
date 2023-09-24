@@ -73,20 +73,7 @@
 		{#if $filterStore.selectedTables.length !== 0}
 			<FilterSidebar />
 		{/if}
-		{#if $filterStore.selectedPoint && hoverPosition}
-			<div
-				class="absolute pointer-events-none"
-				style={`left: ${hoverPosition.x}px; top: ${hoverPosition.y}px;`}
-			>
-				<Card>
-					<p>{$filterStore.selectedPoint.meta['layer']?.name ?? 'Untitled layer'}</p>
-					<div style="font-family: monospace;">
-						<p>{$filterStore.selectedPoint.meta['value'] ?? 'NaN'}</p>
-						[{$filterStore.selectedPoint.dataPosition.toArray()}]
-					</div>
-				</Card>
-			</div>
-		{/if}
+
 		{#if $filterStore.isLoading || $dataStore.isLoading}
 			<LoadingOverlay isLoading={true} />
 		{/if}

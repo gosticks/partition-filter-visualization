@@ -7,6 +7,7 @@
 	import Button from './button/Button.svelte';
 	import { dataStore } from '$lib/store/dataStore/DataStore';
 	import Card from './Card.svelte';
+	import { ButtonColor } from './button/type';
 
 	let dbConnection: AsyncDuckDBConnection | undefined = undefined;
 
@@ -123,6 +124,8 @@
 						</p>
 						<div
 							class="absolute right-2 bottom-2 text-sm bg-cyan-500 text-cyan-200 px-2 rounded-lg"
+							class:bg-red-600={!entry.success}
+							class:text-red-100={!entry.success}
 						>
 							{entry.executionTime.toLocaleString()}ms
 						</div>
@@ -132,6 +135,6 @@
 		</div>
 	</div>
 	<div class="flex justify-end pt-5">
-		<Button color="primary" on:click={onExecute}>Execute</Button>
+		<Button color={ButtonColor.PRIMARY} on:click={onExecute}>Execute</Button>
 	</div>
 </div>

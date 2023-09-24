@@ -5,7 +5,6 @@
 	import { onMount } from 'svelte';
 	import Button from './button/Button.svelte';
 	import Card from './Card.svelte';
-	import { get } from 'svelte/store';
 	import { GraphOptions, GraphType } from '$lib/store/filterStore/types';
 	import OptionRenderer from './OptionRenderer.svelte';
 	import Divider from './base/Divider.svelte';
@@ -23,43 +22,15 @@
 	import Dialog from './Dialog.svelte';
 	import TableSelection from './TableSelection.svelte';
 	import QueryEditor from './QueryEditor.svelte';
+	import { fadeSlide } from '$lib/transitions/fadeSlide';
 
 	let optionsStore: GraphOptions['optionsStore'] | undefined;
 	let isFilterBarOpen: boolean = true;
 
-	const applyFilter = () => {
-		// TODO: validate filter options
-		// filterStore.setGraphOptions(filterOptions);
-	};
-
-	onMount(async () => {
-		// load initial options from store
-		const values = get(filterStore);
-		console.log('filterStore', values);
-		// If present load initial values
-		// if (values.graphOptions) {
-		// 	filterOptions = values.graphOptions.getCurrentOptions();
-		// }
-
-		// filterStore.subscribe((value) => {
-		// 	if (value.graphOptions) {
-		// 		filterOptions = { ...value.graphOptions.getCurrentOptions() };
-		// 	}
-		// });
-	});
+	onMount(async () => {});
 
 	$: if ($filterStore.graphOptions) {
 		optionsStore = $filterStore.graphOptions.optionsStore;
-	}
-
-	function fadeSlide(node: HTMLElement, options?: { duration?: number }) {
-		return {
-			duration: options?.duration || 100,
-			css: (t: number) => `
-				transform: translateY(${(1 - t) * -20}px) scale(${0.9 + t * 0.1});
-                opacity: ${t};
-			`
-		};
 	}
 
 	function _toggleFilterBar() {
@@ -102,7 +73,6 @@
 	</div>
 	{#if isFilterBarOpen}
 		<div transition:fadeSlide={{ duration: 100 }}>
-			<!-- <Card>Available preloaded tables {$filterStore.preloadedTables.length}</Card> -->
 			<Card>
 				<div class="flex justify-between items-center">
 					<h3 class="font-semibold text-lg">Loaded table</h3>
@@ -117,7 +87,11 @@
 					{#each Object.entries($dataStore.tables) as [tableName, table]}
 						<li class="flex py-1 justify-between items-center">
 							<div>{tableName}</div>
-							<Button variant={ButtonVariant.LINK} size={ButtonSize.SM}><XIcon size="15" /></Button>
+							<Button
+								on:click={() => dataStore.removeTable(tableName)}
+								variant={ButtonVariant.LINK}
+								size={ButtonSize.SM}><XIcon size="15" /></Button
+							>
 						</li>
 					{/each}
 				</ul>
@@ -151,19 +125,6 @@
 						<Divider />
 						<h3 class="font-semibold text-lg">Visualization options</h3>
 						<div class="flex flex-col gap-2">
-							<!-- {#if typeof $dataStore.combinedSchema['mode'] !== 'undefined'}
-				<DropdownSelect
-					label="Groupings"
-					singular
-					onSelect={(selected) => {
-						filterOptions['mode'] = selected.length > 0 ? selected[0] : undefined;
-					}}
-					options={$dataStore.combinedSchema['mode'].options.map((entry) => ({
-						label: entry,
-						value: entry
-					}))}
-				/>
-			{/if} -->
 							<div class="mb-4">
 								{#each Object.entries($filterStore.graphOptions.filterOptions ?? {}) as [key, value]}
 									{#if typeof value !== 'undefined'}
@@ -176,7 +137,7 @@
 									{/if}
 								{/each}
 							</div>
-							<Button color="secondary" on:click={applyFilter}>Reset</Button>
+							<Button color={ButtonColor.SECONDARY}>Reset</Button>
 						</div>
 					{/if}
 				{/if}

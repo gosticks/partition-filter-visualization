@@ -13,10 +13,14 @@ export interface IPlaneData {
 	color?: string;
 	// if set allows to render an additional set of layers
 	// belonging to this layers e.g. top layer: filter (bloom,...), child layers: mode (Naive, Sectorized,...)
-	layers?: Omit<IPlaneData, 'layers'>[];
+	layers?: IPlaneChildData[];
 }
 
+export type IPlaneChildData = Omit<IPlaneData, 'layers'> & { isChild: boolean };
+
 export type IChildPlaneData = Omit<IPlaneData, 'layers'>[];
+
+const INTERSECTION_CHECK_LAYER = 1;
 
 export interface IPlaneRendererData {
 	// A list of ordered planes (e.g. bottom to top)
@@ -38,7 +42,15 @@ export interface IPlaneRendererData {
 	};
 }
 
-export class PlaneRenderer extends GraphRenderer<IPlaneRendererData> {
+export interface IPlaneSelection {
+	x: number;
+	y: number;
+	z: number;
+	layer: IPlaneData;
+	parent?: IPlaneData;
+}
+
+export class PlaneRenderer extends GraphRenderer<IPlaneRendererData, IPlaneSelection> {
 	public data?: IPlaneRendererData;
 	private grids?: THREE.Group;
 	private dataDepth = 0;
@@ -64,18 +76,14 @@ export class PlaneRenderer extends GraphRenderer<IPlaneRendererData> {
 		return 1 / this.max;
 	}
 
-	// Dots displayed on top of each data layer
-	private selectedInstanceId: number | undefined;
-	private selectedLayerIndex: number | undefined;
 	private raycaster = new THREE.Raycaster();
 
 	private axisRenderer?: AxisRenderer;
 
-	// override readonly type = 'PlaneRenderer';
-
 	constructor() {
 		super();
 		console.log('Setup complete');
+		this.raycaster.layers.set(INTERSECTION_CHECK_LAYER);
 	}
 
 	onResize(evt: UIEvent): void {
@@ -94,9 +102,6 @@ export class PlaneRenderer extends GraphRenderer<IPlaneRendererData> {
 
 	setup(renderContainer: HTMLElement, scene: THREE.Scene, camera: THREE.Camera): void {
 		super.setup(renderContainer, scene, camera);
-
-		// Subscribe to resize events
-		// renderTargetHTMLElement.addEventListener('resize', this.onResize.bind(this));
 	}
 
 	onBeforeRender = (
@@ -151,57 +156,56 @@ export class PlaneRenderer extends GraphRenderer<IPlaneRendererData> {
 		}
 	};
 
-	getIntersections(raycaster: THREE.Raycaster): THREE.Intersection[] {
-		return [];
-		// const intersection = raycaster.intersectObjects(this.children, true);
-		// if (!intersection.length) {
-		// 	return [];
-		// }
-		// // Filter out instanced geometry
-		// const index = intersection.findIndex(
-		// 	(i) =>
-		// 		i.instanceId !== undefined &&
-		// 		this.layers[(i.object as THREE.InstancedMesh).userData.index].visible
-		// );
-		// if (index == -1) {
-		// 	if (this.selectedInstanceId !== undefined) {
-		// 		// Color in selected instance
-		// 		this.selectedInstanceId = undefined;
-		// 		this.selectedLayerIndex = undefined;
-		// 		this.onDataPointSelected?.();
-		// 	}
-		// 	// Bypass invisible layers
-		// 	return intersection.filter((i) => i.object.visible && i.object.parent.visible);
-		// }
-		// const instanceId = intersection[index].instanceId as number;
-		// const mesh = intersection[index].object as THREE.InstancedMesh;
-		// const meshIndex = mesh.userData.index;
-		// if (this.selectedLayerIndex !== meshIndex && instanceId !== this.selectedInstanceId) {
-		// 	this.selectedInstanceId = instanceId;
-		// 	this.selectedLayerIndex = mesh.userData.index;
-		// 	// Color in selected instance
-		// 	const color = new THREE.Color(0xff00ff);
-		// 	mesh.setColorAt(instanceId, color);
-		// 	if (mesh.instanceColor) {
-		// 		mesh.instanceColor.needsUpdate = true;
-		// 	}
-		// 	if (this.onDataPointSelected) {
-		// 		const point = new THREE.Vector3(
-		// 			this.selectedInstanceId % this.dataDepth,
-		// 			this.selectedLayerIndex,
-		// 			Math.floor(this.selectedInstanceId / this.dataWidth)
-		// 		);
-		// 		const value = this.data?.layers[meshIndex].points[point.z][point.x];
-		// 		console.log(value);
-		// 		this.onDataPointSelected(point, {
-		// 			value,
-		// 			layer: this.data?.layers[meshIndex],
-		// 			layerIndex: meshIndex,
-		// 			instanceId
-		// 		});
-		// 	}
-		// }
-		// return [];
+	private currentSelection?: IPlaneSelection & {
+		mesh: THREE.InstancedMesh;
+	};
+
+	getInfoAtPoint(glPoint: THREE.Vector2): IPlaneSelection | undefined {
+		if (!this.camera || !this.planeGroup) {
+			this.currentSelection = undefined;
+			return;
+		}
+		this.raycaster.setFromCamera(glPoint, this.camera);
+		const intersection = this.raycaster.intersectObjects(this.planeGroup.children, true);
+
+		if (intersection.length === 0) {
+			this.currentSelection = undefined;
+			return;
+		}
+
+		const item = intersection[0];
+		const instanceId = item.instanceId as number;
+		const mesh = item.object as THREE.InstancedMesh;
+
+		// if selection did not change return previous selection
+		if (this.currentSelection && this.currentSelection.mesh === mesh) {
+			return this.currentSelection;
+		}
+		const meshIndex = mesh.userData.index;
+		// if set layer is a child layer
+		const meshChildIndex = mesh.userData.childIndex;
+		const dataLayer = meshChildIndex
+			? this.data?.layers[meshIndex]?.layers?.[meshChildIndex]
+			: this.data?.layers[meshIndex];
+		if (!dataLayer) {
+			this.currentSelection = undefined;
+			return;
+		}
+		const z = instanceId % dataLayer.points.length;
+		const x = Math.floor(instanceId / dataLayer.points[0].length);
+
+		const y = dataLayer.points[z][x];
+		// const row = dataLayer.meta?.rows[instanceId];
+
+		this.currentSelection = {
+			layer: dataLayer,
+			x,
+			y,
+			z,
+			mesh
+		};
+
+		return this.currentSelection;
 	}
 
 	private renderPlane(
@@ -235,7 +239,8 @@ export class PlaneRenderer extends GraphRenderer<IPlaneRendererData> {
 	private renderPlaneDots(
 		layerGeometry: DataPlaneShapeGeometry,
 		index: number,
-		color: THREE.ColorRepresentation = 0xeeeeff
+		color: THREE.ColorRepresentation = 0xeeeeff,
+		subIndex?: number
 	): THREE.InstancedMesh {
 		const pointBuffer = layerGeometry.buffer;
 		if (!pointBuffer) {
@@ -244,11 +249,11 @@ export class PlaneRenderer extends GraphRenderer<IPlaneRendererData> {
 			);
 		}
 
-		const sphereGeo = new THREE.SphereGeometry(0.008);
+		const sphereGeo = new THREE.SphereGeometry(0.006, 4, 4);
 
 		const sphereMat = new THREE.MeshBasicMaterial({ color: color, depthWrite: false });
 		const dotMesh = new THREE.InstancedMesh(sphereGeo, sphereMat, layerGeometry.pointsPerPlane);
-		dotMesh.userData = { index };
+		dotMesh.userData = { index, subIndex };
 		// dotMesh.renderOrder = 10;
 		dotMesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
 		// Set position of each dot
@@ -267,9 +272,8 @@ export class PlaneRenderer extends GraphRenderer<IPlaneRendererData> {
 
 			dotMesh.setMatrixAt(i, matrix);
 		}
-
+		dotMesh.layers.enable(INTERSECTION_CHECK_LAYER);
 		dotMesh.instanceMatrix.needsUpdate = true;
-		dotMesh.computeBoundingSphere();
 
 		return dotMesh;
 	}
@@ -327,9 +331,10 @@ export class PlaneRenderer extends GraphRenderer<IPlaneRendererData> {
 		// Combine meshes and dotmeshes to create layer groups
 		for (const [i, mesh] of meshes.entries()) {
 			const group = new THREE.Group();
+			group.layers.enable(INTERSECTION_CHECK_LAYER);
 
 			const parentLayerGroup = new THREE.Group();
-
+			parentLayerGroup.layers.enable(INTERSECTION_CHECK_LAYER);
 			// set scaling
 			// - only scale layers
 			mesh.scale.y = dataScaleFactor;
@@ -341,12 +346,33 @@ export class PlaneRenderer extends GraphRenderer<IPlaneRendererData> {
 			// render and scale child layers
 			if (childLayers[i].length !== 0) {
 				const childLayerGroup = new THREE.Group();
-				childLayerGroup.add(...childLayers[i]);
-				childLayerGroup.scale.y = dataScaleFactor;
+
+				// init as non visible
+				// childLayerGroup.visible = false;
+
+				// Render selection dots for child layers
+				childLayerGroup.add(
+					...childLayers[i].map((childMesh, subIndex) => {
+						const childGroup = new THREE.Group();
+						const geo = childMesh.geometry as DataPlaneShapeGeometry;
+						if (!geo) {
+							throw Error('Plane mesh be initialized before dot geometry can be created');
+						}
+
+						const dotMesh = this.renderPlaneDots(geo, i, subIndex);
+
+						childMesh.scale.y = dataScaleFactor;
+						childGroup.add(childMesh);
+						childGroup.add(dotMesh);
+						childGroup.visible = false;
+						return childGroup;
+					})
+				);
 				group.add(childLayerGroup);
 			}
 
 			this.planeGroup.add(group);
+			this.planeGroup.layers.enable(INTERSECTION_CHECK_LAYER);
 		}
 
 		// Move plane group to be centered at 0,0,0
@@ -377,24 +403,66 @@ export class PlaneRenderer extends GraphRenderer<IPlaneRendererData> {
 	toggleLayerVisibility(layerIndex: number): boolean {
 		const layer = this.planes[layerIndex].children[0];
 		layer.visible = !layer.visible;
+		if (layer.visible) {
+			layer.layers.enable(INTERSECTION_CHECK_LAYER);
+		} else {
+			layer.layers.disable(INTERSECTION_CHECK_LAYER);
+		}
 
 		return layer.visible;
 	}
 
-	getLayerVisibility(): boolean[] {
+	toggleSublayerVisibiliry(layerIndex: number, sublayerIndex: number): boolean {
+		const group = this.planes[layerIndex].children[1];
+		if (group.children.length <= sublayerIndex) {
+			return false;
+		}
+		const layer = group.children[sublayerIndex];
+		layer.visible = !layer.visible;
+		if (layer.visible) {
+			layer.layers.enable(INTERSECTION_CHECK_LAYER);
+		} else {
+			layer.layers.disable(INTERSECTION_CHECK_LAYER);
+		}
+
+		return layer.visible;
+	}
+
+	getLayerVisibility(): [boolean, boolean[]][] {
 		// first layer is the main layer
-		return this.planes.map((plane) => plane.children[0].visible);
+		return this.planes.map((plane) => [
+			plane.children[0].visible,
+			plane.children[1].children.map((childLayer) => childLayer.visible)
+		]);
 	}
 
 	showAllLayers(): void {
 		this.planes.forEach((plane) => {
 			plane.children[0].visible = true;
+			// prevent layer from being hit by hit-test
+			plane.layers.enable(INTERSECTION_CHECK_LAYER);
+
+			// Hide all sublayers
+			plane.children[1].children.forEach((plane) => {
+				plane.visible = true;
+				// prevent layer from being hit by hit-test
+				plane.layers.enable(INTERSECTION_CHECK_LAYER);
+			});
 		});
 	}
 
 	hideAllLayers(): void {
 		this.planes.forEach((plane) => {
 			plane.children[0].visible = false;
+			// prevent layer from being hit by hit-test
+			plane.layers.disable(INTERSECTION_CHECK_LAYER);
+
+			// Hide all sublayers
+			plane.children[1].children.forEach((plane) => {
+				plane.visible = false;
+				// prevent layer from being hit by hit-test
+				plane.layers.disable(INTERSECTION_CHECK_LAYER);
+			});
 		});
 	}
 

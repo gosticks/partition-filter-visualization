@@ -158,11 +158,6 @@ export class SingleAxis extends THREE.Group {
 
 		const line = new THREE.Mesh(meshLine.geometry, material);
 
-		// Scale the line along the direction vector to the desired length
-		const scaleFactor = this.direction.clone().multiplyScalar(0.5);
-
-		// Compute width scale depending on text length
-		line.scale.set(scaleFactor.x, scaleFactor.y, scaleFactor.z);
 		this.axisMesh = line;
 		this.add(line);
 

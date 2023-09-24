@@ -125,8 +125,8 @@ const _filterStore = () => {
 
 		reset: () => {
 			dataStore.resetDatabase();
-			const newInitialState = JSON.parse(JSON.stringify(initialStore));
 
+			const newInitialState = JSON.parse(JSON.stringify(initialStore));
 			// Inject init preloaded tables
 			newInitialState.preloadedTables = get(store).preloadedTables;
 			newInitialState.isLoading = false;
@@ -153,7 +153,6 @@ const _filterStore = () => {
 					await selectTables(selectedTables);
 
 					if (_graphOptions && _graphOptions !== null) {
-						console.log('Applying graph options', _graphOptions);
 						_graphOptions.reloadFilterOptions();
 						update((store) => {
 							store.graphOptions = _graphOptions;
@@ -194,83 +193,6 @@ const _filterStore = () => {
 					});
 				}
 			}
-		},
-
-		setGraphOptions: async (options: Record<string, unknown>) => {
-			const { graphOptions } = get(store);
-			if (!graphOptions) {
-				return;
-			}
-
-			update((store) => {
-				Object.entries(options).forEach(([key, value]) => {
-					// graphOptions.setStateValue(key, value);
-				});
-				return store;
-			});
-
-			setIsLoading(true);
-
-			// Apply filter if valid
-			try {
-				await graphOptions.applyOptionsIfValid();
-			} catch (e) {
-				console.error('Failed to apply graph options:', e);
-			} finally {
-				setIsLoading(false);
-			}
-
-			// switch (graphOptions.type) {
-			// 	case GraphType.PLANE: {
-			// 		const { x, y, z } = graphOptions.options;
-			// 		if (!x || !y || !z) {
-			// 			console.error('Invalid graph options', graphOptions);
-			// 			throw new Error('Invalid graph options');
-			// 		}
-
-			// 		const planeProvider = new PlaneRenderer();
-
-			// 		// Query tiled data for each mode
-			// 		const modes = ['Naive64', 'Blocked64'];
-			// 		const options = {
-			// 			xColumnName: x,
-			// 			yColumnName: y,
-			// 			zColumnName: z,
-			// 			xTileCount: graphOptions.options.axisRanges.,
-			// 			zTileCount: tileCount
-			// 		};
-			// 		const promise = Promise.all(
-			// 			modes.map((mode) => dataStore.getTiledData('bloom', mode, options))
-			// 		);
-			// 		try {
-			// 			const data = await promise;
-
-			// 			planeProvider.onDataPointSelected = (point) => {
-			// 				update((store) => {
-			// 					console.log('Selected point', point);
-			// 					store.selectedPoint = point;
-			// 					return store;
-			// 				});
-			// 			};
-
-			// 			update((store) => {
-			// 				store.graphOptions = graphOptions;
-			// 				store.filterRenderer = {
-			// 					renderer: planeProvider,
-			// 					data: {
-			// 						data: data,
-			// 						scaleY: 1
-			// 					}
-			// 				};
-
-			// 				return store;
-			// 			});
-			// 		} catch (e) {
-			// 			console.error('Failed to load tiled data:', e);
-			// 			return;
-			// 		}
-			// 	}
-			// }
 		}
 	};
 };

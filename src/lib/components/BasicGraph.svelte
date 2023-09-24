@@ -68,8 +68,8 @@
 			containerElement.clientWidth / 2,
 			containerElement.clientHeight / 2,
 			containerElement.clientHeight / -2,
-			-cameraField * 4,
-			cameraField * 4
+			-cameraField * 10,
+			cameraField * 10
 		);
 
 		camera.position.z = 2000;
@@ -113,7 +113,10 @@
 		renderer = new THREE.WebGLRenderer({
 			alpha: false,
 			antialias: true,
-			powerPreference: 'high-performance'
+			powerPreference: 'high-performance',
+			logarithmicDepthBuffer: true,
+			failIfMajorPerformanceCaveat: true,
+			precision: 'lowp'
 		});
 		renderer.setPixelRatio(window.devicePixelRatio || 1);
 		renderer.setClearColor(0x000000, 0);

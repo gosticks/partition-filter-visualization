@@ -129,9 +129,9 @@ export const dataStoreFilterExtension = (store: BaseStoreType) => {
 			FLOOR((${xColValue} - ${xMin}) / ${xBucketSize}) AS x,
 		   	FLOOR((${zColValue} - ${zMin}) / ${zBucketSize}) AS z
 	FROM "${tableName}"
-	${where ? `WHERE "${where.columnName}" = ${where.value}` : ''}
+	${where ? `WHERE "${where.columnName}" = '${where.value}'` : ''}
 	${options.scaleY === DataScaling.LOG ? `WHERE "${options.yColumnName}" >= 0` : ''}
-	GROUP BY ${where ? `"${where.columnName}"` : ''} z, x
+	GROUP BY ${where ? `"${where.columnName}",` : ''} z, x
 	ORDER BY z ASC, x ASC;
 	`;
 		// GROUP BY ${groupBy ? 'mode,' : ''} z, x, name, "${options.zColumnName}", "${options.xColumnName}"
@@ -170,8 +170,6 @@ export const dataStoreFilterExtension = (store: BaseStoreType) => {
 
 		try {
 			const rows = await getTiledRows(tableName, options, 'max', xRange, yRange, zRange, where);
-
-			console.log('Options', options);
 
 			// Transform rows into a 2D array for display
 			const data = Array.from(

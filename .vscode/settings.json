@@ -3,5 +3,5 @@
 	"yaml.schemas": {
 		"https://json.schemastore.org/github-workflow.json": "file:///Users/wlad/Developer/Master/partitioned-filters-visualization/.github/workflows/deploy.yml"
 	},
-	"cSpell.words": ["unsubscriber"]
+	"cSpell.words": ["raycaster", "unsubscriber"]
 }

@@ -1,14 +1,10 @@
-import { Object3D, Vector3 } from 'three';
+import { Object3D, Vector2, Vector3 } from 'three';
 
 export abstract class GraphRenderer<T = unknown, InstanceMetaInfo = any> extends Object3D {
 	public scene: THREE.Scene | undefined = undefined;
 	public camera: THREE.Camera | undefined = undefined;
 	// public size: THREE.Vector3 = new Vector3(1, 1, 1);
 	public renderContainer: HTMLElement | undefined = undefined;
-
-	public onDataPointSelected:
-		| ((point?: THREE.Vector3, info?: InstanceMetaInfo) => void)
-		| undefined = undefined;
 
 	abstract destroy(): void;
 
@@ -33,5 +29,5 @@ export abstract class GraphRenderer<T = unknown, InstanceMetaInfo = any> extends
 	 */
 	abstract updateWithData(data: T, colorPalette?: THREE.ColorRepresentation[]): void;
 
-	abstract getIntersections(raycaster: THREE.Raycaster): THREE.Intersection[];
+	abstract getInfoAtPoint(glPoint: Vector2): InstanceMetaInfo | undefined;
 }

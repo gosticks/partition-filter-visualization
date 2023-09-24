@@ -7,6 +7,7 @@
 	import Button from './button/Button.svelte';
 
 	export let isOpen = false;
+	export let required = false;
 	export let singular = false;
 	export let disabled = false;
 	export let label: string | undefined = undefined;
@@ -115,7 +116,7 @@
 <div class="flex flex-col">
 	{#if label !== undefined}
 		<Label>
-			{label}
+			{label}{#if required}<sup class="text-red-700">*</sup>{/if}
 		</Label>
 	{/if}
 	<Dropdown buttonClass="w-full" {isOpen} disabled={!(options && options.length > 0) || disabled}>

@@ -5,7 +5,10 @@ export type GraphUnsubscribe = () => void;
 export type GraphRenderLoopCallback = (
 	renderer: THREE.WebGLRenderer,
 	scene: THREE.Scene,
-	camera: THREE.Camera
+	camera: THREE.Camera,
+	geometry: THREE.BufferGeometry<THREE.NormalBufferAttributes>,
+	material: THREE.Material,
+	group: THREE.Group
 ) => void;
 
 // let displatFilter: ;

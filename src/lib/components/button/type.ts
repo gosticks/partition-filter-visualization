@@ -6,7 +6,11 @@ export enum ButtonSize {
 
 export enum ButtonColor {
 	PRIMARY = 'primary',
-	SECONDARY = 'secondary'
+	SECONDARY = 'secondary',
+	INVERTED = 'inverted',
+	SUCCESS = 'success',
+	INFO = 'info',
+	ERROR = 'error'
 }
 
 export enum ButtonVariant {

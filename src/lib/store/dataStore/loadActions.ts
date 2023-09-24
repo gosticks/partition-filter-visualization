@@ -91,11 +91,9 @@ export const dataStoreLoadExtension = (store: BaseStoreType, dataStore: Writable
 			} catch (e) {
 				const msg = `Failed to load table ${tableName} from file ${file.name}`;
 				console.error(msg, e);
-				notificationStore.addNotification({
-					id: Date.now(),
+				notificationStore.error({
 					message: msg,
-					description: (e as Error)?.message,
-					type: 'error'
+					description: (e as Error)?.message
 				});
 				throw e;
 			} finally {
@@ -149,11 +147,9 @@ export const dataStoreLoadExtension = (store: BaseStoreType, dataStore: Writable
 		} catch (e) {
 			const msg = `Failed to load table ${tableName} from path ${path}`;
 			console.error(msg, e);
-			notificationStore.addNotification({
-				id: Date.now(),
+			notificationStore.error({
 				message: msg,
-				description: (e as Error)?.message,
-				type: 'error'
+				description: (e as Error)?.message
 			});
 			throw e;
 		} finally {
@@ -380,12 +376,13 @@ export const dataStoreLoadExtension = (store: BaseStoreType, dataStore: Writable
 
 		try {
 			await store.executeQuery(`DROP TABLE "${tableName}"`);
-
+			store.update((state) => {
+				delete state.tables[tableName];
+				return state;
+			});
 			computeCombinedTableSchema();
 		} catch (e) {
-			notificationStore.addNotification({
-				id: Date.now(),
-				type: 'error',
+			notificationStore.error({
 				message: `Could not delete table ${tableName}`
 			});
 		}
@@ -408,6 +405,7 @@ export const dataStoreLoadExtension = (store: BaseStoreType, dataStore: Writable
 		loadCsvFromFile,
 		loadCsvFromUrl,
 		loadTableReferences,
-		resetDatabase
+		resetDatabase,
+		removeTable
 	};
 };

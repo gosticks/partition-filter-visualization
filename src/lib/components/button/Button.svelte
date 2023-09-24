@@ -32,9 +32,17 @@
 	function classForColors(color: ButtonColor): string {
 		switch (color) {
 			case ButtonColor.PRIMARY:
-				return 'text-white bg-primary-600 hover:bg-primary-700 border-[3px] border-primary-700 hover:border-primary-700';
+				return 'border text-white bg-primary-600 hover:bg-primary-700 border-[3px] border-primary-700 hover:border-primary-700';
 			case ButtonColor.SECONDARY:
-				return 'text-secondary-600 dark:text-background-50 bg-white border-secondary-300 dark:border-background-950 dark:bg-background-900 hover:bg-gray-50 dark:hover:bg-background-800 dark:hover:border-background-900';
+				return 'border text-secondary-600 dark:text-background-50 bg-white border-secondary-300 dark:border-background-950 dark:bg-background-900 hover:bg-gray-50 dark:hover:bg-background-800 dark:hover:border-background-900';
+			case ButtonColor.INVERTED:
+				return 'border text-background-200 hover:bg-gray-50 dark:hover:bg-background-800 dark:hover:border-background-900';
+			case ButtonColor.SUCCESS:
+				return 'border text-green-100 bg-green-600 border border-green-700 hover:bg-green-700';
+			case ButtonColor.INFO:
+				return 'border text-primary-100 bg-primary-600 border border-primary-700 hover:bg-primary-500';
+			case ButtonColor.ERROR:
+				return 'border text-red-100 bg-red-600 border border-red-700 hover:bg-red-500';
 		}
 	}
 
@@ -55,6 +63,14 @@
 						return 'text-primary-600 hover:text-primary-700 dark:text-primary-100 dark:hover:text-primary-300 border-0';
 					case ButtonColor.SECONDARY:
 						return 'text-secondary-600 hover:text-secondary-700 dark:text-secondary-100 dark:hover:text-secondary-300 border-0';
+					case ButtonColor.INVERTED:
+						return 'text-background-200 hover:text-background-300 dark:text-background-200 dark:hover:text-background-500 border-0';
+					case ButtonColor.SUCCESS:
+						return 'text-green-700 hover:text-green-800 dark:hover:text-green-100 dark:text-green-200';
+					case ButtonColor.INFO:
+						return 'text-blue-700 hover:text-blue-800 dark:hover:text-blue-100 dark:text-blue-200';
+					case ButtonColor.ERROR:
+						return 'text-red-700 hover:text-red-800 dark:hover:text-red-100 dark:text-red-200';
 				}
 		}
 	}
@@ -67,7 +83,7 @@
 	class:gap-2={hasLeadingSlot || hasTrailingSlot}
 	class:justify-center={!hasLeadingSlot && !hasTrailingSlot}
 	class:justify-between={hasLeadingSlot || hasTrailingSlot}
-	class="inline-flex items-center border {colorClasses} {sizeClasses}  font-medium focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 {className ??
+	class="inline-flex items-center {colorClasses} {sizeClasses}  font-medium focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 {className ??
 		''}"
 >
 	<slot name="leading" />

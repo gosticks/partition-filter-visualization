@@ -1,9 +1,9 @@
-import type { IPlaneRendererData } from '$lib/rendering/PlaneRenderer';
+import type { IPlaneChildData, IPlaneRendererData } from '$lib/rendering/PlaneRenderer';
 import { dataStore } from '$lib/store/dataStore/DataStore';
 import { get, readonly, writable, type Readable, type Writable } from 'svelte/store';
 import { GraphOptions, GraphType } from '../types';
 import { DataScaling } from '$lib/store/dataStore/types';
-import { graphColors } from '$lib/rendering/colors';
+import { colorBrewer, graphColors } from '$lib/rendering/colors';
 import type { ITiledDataOptions, ValueRange } from '$lib/store/dataStore/filterActions';
 import { urlDecodeObject, urlEncodeObject, withSingleKeyUrlStorage } from '$lib/store/urlStorage';
 import { withLogMiddleware } from '$lib/store/logMiddleware';
@@ -40,9 +40,9 @@ export class PlaneGraphOptions extends GraphOptions<
 
 		// Check if options are initially valid
 		const initialOptions = {
+			...initialState,
 			isRendered: false,
-			isValid: this.isValid(initialState),
-			...initialState
+			isValid: this.isValid(initialState)
 		} as IPlaneGraphState;
 
 		this._optionsStore = withLogMiddleware(
@@ -57,6 +57,7 @@ export class PlaneGraphOptions extends GraphOptions<
 						return initialOptions;
 					}
 					const state = urlDecodeObject(value);
+					console.log('URL decoded state', state);
 					return {
 						isRendered: false,
 						isValid: this.isValid(state),
@@ -70,9 +71,7 @@ export class PlaneGraphOptions extends GraphOptions<
 			}
 		);
 		this.optionsStore = readonly(this._optionsStore);
-
 		this.reloadFilterOptions();
-
 		this.applyOptionsIfValid();
 	}
 
@@ -99,14 +98,19 @@ export class PlaneGraphOptions extends GraphOptions<
 		if (!state) {
 			return false;
 		}
-		const { xColumnName, yColumnName, zColumnName, tileCount, groupBy } = state;
-		return (
-			typeof groupBy === 'string' &&
-			typeof xColumnName === 'string' &&
-			typeof yColumnName === 'string' &&
-			typeof zColumnName === 'string' &&
-			typeof tileCount === 'number'
-		);
+		const isValid = Object.entries(this.filterOptions).every(([key, value]) => {
+			if (value.type === 'row') {
+				return value.keys.every((key, index) =>
+					value.items[index].required ? state[key] !== undefined : true
+				);
+			}
+
+			return value.required ? state[key as keyof RequiredOptions] !== undefined : true;
+		});
+
+		console.log({ isValid });
+
+		return isValid;
 	}
 
 	public reloadFilterOptions() {
@@ -131,12 +135,14 @@ export class PlaneGraphOptions extends GraphOptions<
 					{
 						type: 'string',
 						options: numberTableColumns,
-						label: 'X Axis'
+						label: 'X Axis',
+						required: true
 					},
 					{
 						type: 'string',
 						options: [DataScaling.LINEAR, DataScaling.LOG],
-						label: 'X Scale'
+						label: 'X Scale',
+						required: true
 					}
 				]
 			},
@@ -148,12 +154,14 @@ export class PlaneGraphOptions extends GraphOptions<
 					{
 						type: 'string',
 						options: numberTableColumns,
-						label: 'Y Axis'
+						label: 'Y Axis',
+						required: true
 					},
 					{
 						type: 'string',
 						options: [DataScaling.LINEAR, DataScaling.LOG],
-						label: 'Y Scale'
+						label: 'Y Scale',
+						required: true
 					}
 				]
 			},
@@ -165,25 +173,23 @@ export class PlaneGraphOptions extends GraphOptions<
 					{
 						type: 'string',
 						options: numberTableColumns,
-						label: 'Z Axis'
+						label: 'Z Axis',
+						required: true
 					},
 					{
 						type: 'string',
 						options: [DataScaling.LINEAR, DataScaling.LOG],
-						label: 'Z Scale'
+						label: 'Z Scale',
+						required: true
 					}
 				]
 			},
 			tileCount: {
 				type: 'number',
 				options: [2, 128],
-				label: 'Tile Count'
+				label: 'Tile Count',
+				required: true
 			}
-			// zTileCount: {
-			// 	type: 'number',
-			// 	options: [2, 128],
-			// 	label: 'Z Tile Count'
-			// }
 		};
 	}
 
@@ -217,6 +223,7 @@ export class PlaneGraphOptions extends GraphOptions<
 
 	public async applyOptionsIfValid() {
 		const state = get(this._optionsStore);
+		console.log('applying store', state);
 		if (state.isValid !== true) {
 			return;
 		}
@@ -226,21 +233,29 @@ export class PlaneGraphOptions extends GraphOptions<
 
 		// Get all layers
 		try {
-			// eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-			// const options = await dataStore.getDistinctValues('bloom', state.groupBy);
 			const tables = Object.keys(data.tables);
 
 			const xAxisRange = await this.getGlobalRange(state.xColumnName, state.scaleX);
 			const yAxisRange = await this.getGlobalRange(state.yColumnName, state.scaleY);
 			const zAxisRange = await this.getGlobalRange(state.zColumnName, state.scaleZ);
 			if (!xAxisRange || !yAxisRange || !zAxisRange) {
-				notificationStore.error({ message: 'Data ranges in data invalid' });
+				notificationStore.error({
+					message: 'Data range invalid',
+					description: JSON.stringify({
+						column: state.xColumnName,
+						xAxisRange,
+						yAxisRange,
+						zAxisRange
+					})
+				});
 				return;
 			}
 
-			console.log('Z axis min/max', zAxisRange);
-			console.log('X axis min/max', xAxisRange);
-			console.log('Y axis min/max', yAxisRange);
+			console.debug('axis ranges', {
+				xAxisRange,
+				yAxisRange,
+				zAxisRange
+			});
 
 			const promise = await Promise.all(
 				tables.map((table) =>
@@ -255,10 +270,10 @@ export class PlaneGraphOptions extends GraphOptions<
 			);
 
 			// If group by set also query groupBy data
-			const childLayers = await Promise.all(
+			const childLayers = await Promise.all<IPlaneChildData[]>(
 				tables.map(async (table) => {
 					const values = await dataStore.getDistinctValues(table, state.groupBy);
-					if (values.length > 20) {
+					if (values.length > 30) {
 						const error = `Too many options returned by group by number=${values.length} (limit 10)`;
 						notificationStore.error({
 							message: error
@@ -283,8 +298,9 @@ export class PlaneGraphOptions extends GraphOptions<
 						points: value.data,
 						min: value.min,
 						max: value.max,
+						isChild: true,
 						name: values[index] as string,
-						color: graphColors[index % graphColors.length],
+						color: colorBrewer.Set2[8][index % colorBrewer.Set2[8].length],
 						meta: {
 							rows: value.queryResult
 						}
@@ -298,7 +314,7 @@ export class PlaneGraphOptions extends GraphOptions<
 				min: data.min,
 				max: data.max,
 				name: tables[index] as string,
-				color: graphColors[index % graphColors.length],
+				color: colorBrewer.Set3[12][index % colorBrewer.Set3[12].length],
 				meta: {
 					rows: data.queryResult
 				}

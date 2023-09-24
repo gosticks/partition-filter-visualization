@@ -1,11 +1,10 @@
 <script lang="ts">
-	import { onMount, onDestroy } from 'svelte';
-	import { browser } from '$app/environment';
 	import Button from './button/Button.svelte';
 	import { ChevronDownIcon, ChevronUpIcon } from 'svelte-feather-icons';
 	import { ButtonSize } from './button/type';
 	import { relativePortal } from '$lib/actions/portal';
 	import clickOutside, { type ActionClickOutsideOptions } from '$lib/actions/clickOutside';
+	import { fadeSlide } from '$lib/transitions/fadeSlide';
 
 	export let isOpen: boolean = false;
 	export let disabled: boolean = false;
@@ -19,24 +18,12 @@
 	};
 
 	const toggleDropdown = () => {
-		console.log('hello there before', isOpen);
 		isOpen = !isOpen;
-		console.log('hello there after', isOpen);
 	};
 
 	interface $$Slots {
 		button: {};
 		content: {};
-	}
-
-	function fadeSlide(node: HTMLElement, options?: { duration?: number }) {
-		return {
-			duration: options?.duration || 100,
-			css: (t: number) => `
-				transform: translateY(${(1 - t) * -20}px) scale(${0.9 + t * 0.1});
-                opacity: ${t};
-			`
-		};
 	}
 
 	function onClickOutside() {

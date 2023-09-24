@@ -20,7 +20,6 @@
 		if (!browser) return;
 
 		console.log('Setting up minimap renderer');
-
 		minimalRenderer = new MinimapRenderer(renderTargetEl);
 		updateMinimap();
 	});

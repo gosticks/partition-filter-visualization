@@ -52,6 +52,7 @@
 		<DropdownSelect
 			label={option.label || keyAsString}
 			singular
+			required={option.required}
 			onSelect={onOptionSelected}
 			meta={key}
 			values={option.options}
