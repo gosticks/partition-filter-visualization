@@ -1,9 +1,24 @@
+<script context="module" lang="ts">
+	export enum DialogSize {
+		small = 'small',
+		medium = 'medium',
+		large = 'large'
+	}
+
+	export type DialogContextService = {
+		close: () => void;
+		open: () => void;
+		toggle: () => boolean;
+	};
+
+	export const getDialogContext = () => getContext<DialogContextService>('dialog');
+</script>
+
 <script lang="ts">
 	import { browser } from '$app/environment';
-	import { onMount, onDestroy, setContext } from 'svelte';
+	import { onMount, onDestroy, setContext, getContext } from 'svelte';
 	import { fade, fly } from 'svelte/transition';
 	import { defaultPortalRootClass, portal } from '$lib/actions/portal';
-	import { DialogSize, type DialogContextService } from './types';
 
 	export let size: DialogSize = DialogSize.medium;
 	export let dialogOpen = false;

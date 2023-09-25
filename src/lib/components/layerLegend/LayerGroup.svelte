@@ -1,26 +1,35 @@
-<script lang="ts">
-	import { ListIcon } from 'svelte-feather-icons';
-	import LayerItem from './LayerItem.svelte';
-	import type { LayerSelectionEvent } from './event';
-
-	import { createEventDispatcher } from 'svelte';
+<script lang="ts" context="module">
+	export interface LayerSelectionEvent<A = object, B = object> {
+		layer: A | B;
+		index: number;
+		subIndex?: number;
+		parentLayer?: A;
+	}
 
 	interface BasicLayer {
 		name: string;
 		color?: string;
 	}
 
-	type ChildLayer = $$Generic<BasicLayer>;
-	type ParentLayer = $$Generic<ChildLayer & { layers?: ChildLayer[] }>;
-
 	type LayerVisibility = boolean;
 	type SublayerVisibility = boolean;
+
+	export type LayerVisibilityList = [LayerVisibility, SublayerVisibility[]][];
+</script>
+
+<script lang="ts">
+	import LayerItem from './LayerItem.svelte';
+
+	import { createEventDispatcher } from 'svelte';
+
+	type ChildLayer = $$Generic<BasicLayer>;
+	type ParentLayer = $$Generic<ChildLayer & { layers?: ChildLayer[] }>;
 
 	interface $$Events {
 		select: CustomEvent<LayerSelectionEvent<ParentLayer, ChildLayer>>;
 	}
 
-	export var layerVisibility: [LayerVisibility, SublayerVisibility[]][];
+	export var layerVisibility: LayerVisibilityList;
 	export var layers: ParentLayer[];
 	export var selection: ParentLayer | ChildLayer | undefined = undefined;
 

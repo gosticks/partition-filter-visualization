@@ -19,11 +19,10 @@
 		XIcon
 	} from 'svelte-feather-icons';
 	import { ButtonColor, ButtonSize, ButtonVariant } from './button/type';
-	import Dialog from './dialog/Dialog.svelte';
+	import Dialog, { DialogSize, getDialogContext } from './dialog/Dialog.svelte';
 	import TableSelection from './tableSelection/TableSelection.svelte';
 	import QueryEditor from './QueryEditor.svelte';
 	import { fadeSlide } from '$lib/transitions/fadeSlide';
-	import { type DialogContextService, DialogSize } from './dialog/types';
 	import type { TableSelectionEvent } from './tableSelection/types';
 
 	let optionsStore: GraphOptions['optionsStore'] | undefined;
@@ -115,7 +114,7 @@
 						</svelte:fragment>
 						Load More</Button
 					>
-					{@const dialogCtx = getContext('dialog')}
+					{@const dialogCtx = getDialogContext()}
 					<TableSelection
 						on:select={(selection) => {
 							onTableSelect(selection);

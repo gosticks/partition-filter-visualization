@@ -3,7 +3,8 @@
 	import type { GraphService, GraphUnsubscribe } from './types';
 	import { browser } from '$app/environment';
 	import Stats from 'stats.js';
-	const graphService: GraphService = getContext('graph');
+	import { getGraphContext } from '../BasicGraph.svelte';
+	const graphService: GraphService = getGraphContext();
 
 	let stats: Stats;
 	let statsElement: HTMLDivElement;

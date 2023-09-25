@@ -17,12 +17,13 @@
 	import { ButtonColor, ButtonSize } from '../button/type';
 	import { Vector2, Vector3 } from 'three';
 	import { fade } from 'svelte/transition';
-	import LayerGroup from '../layerLegend/LayerGroup.svelte';
-	import type { LayerSelectionEvent } from '../layerLegend/event';
+	import LayerGroup, { type LayerSelectionEvent } from '../layerLegend/LayerGroup.svelte';
+	import { getGraphContext } from '../BasicGraph.svelte';
+	import SliceGraph from './SliceGraph.svelte';
 
 	export let options: PlaneGraphOptions;
 
-	const graphService: GraphService = getContext('graph');
+	const graphService: GraphService = getGraphContext();
 
 	let threeDomContainer: HTMLElement;
 	let dataStore = options.dataStore;
@@ -155,6 +156,12 @@
 	x={normalizedValueForSelection(Axis.X, selection)}
 	z={normalizedValueForSelection(Axis.Z, selection)}
 /> -->
+
+<div class="absolute bottom-0 left-2">
+	<Card noPad class="py-2 px-4"><SliceGraph {options} {layerVisibility} /></Card>
+	<Card noPad class="py-2 px-4"><SliceGraph axis={Axis.Z} {options} {layerVisibility} /></Card>
+</div>
+
 <div class="plane-graph-ui legend absolute isolate left-2 top-16 w-[250px]">
 	<Card title="Layers" noPad>
 		<div class="max-h-96 px-4 py-2 border-b dark:border-background-800 border-t overflow-auto">
@@ -188,6 +195,7 @@
 			>
 		</div>
 	</Card>
+
 	{#if selection && $dataStore}
 		<div
 			transition:fade={{ duration: 75 }}

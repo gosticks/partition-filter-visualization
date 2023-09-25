@@ -5,6 +5,7 @@
 	import { browser } from '$app/environment';
 	import { Axis } from '$lib/rendering/AxisRenderer';
 	import { colorBrewer } from '$lib/rendering/colors';
+	import { getGraphContext } from '../BasicGraph.svelte';
 
 	class SliceSelectionRenderer extends THREE.Group {
 		private meshes = new Map<Axis, THREE.Mesh<THREE.PlaneGeometry, THREE.MeshBasicMaterial>>();
@@ -62,7 +63,6 @@
 			if (value === undefined) {
 				mesh.visible = false;
 			} else {
-				console.log('settings axis value', mesh, axis, value);
 				mesh.visible = true;
 				const offset = this.movementDirection[axis].clone().multiplyScalar(-0.5);
 				const newPos = this.movementDirection[axis].clone().multiplyScalar(value).add(offset);
@@ -74,7 +74,7 @@
 
 	export let scale = 1;
 
-	const graphService: GraphService = getContext('graph');
+	const graphService: GraphService = getGraphContext();
 
 	// normalized value between 0 and 1 indicating where to render x slice
 	export let x: number | undefined = undefined;

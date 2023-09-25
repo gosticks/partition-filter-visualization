@@ -1,13 +1,25 @@
+<script lang="ts" context="module">
+	import type { FilterEntry } from '$routes/graph/+page.server';
+
+	export type TableSelectionEvent = CustomEvent<{
+		buildInTables?: {
+			label: string;
+			value: FilterEntry;
+		}[];
+		externalTables?: {
+			fileList?: FileList;
+		};
+	}>;
+</script>
+
 <script lang="ts">
 	import { dataStore } from '$lib/store/dataStore/DataStore';
 	import filterStore from '$lib/store/filterStore/FilterStore';
 	import type { IFilterStore } from '$lib/store/filterStore/types';
 	import { createEventDispatcher } from 'svelte';
-	import type { FilterEntry } from '../../../routes/graph/proxy+page.server';
 	import DropZone from '../DropZone.svelte';
 	import DropdownSelect from '../DropdownSelect.svelte';
 	import Divider from '../base/Divider.svelte';
-	import type { TableSelectionEvent } from './types';
 
 	interface $$Events {
 		select: TableSelectionEvent;

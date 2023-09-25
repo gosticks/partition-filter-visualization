@@ -1,26 +1,45 @@
-<script lang="ts" generics="Data extends unknown">
-	import type { GraphRenderLoopCallback, GraphService } from './graph/types';
+<script lang="ts" context="module">
+	export type GraphUnsubscribe = () => void;
 
+	export type GraphRenderLoopCallback = (
+		renderer: THREE.WebGLRenderer,
+		scene: THREE.Scene,
+		camera: THREE.Camera,
+		geometry: THREE.BufferGeometry<THREE.NormalBufferAttributes>,
+		material: THREE.Material,
+		group: THREE.Group
+	) => void;
+
+	// let displatFilter: ;
+	export type GraphService = {
+		getValues: () => {
+			scene: THREE.Scene;
+			camera: THREE.Camera;
+			renderer: THREE.WebGLRenderer;
+			domElement: HTMLElement;
+		};
+		registerOnBeforeRender: (callback: GraphRenderLoopCallback) => GraphUnsubscribe;
+		registerOnAfterRender: (callback: GraphRenderLoopCallback) => GraphUnsubscribe;
+	};
+
+	export const CTX_NAME_GRAPH = 'graph';
+
+	export const getGraphContext = () => getContext<GraphService>(CTX_NAME_GRAPH);
+	export const getGraphContextValues = () => getGraphContext().getValues();
+	export const setGraphContext = (service: GraphService) => setContext(CTX_NAME_GRAPH, service);
+</script>
+
+<script lang="ts">
 	import * as TWEEN from '@tweenjs/tween.js';
-	import { defineService } from '$lib/contextService';
-
-	import Card from './Card.svelte';
-
-	import type { GraphRenderer } from '$lib/rendering/GraphRenderer';
-
-	import { browser } from '$app/environment';
-
-	import { onMount, onDestroy, setContext } from 'svelte';
 	import * as THREE from 'three';
+	import { onMount, onDestroy, setContext, getContext } from 'svelte';
+	import { browser } from '$app/environment';
 
 	import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls';
 	import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer';
 	import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass';
 	import { OutlinePass } from 'three/examples/jsm/postprocessing/OutlinePass';
 	import Stats from './graph/Stats.svelte';
-	import Graph2D from './graph/Graph2D.svelte';
-
-	export let onHover: (position: THREE.Vector2, object?: THREE.Object3D) => void = () => {};
 
 	let containerElement: HTMLDivElement;
 
@@ -114,7 +133,7 @@
 			alpha: false,
 			antialias: true,
 			powerPreference: 'high-performance',
-			logarithmicDepthBuffer: true,
+			// logarithmicDepthBuffer: true,
 			failIfMajorPerformanceCaveat: true,
 			precision: 'lowp'
 		});
@@ -192,7 +211,7 @@
 		};
 	};
 
-	setContext<GraphService>('graph', {
+	setGraphContext({
 		getValues: getContextValues,
 		registerOnBeforeRender,
 		registerOnAfterRender
@@ -230,16 +249,6 @@
 		mousePosition.y = -(mouseClientPosition.y / bounds.height) * 2 + 1.0;
 	}
 
-	function handleClick(event: MouseEvent) {
-		// if (outlinePass.selectedObjects.length === 0) {
-		// 	return;
-		// }
-		// const obj = outlinePass.selectedObjects[0];
-		// if (obj.parent instanceof THREE.Group) {
-		// 	obj.parent.visible = !obj.parent.visible;
-		// }
-	}
-
 	function clearScene() {
 		console.log('clearScene');
 		if (!scene) {
@@ -256,9 +265,6 @@
 			<slot />
 			<Stats />
 		{/if}
-	</div>
-	<div class="absolute pointer-events-none bottom-0 left-2">
-		<Graph2D />
 	</div>
 </div>
 

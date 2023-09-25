@@ -1,157 +1,153 @@
+<script lang="ts" context="module">
+	import type { ValueRange } from '$lib/store/dataStore/filterActions';
+
+	export interface IGraph2dData {
+		xAxisLabel?: string;
+		yAxisLabel?: string;
+		xRange: ValueRange;
+		yRange: ValueRange;
+		points: {
+			color?: string;
+			name?: string;
+			data: number[][];
+		}[];
+	}
+</script>
+
 <script lang="ts">
 	import * as d3 from 'd3';
-	import { onMount } from 'svelte';
-	import Card from '../Card.svelte';
+	import { onDestroy, onMount } from 'svelte';
+
+	export let data: IGraph2dData;
+	export let height = 200;
+	export let width = 300;
+	export let xAxisOffset = 30;
+	export let yAxisOffset = 20;
 
 	let graphElement: HTMLDivElement;
 
-	// set the dimensions and margins of the graph
-	var margin = { top: 20, right: 30, bottom: 30, left: 50 },
-		width = 260 - margin.left - margin.right,
-		height = 300 - margin.top - margin.bottom;
-
-	onMount(async () => {
-		return;
-		// append the svg object to the body of the page
-		var svg = d3
+	let svg: d3.Selection<SVGGElement, number[][], null, undefined>;
+	let xAxis: d3.Selection<SVGGElement, number[][], null, undefined>;
+	let yAxis: d3.Selection<SVGGElement, number[][], null, undefined>;
+	let xAxisTitle: d3.Selection<SVGTextElement, number[][], null, undefined>;
+	let yAxisTitle: d3.Selection<SVGTextElement, number[][], null, undefined>;
+	let curves: d3.Selection<SVGPathElement, number[][], null, undefined>[] | undefined = undefined;
+	function setupGraph() {
+		svg = d3
 			.select(graphElement)
 			.append('svg')
-			.attr('width', width + margin.left + margin.right)
-			.attr('height', height + margin.top + margin.bottom)
-			.append('g')
-			.attr('transform', 'translate(' + margin.left + ',' + margin.top + ')');
+			.attr('width', width + xAxisOffset + 15)
+			.attr('height', height + yAxisOffset)
+			.append('g') as typeof svg;
+		svg.attr('transform', 'translate(' + xAxisOffset + ',' + yAxisOffset + ')');
 
-		// get the data
-		console.log('Hello', data);
-		// List of groups (here I have one group per column)
-		var allGroup = d3
-			.map(data, function (d) {
-				return d.Species;
-			})
-			.keys();
+		xAxis = svg.append('g').attr('opacity', 0.4);
+		yAxis = svg.append('g').attr('opacity', 0.4);
+		xAxisTitle = svg
+			.append('text')
+			.attr('class', 'd3-text')
+			.attr('text-anchor', 'end')
+			.attr('transform', `translate(${width + 2}, ${height - 30}), rotate(90)`);
+		yAxisTitle = svg
+			.append('text')
+			.attr('text-anchor', 'end')
+			.attr('class', 'd3-text')
+			// .attr('transform', 'rotate(-90)')
+			.attr('y', yAxisOffset - 10)
+			.attr('x', xAxisOffset);
+	}
 
-		// add the options to the button
-		// d3.select('#selectButton')
-		// 	.selectAll('myOptions')
-		// 	.data(allGroup)
-		// 	.enter()
-		// 	.append('option')
-		// 	.text(function (d) {
-		// 		return d;
-		// 	}) // text showed in the menu
-		// 	.attr('value', function (d) {
-		// 		return d;
-		// 	}); // corresponding value returned by the button
+	function renderData(data: IGraph2dData) {
+		if (!data || data.points.length === 0) {
+			return;
+		}
 
-		// add the x Axis
-		var x = d3.scaleLinear().domain([0, 12]).range([0, width]);
-		svg
-			.append('g')
-			.attr('transform', 'translate(0,' + height + ')')
-			.call(d3.axisBottom(x));
+		const [minX, maxX] = data.xRange;
+		const [minY, maxY] = data.yRange;
+
+		var xScale = d3.scaleLinear().domain([0, maxX]).range([0, width]);
+		xAxis
+			.attr('transform', 'translate(0,' + (height - yAxisOffset) + ')')
+			.call(d3.axisBottom(xScale));
 
 		// add the y Axis
-		var y = d3.scaleLinear().range([height, 0]).domain([0, 0.4]);
-		svg.append('g').call(d3.axisLeft(y));
+		var yScale = d3
+			.scaleLinear()
+			.range([height - yAxisOffset, 0])
+			.domain([0, maxY]);
+		yAxis.call(d3.axisLeft(yScale));
 
-		// Compute kernel density estimation for the first group called Setosa
-		var kde = kernelDensityEstimator(kernelEpanechnikov(3), x.ticks(140));
-		var density = kde(
-			data
-				.filter(function (d) {
-					return d.Species == 'setosa';
-				})
-				.map(function (d) {
-					return +d.Sepal_Length;
-				})
-		);
+		svg.selectAll('circle').remove();
+		// remove all curves if number changes
+		if (curves && curves.length !== data.points.length) {
+			curves.forEach((curve) => curve.remove());
+			curves = undefined;
+		}
 
-		// Plot the area
-		var curve = svg
-			.append('g')
-			.append('path')
-			.attr('class', 'mypath')
-			.datum(density)
-			.attr('fill', '#69b3a2')
-			.attr('opacity', '.8')
-			.attr('stroke', '#000')
-			.attr('stroke-width', 1)
-			.attr('stroke-linejoin', 'round')
-			.attr(
-				'd',
-				d3
-					.line()
-					.curve(d3.curveBasis)
-					.x(function (d) {
-						return x(d[0]);
-					})
-					.y(function (d) {
-						return y(d[1]);
-					})
-			);
+		if (!curves) {
+			curves = data.points.map(() => svg.append('path'));
+		}
 
-		// A function that update the chart when slider is moved?
-		function updateChart(selectedGroup) {
-			// recompute density estimation
-			kde = kernelDensityEstimator(kernelEpanechnikov(3), x.ticks(40));
-			var density = kde(
-				data
-					.filter(function (d) {
-						return d.Species == selectedGroup;
-					})
-					.map(function (d) {
-						return +d.Sepal_Length;
-					})
-			);
+		xAxisTitle.text(data.xAxisLabel ?? 'X');
+		yAxisTitle.text(data.yAxisLabel ?? 'Y');
 
-			// update the chart
-			curve
-				.datum(density)
+		// Update curves
+		data.points.forEach((container, idx) => {
+			(curves?.[idx] as any)
+				.datum(container.data)
+				.attr('class', 'line')
+				.attr('fill', container.color ?? '#69b3a2')
+				.attr('fill-opacity', 0.0)
+				//.attr('opacity', '.1')
+				.attr('stroke-width', 2)
+				.attr('stroke-linejoin', 'round')
+				.attr('stroke-opacity', 0.6)
+				.attr('stroke', container.color ?? 'yellow')
 				.transition()
-				.duration(1000)
 				.attr(
 					'd',
 					d3
 						.line()
-						.curve(d3.curveBasis)
-						.x(function (d) {
-							return x(d[0]);
-						})
-						.y(function (d) {
-							return y(d[1]);
-						})
+						.x((d) => xScale(d[0]))
+						.y((d) => yScale(d[1]))
+						.curve(d3.curveLinear) as any
 				);
-		}
 
-		// // Listen to the slider?
-		// d3.select('#selectButton').on('change', function (d) {
-		// 	selectedGroup = this.value;
-		// 	updateChart(selectedGroup);
-		// });
+			svg
+				.selectAll('circle')
+				.data(container.data)
+				.enter()
+				.append('circle')
+				.attr('cx', (d) => xScale(d[0]))
+				.attr('cy', (d) => yScale(d[1]))
+				.transition()
+				.attr('r', 2) // Radius of the circle
+				.attr('fill', container.color ?? 'yellow'); // Color of the circle
+		});
+	}
+
+	$: if (svg) {
+		renderData(data);
+	}
+
+	onMount(async () => {
+		setupGraph();
 	});
-
-	// Function to compute density
-	function kernelDensityEstimator(kernel, X) {
-		return function (V) {
-			return X.map(function (x) {
-				return [
-					x,
-					d3.mean(V, function (v) {
-						return kernel(x - v);
-					})
-				];
-			});
-		};
-	}
-	function kernelEpanechnikov(k) {
-		return function (v) {
-			return Math.abs((v /= k)) <= 1 ? (0.75 * (1 - v * v)) / k : 0;
-		};
-	}
 </script>
 
-<!-- Create a div where the graph will take place -->
-<Card class="p-0">
-	<!-- Initialize a select button -->
-	<div bind:this={graphElement} />
-</Card>
+<div class="d3-graph" bind:this={graphElement} />
+
+<style lang="scss">
+	:global(.d3-text) {
+		@apply fill-slate-500;
+		font-size: 16px;
+	}
+
+	:global(.dark .d3-text) {
+		@apply fill-slate-200;
+	}
+
+	.d3-graph > :global(svg) {
+		max-width: 100%;
+	}
+</style>

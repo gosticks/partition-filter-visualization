@@ -1,5 +1,7 @@
 <script lang="ts">
-	import Slider from './Slider.svelte';
+	import type { SliderChangeEvent } from './slider/types';
+
+	import Slider from './slider/Slider.svelte';
 
 	import DropdownSelect from './DropdownSelect.svelte';
 
@@ -17,8 +19,8 @@
 
 	const keyAsString = key.toString();
 
-	const onInput = (value: number, label?: string) => {
-		onValueChange(key, value as T[keyof T]);
+	const onSliderChange = (evt: SliderChangeEvent) => {
+		onValueChange(key, evt.detail.value as T[keyof T]);
 	};
 
 	const optionConstructor = (value: string, index: number, meta: unknown) => ({
@@ -72,7 +74,7 @@
 			{min}
 			{max}
 			displayFunction={sliderDisplay}
-			onChange={onInput}
+			on:change={onSliderChange}
 		/>
 	{:else if option.type === 'row'}
 		<div class="flex justify-stretch gap-2">

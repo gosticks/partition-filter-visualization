@@ -3,8 +3,9 @@
 	import type { GraphService } from './types';
 	import { Minimap as MinimapRenderer } from '$lib/rendering/Minimap';
 	import { browser } from '$app/environment';
+	import { getGraphContext } from '../BasicGraph.svelte';
 
-	const graphService: GraphService = getContext('graph');
+	const graphService: GraphService = getGraphContext();
 
 	let minimalRenderer: MinimapRenderer | undefined;
 

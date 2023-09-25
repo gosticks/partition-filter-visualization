@@ -25,26 +25,82 @@ const findParentWithClass = (element: HTMLElement, className: string): HTMLEleme
 
 export const defaultPortalRootClass = 'portal-root';
 
-export const relativePortal = (node: HTMLElement, rootClass = defaultPortalRootClass) => {
+export enum PortalPlacement {
+	TOP,
+	BOTTOM,
+	LEADING,
+	TRAILING
+}
+
+const getPosition = (
+	node: HTMLElement,
+	parent: HTMLElement,
+	placement: PortalPlacement,
+	spacing = 3
+) => {
+	const componentBounds = node.getBoundingClientRect();
+	const parentBounds = parent.getBoundingClientRect();
+
+	let left = parentBounds.left;
+	let top = parentBounds.top;
+
+	switch (placement) {
+		case PortalPlacement.TOP:
+			top = parentBounds.top - componentBounds.height - 20 - spacing;
+			break;
+		case PortalPlacement.BOTTOM:
+			top = parentBounds.top + parentBounds.height + spacing;
+			break;
+		case PortalPlacement.LEADING:
+			left = parentBounds.left - componentBounds.width - spacing;
+			break;
+		case PortalPlacement.TRAILING:
+			left = parentBounds.left + parentBounds.width + spacing;
+			break;
+		default:
+			console.error('Invalid placement value');
+			return;
+	}
+
+	// Adjust if off-screen
+	if (left + componentBounds.width > window.innerWidth) {
+		left = window.innerWidth - (componentBounds.width + spacing);
+	}
+
+	if (top + componentBounds.height > window.innerHeight) {
+		top = window.innerHeight - (componentBounds.height + spacing);
+	}
+
+	if (left < 0) left = spacing;
+	if (top < 0) top = spacing;
+
+	return [left, top];
+};
+
+export interface PortalOptions {
+	rootClass: string;
+	placement: PortalPlacement;
+}
+
+const defaultPortalOptions: PortalOptions = {
+	rootClass: defaultPortalRootClass,
+	placement: PortalPlacement.BOTTOM
+};
+
+export const relativePortal = (node: HTMLElement, _options: Partial<PortalOptions> = {}) => {
+	const { rootClass, placement } = { ...defaultPortalOptions, ..._options };
 	// position node relative to its parent
 	const parent = node.parentElement;
 	if (!parent) {
 		return portal(node);
 	}
 
-	const componentBounds = node.getBoundingClientRect();
-	const parentBounds = parent.getBoundingClientRect();
-
-	let left = parentBounds.left;
-	let top = parentBounds.top + parentBounds.height + 3;
-
-	if (window.innerWidth < left + componentBounds.width) {
-		left = window.innerWidth - (componentBounds.width + 25);
+	const position = getPosition(node, parent, placement);
+	if (!position) {
+		return;
 	}
 
-	if (window.innerHeight < top + componentBounds.height) {
-		top = window.innerHeight - (componentBounds.height + 25);
-	}
+	const [left, top] = position;
 
 	node.style.left = `${left}px`;
 	node.style.top = `${top}px`;
