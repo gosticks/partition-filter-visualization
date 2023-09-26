@@ -160,11 +160,11 @@ export class SingleAxis extends THREE.Group {
 
 		this.axisMesh = line;
 		this.add(line);
-
+		const labelText = `${this.options.labelText} [${this.axis}]`;
 		const spriteMaterial = new THREE.SpriteMaterial({
 			transparent: true,
 			depthWrite: false,
-			map: new TextTexture(this.options.labelText, this.options.textOptions)
+			map: new TextTexture(labelText, this.options.textOptions)
 		});
 
 		const label = new THREE.Sprite(spriteMaterial);
@@ -177,7 +177,7 @@ export class SingleAxis extends THREE.Group {
 			labelOffset.z === 0 ? -labelScale : labelOffset.z
 		);
 
-		const textWidth = this.options.labelText.length * this.fontAspectRation;
+		const textWidth = labelText.length * this.fontAspectRation;
 		if (this.axis === Axis.Y) {
 			// FIXME: use rotation instead of magic constant
 			label.position.x = -0.1 - textWidth * 0.05;

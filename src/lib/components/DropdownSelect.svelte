@@ -1,5 +1,11 @@
+<script lang="ts" context="module">
+	export type Option<T> = { label: string; value: T; id?: number; initiallySelected?: boolean };
+	export type OptionConstructor<R, T> = (value: R, index: number, meta: unknown) => Option<T>;
+	export type DropdownSelectionEvent<T> = CustomEvent<{ selected: Option<T>[]; meta?: unknown }>;
+</script>
+
 <script lang="ts">
-	import { select } from 'd3';
+	import { ButtonColor, ButtonSize } from './button/type';
 
 	import Label from './base/Label.svelte';
 	import { createEventDispatcher } from 'svelte';
@@ -12,26 +18,32 @@
 	export let required = false;
 	export let singular = false;
 	export let disabled = false;
+	export let expand = true;
 	export let label: string | undefined = undefined;
 
-	// Data type
-	type T = $$Generic;
-	type R = $$Generic;
-	type M = $$Generic;
-	type Option = { label: string; value: T; id?: number; initiallySelected?: boolean };
-	type OptionConstructor = (value: R, index: number, meta: unknown) => Option;
+	// Data types
 
+	// inner value of options
+	type T = $$Generic;
+	// type if items received by OptionConstructor
+	type R = $$Generic;
+	// type of meta info assigned to items
+	type M = $$Generic;
+
+	interface $$RestProps {
+		size?: ButtonSize;
+	}
 	interface $$Events {
-		select: CustomEvent<{ selected: Option[]; meta?: unknown }>;
+		select: DropdownSelectionEvent<T>;
 	}
 
 	export let selection = new Set<T>();
 
-	export let optionOrderer: ((a: Option, b: Option) => number) | undefined = undefined;
-	export let options: Option[] = [];
+	export let optionOrderer: ((a: Option<T>, b: Option<T>) => number) | undefined = undefined;
+	export let options: Option<T>[] = [];
 	export let meta: M | undefined = undefined;
 	export let values: R[] | undefined = undefined;
-	export let optionConstructor: OptionConstructor | undefined = undefined;
+	export let optionConstructor: OptionConstructor<R, T> | undefined = undefined;
 
 	const selectDispatch = createEventDispatcher();
 
@@ -50,7 +62,7 @@
 		}
 	}
 
-	function generateOptions(values: R[], optionConstructor: OptionConstructor) {
+	function generateOptions(values: R[], optionConstructor: OptionConstructor<R, T>) {
 		options = values.map((v, i) => optionConstructor!(v, i, meta));
 
 		if (optionOrderer) {
@@ -68,7 +80,7 @@
 
 	let selectionLabel = labelForSelection(options.filter((o) => selection.has(o.value)));
 
-	function internalOnSelect(option: Option) {
+	function internalOnSelect(option: Option<T>) {
 		// In singular mode we only allow one selection
 		if (singular) {
 			selection = new Set<T>([option.value]);
@@ -108,7 +120,7 @@
 	}
 
 	// Computes the button text based on current selection
-	function labelForSelection(selected: Option[]) {
+	function labelForSelection(selected: Option<T>[]) {
 		if (selected.length === 0) {
 			return 'Select';
 		}
@@ -125,13 +137,18 @@
 	}
 </script>
 
-<div class="flex flex-col">
+<div class="flex-col" class:flex={expand} class:inline-flex={!expand}>
 	{#if label !== undefined}
 		<Label>
 			{label}{#if required}<sup class="text-red-700">*</sup>{/if}
 		</Label>
 	{/if}
-	<Dropdown buttonClass="w-full" {isOpen} disabled={!(options && options.length > 0) || disabled}>
+	<Dropdown
+		buttonClass={expand ? 'w-full' : undefined}
+		{isOpen}
+		disabled={!(options && options.length > 0) || disabled}
+		{...$$restProps}
+	>
 		<span slot="button">
 			{#if $$slots.default}
 				<slot />
@@ -173,8 +190,10 @@
 					class="sticky bottom-0 left-0 right-0 border-t dark:border-t-background-700 bg-background-50 dark:bg-background-800 backdrop-blur-sm"
 				>
 					<div class="p-2 flex justify-end gap-2">
-						<Button size="sm" color="primary" on:click={selectAll}>Select all</Button>
-						<Button size="sm" on:click={clearAll}>Clear</Button>
+						<Button size={ButtonSize.SM} color={ButtonColor.PRIMARY} on:click={selectAll}
+							>Select all</Button
+						>
+						<Button size={ButtonSize.SM} on:click={clearAll}>Clear</Button>
 					</div>
 				</div>
 			{/if}

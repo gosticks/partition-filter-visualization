@@ -59,6 +59,10 @@ export const dataStoreLoadExtension = (store: BaseStoreType, dataStore: Writable
 	shared_elements = sv.shared_elements
 	FROM SplitValues AS sv
 	WHERE t.name = sv.name;
+
+	UPDATE "${tableName}" as t
+		SET fpr = 'NaN'
+		WHERE fpr = -1;
 		`;
 
 		return store.executeQuery(rewriteQuery);

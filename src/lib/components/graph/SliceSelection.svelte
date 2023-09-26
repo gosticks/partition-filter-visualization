@@ -1,11 +1,10 @@
 <script lang="ts">
 	import { getContext, onDestroy, onMount } from 'svelte';
 	import * as THREE from 'three';
-	import type { GraphService } from './types';
 	import { browser } from '$app/environment';
 	import { Axis } from '$lib/rendering/AxisRenderer';
 	import { colorBrewer } from '$lib/rendering/colors';
-	import { getGraphContext } from '../BasicGraph.svelte';
+	import { getGraphContext, type GraphService } from '../BasicGraph.svelte';
 
 	class SliceSelectionRenderer extends THREE.Group {
 		private meshes = new Map<Axis, THREE.Mesh<THREE.PlaneGeometry, THREE.MeshBasicMaterial>>();

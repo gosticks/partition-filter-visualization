@@ -14,7 +14,7 @@
 <script lang="ts">
 	import Button from './button/Button.svelte';
 	import { ChevronDownIcon, ChevronUpIcon } from 'svelte-feather-icons';
-	import { ButtonSize } from './button/type';
+	import type { ButtonSize } from './button/type';
 	import { PortalPlacement, relativePortal } from '$lib/actions/portal';
 	import clickOutside, { type ActionClickOutsideOptions } from '$lib/actions/clickOutside';
 	import { fadeSlide } from '$lib/transitions/fadeSlide';
@@ -27,6 +27,10 @@
 
 	let className: string | undefined = undefined;
 	export { className as class };
+
+	interface $$RestProps {
+		size?: ButtonSize;
+	}
 
 	const outsideActionParams: ActionClickOutsideOptions = {
 		onClickOutside
@@ -61,16 +65,16 @@
 	{:else}
 		<div class="mb-2">
 			<Button
-				size={ButtonSize.MD}
+				{...$$restProps}
 				class="flex items-center justify-between gap-2 {buttonClass}"
 				on:click={toggleDropdown}
 			>
 				<slot name="button" />
 				<svelte:fragment slot="trailing">
 					{#if isOpen}
-						<ChevronUpIcon size="18" />
+						<ChevronUpIcon size="14" />
 					{:else}
-						<ChevronDownIcon size="18" />
+						<ChevronDownIcon size="14" />
 					{/if}
 				</svelte:fragment>
 			</Button>

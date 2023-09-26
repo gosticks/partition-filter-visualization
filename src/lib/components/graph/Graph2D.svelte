@@ -1,5 +1,7 @@
 <script lang="ts" context="module">
+	import { colorBrewer } from '$lib/rendering/colors';
 	import type { ValueRange } from '$lib/store/dataStore/filterActions';
+	import { DataScaling } from '$lib/store/dataStore/types';
 
 	export interface IGraph2dData {
 		xAxisLabel?: string;
@@ -21,6 +23,8 @@
 	export let data: IGraph2dData;
 	export let height = 200;
 	export let width = 300;
+	export let xScale: DataScaling = DataScaling.LINEAR;
+	export let yScale: DataScaling = DataScaling.LINEAR;
 	export let xAxisOffset = 30;
 	export let yAxisOffset = 20;
 
@@ -50,32 +54,37 @@
 			.attr('transform', `translate(${width + 2}, ${height - 30}), rotate(90)`);
 		yAxisTitle = svg
 			.append('text')
-			.attr('text-anchor', 'end')
+			.attr('text-anchor', 'start')
 			.attr('class', 'd3-text')
 			// .attr('transform', 'rotate(-90)')
 			.attr('y', yAxisOffset - 10)
-			.attr('x', xAxisOffset);
+			.attr('x', xAxisOffset - 20);
 	}
 
-	function renderData(data: IGraph2dData) {
+	function getScale(range: [number, number], domain: [number, number], scale: DataScaling) {
+		switch (scale) {
+			case DataScaling.LINEAR:
+				return d3.scaleLinear().range(range).domain(domain);
+			case DataScaling.LOG:
+				return d3.scaleLog().range(range).domain(domain);
+		}
+	}
+
+	function renderData(data: IGraph2dData, xScale: DataScaling, yScale: DataScaling) {
 		if (!data || data.points.length === 0) {
 			return;
 		}
-
 		const [minX, maxX] = data.xRange;
 		const [minY, maxY] = data.yRange;
 
-		var xScale = d3.scaleLinear().domain([0, maxX]).range([0, width]);
+		const xAxisScale = getScale([0, width], [0, maxX], xScale);
 		xAxis
 			.attr('transform', 'translate(0,' + (height - yAxisOffset) + ')')
-			.call(d3.axisBottom(xScale));
+			.call(d3.axisBottom(xAxisScale));
 
 		// add the y Axis
-		var yScale = d3
-			.scaleLinear()
-			.range([height - yAxisOffset, 0])
-			.domain([0, maxY]);
-		yAxis.call(d3.axisLeft(yScale));
+		const yAxisScale = getScale([height - yAxisOffset, 0], [0, maxY], yScale);
+		yAxis.call(d3.axisLeft(yAxisScale));
 
 		svg.selectAll('circle').remove();
 		// remove all curves if number changes
@@ -108,8 +117,8 @@
 					'd',
 					d3
 						.line()
-						.x((d) => xScale(d[0]))
-						.y((d) => yScale(d[1]))
+						.x((d) => xAxisScale(d[0]))
+						.y((d) => yAxisScale(d[1]))
 						.curve(d3.curveLinear) as any
 				);
 
@@ -118,8 +127,8 @@
 				.data(container.data)
 				.enter()
 				.append('circle')
-				.attr('cx', (d) => xScale(d[0]))
-				.attr('cy', (d) => yScale(d[1]))
+				.attr('cx', (d) => xAxisScale(d[0]))
+				.attr('cy', (d) => yAxisScale(d[1]))
 				.transition()
 				.attr('r', 2) // Radius of the circle
 				.attr('fill', container.color ?? 'yellow'); // Color of the circle
@@ -127,7 +136,7 @@
 	}
 
 	$: if (svg) {
-		renderData(data);
+		renderData(data, xScale, yScale);
 	}
 
 	onMount(async () => {

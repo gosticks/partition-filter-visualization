@@ -321,7 +321,7 @@ export class PlaneGraphOptions extends GraphOptions<
 				min: data.min,
 				max: data.max,
 				name: tables[index] as string,
-				color: colorBrewer.Set3[12][index % colorBrewer.Set3[12].length],
+				color: colorBrewer.Paired[12][index % colorBrewer.Paired[12].length],
 				meta: {
 					rows: data.queryResult
 				}

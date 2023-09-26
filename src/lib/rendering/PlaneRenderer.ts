@@ -3,9 +3,11 @@ import { GraphRenderer } from './GraphRenderer';
 import { DataPlaneShapeGeometry } from './geometry/DataPlaneGeometry';
 import { colorBrewer, graphColors } from './colors';
 import { AxisRenderer, type AxisLabelRenderer } from './AxisRenderer';
+import { MeshLine, MeshLineMaterial } from 'three.meshline';
+import { Vector } from 'apache-arrow';
 
 export interface IPlaneData {
-	points: (Float32Array | number[])[];
+	points: number[][];
 	min: number;
 	max: number;
 	name: string;
@@ -62,6 +64,8 @@ export class PlaneRenderer extends GraphRenderer<IPlaneRendererData, IPlaneSelec
 	}
 
 	private selectionMesh?: THREE.Mesh;
+	private selectionMeshX?: THREE.Mesh;
+	private selectionMeshZ?: THREE.Mesh;
 	private min = 0;
 	private max = 0;
 
@@ -161,6 +165,55 @@ export class PlaneRenderer extends GraphRenderer<IPlaneRendererData, IPlaneSelec
 		mesh: THREE.InstancedMesh;
 	};
 
+	private renderLine(
+		start: THREE.Vector3,
+		end: THREE.Vector3,
+		color: THREE.ColorRepresentation,
+		width = 5
+	) {
+		const geometry = new THREE.BufferGeometry().setFromPoints([start, end]);
+
+		const meshLine = new MeshLine();
+		meshLine.setGeometry(geometry);
+		const material = new MeshLineMaterial({
+			color: color,
+			lineWidth: width
+		});
+
+		return new THREE.Mesh(meshLine.geometry, material);
+	}
+
+	private renderSelectionLines(
+		selection?: PlaneRenderer['currentSelection'],
+		selectionMesh?: THREE.Mesh
+	) {
+		// cleanup old selection
+		this.selectionMeshX?.removeFromParent();
+		this.selectionMeshX?.remove();
+		this.selectionMeshX = undefined;
+
+		this.selectionMeshZ?.removeFromParent();
+		this.selectionMeshZ?.remove();
+		this.selectionMeshZ = undefined;
+
+		if (!selection || !selectionMesh) {
+			return;
+		}
+
+		this.selectionMeshZ = this.renderLine(
+			new THREE.Vector3(selectionMesh.position.x, selectionMesh.position.y, -0.5),
+			selectionMesh.position.clone(),
+			0x00ff00
+		);
+		this.selectionMeshX = this.renderLine(
+			new THREE.Vector3(-0.5, selectionMesh.position.y, selectionMesh.position.z),
+			selectionMesh.position.clone(),
+			0xff00ff
+		);
+
+		this.add(this.selectionMeshX, this.selectionMeshZ);
+	}
+
 	getInfoAtPoint(glPoint: THREE.Vector2): IPlaneSelection | undefined {
 		if (!this.camera || !this.planeGroup) {
 			this.currentSelection = undefined;
@@ -199,11 +252,9 @@ export class PlaneRenderer extends GraphRenderer<IPlaneRendererData, IPlaneSelec
 			this.currentSelection = undefined;
 			return;
 		}
-		const z = instanceId % dataLayer.points.length;
-		const x = Math.floor(instanceId / dataLayer.points[0].length);
-
+		const x = instanceId % dataLayer.points.length;
+		const z = Math.floor(instanceId / dataLayer.points[0].length);
 		const y = dataLayer.points[z][x];
-		// const row = dataLayer.meta?.rows[instanceId];
 
 		const normalizedCoords = new THREE.Vector3(
 			x / (dataLayer.points[0].length - 1),
@@ -217,17 +268,20 @@ export class PlaneRenderer extends GraphRenderer<IPlaneRendererData, IPlaneSelec
 			y,
 			z,
 			mesh,
-			normalizedCoords
+			normalizedCoords,
+			parent: meshChildIndex ? this.data?.layers[meshIndex] : undefined
 		};
 
 		// Update local selection
 		if (this.selectionMesh) {
 			this.selectionMesh.visible = true;
 			this.selectionMesh.position.set(
-				-0.5 + normalizedCoords.z,
+				-0.5 + normalizedCoords.x,
 				normalizedCoords.y,
-				-0.5 + normalizedCoords.x
+				-0.5 + normalizedCoords.z
 			);
+
+			this.renderSelectionLines(this.currentSelection, this.selectionMesh);
 		}
 
 		return this.currentSelection;
@@ -405,9 +459,8 @@ export class PlaneRenderer extends GraphRenderer<IPlaneRendererData, IPlaneSelec
 			group.add(parentLayerGroup);
 
 			// render and scale child layers
+			const childLayerGroup = new THREE.Group();
 			if (childLayers[i].length !== 0) {
-				const childLayerGroup = new THREE.Group();
-
 				// Render selection dots for child layers
 				childLayerGroup.add(
 					...childLayers[i].map((childMesh, subIndex) => {
@@ -431,8 +484,8 @@ export class PlaneRenderer extends GraphRenderer<IPlaneRendererData, IPlaneSelec
 						return childGroup;
 					})
 				);
-				group.add(childLayerGroup);
 			}
+			group.add(childLayerGroup);
 
 			this.planeGroup.add(group);
 		}
@@ -503,6 +556,8 @@ export class PlaneRenderer extends GraphRenderer<IPlaneRendererData, IPlaneSelec
 			plane.children[1].children.map((childLayer) => childLayer.visible)
 		]);
 	}
+
+	makeSelectionActive() {}
 
 	showAllLayers(): void {
 		this.planes.forEach((plane) => {

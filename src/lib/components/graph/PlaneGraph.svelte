@@ -1,6 +1,5 @@
 <script lang="ts">
 	import { getContext, onDestroy, onMount } from 'svelte';
-	import type { GraphService } from './types';
 	import { browser } from '$app/environment';
 	import {
 		PlaneRenderer,
@@ -10,16 +9,20 @@
 	} from '$lib/rendering/PlaneRenderer';
 	import Card from '../Card.svelte';
 	import type { PlaneGraphOptions } from '$lib/store/filterStore/graphs/plane';
-	import type { Unsubscriber } from 'svelte/store';
+	import { writable, type Unsubscriber } from 'svelte/store';
 	import { dataStore as dbStore } from '$lib/store/dataStore/DataStore';
 	import Button from '../button/Button.svelte';
 	import { Axis } from '$lib/rendering/AxisRenderer';
-	import { ButtonColor, ButtonSize } from '../button/type';
+	import { ButtonColor, ButtonSize, ButtonVariant } from '../button/type';
 	import { Vector2, Vector3 } from 'three';
 	import { fade } from 'svelte/transition';
 	import LayerGroup, { type LayerSelectionEvent } from '../layerLegend/LayerGroup.svelte';
-	import { getGraphContext } from '../BasicGraph.svelte';
+	import { getGraphContext, type GraphService } from '../BasicGraph.svelte';
 	import SliceGraph from './SliceGraph.svelte';
+	import type { ITiledDataRow } from '$lib/store/dataStore/filterActions';
+	import { positionPortal } from '$lib/actions/portal';
+	import { draggable } from '$lib/actions/draggable';
+	import { LayersIcon, LockIcon } from 'svelte-feather-icons';
 
 	export let options: PlaneGraphOptions;
 
@@ -31,9 +34,14 @@
 	let unsubscriber: Unsubscriber | undefined;
 	let layerVisibility: [boolean, boolean[]][] = [];
 
+	let isSelectionLocked = writable(false);
+
 	let selection: IPlaneSelection | undefined;
 	let mousePosition: Vector2 = new Vector2();
 	let mouseClientPosition: THREE.Vector2 = new Vector2(0, 0);
+	let selectionInfoPromise: Promise<Record<string, any> | undefined> | undefined;
+	let xSlice: number = 0;
+	let ySlice: number = 0;
 
 	const bootstrap = () => {
 		const { camera: graphCamera, scene, domElement } = graphService.getValues();
@@ -55,20 +63,60 @@
 		layerVisibility = dataRenderer.getLayerVisibility();
 	};
 
+	const findRowData = async (tableName: string, x: number, z: number, rows: ITiledDataRow[]) => {
+		const row = rows.find((row) => row.x === x && row.z === z);
+		if (row && row.name) {
+			return await dbStore.getEntry(tableName, 'name', `'${row.name}'`);
+		}
+	};
+
+	const onMouseMove = (event: MouseEvent) => {
+		if ($isSelectionLocked) {
+			return;
+		}
+
+		const bounds = threeDomContainer.getBoundingClientRect();
+		mouseClientPosition.x = event.clientX - bounds.left;
+		mouseClientPosition.y = event.clientY - bounds.top;
+
+		mousePosition.x = (mouseClientPosition.x / bounds.width) * 2 - 1;
+		mousePosition.y = -(mouseClientPosition.y / bounds.height) * 2 + 1.0;
+
+		const newSelection = dataRenderer?.getInfoAtPoint(mousePosition);
+
+		if (!newSelection) {
+			selection = newSelection;
+			return;
+		}
+
+		const selectionChanged =
+			!selection ||
+			newSelection.layer !== selection?.layer ||
+			newSelection.x !== selection?.x ||
+			newSelection.z !== selection?.z;
+
+		if (!selectionChanged) {
+			return;
+		}
+		selection = newSelection;
+
+		if (selection.layer.meta) {
+			if (selectionInfoPromise) {
+				selectionInfoPromise;
+			}
+
+			selectionInfoPromise = findRowData(
+				selection.parent ? selection.parent.name : selection.layer.name,
+				selection.x,
+				selection.z,
+				selection.layer.meta.rows as any
+			);
+		}
+	};
+
 	onMount(() => {
 		if (!browser) return;
 		bootstrap();
-
-		const onMouseMove = (event: MouseEvent) => {
-			const bounds = threeDomContainer.getBoundingClientRect();
-			mouseClientPosition.x = event.clientX - bounds.left;
-			mouseClientPosition.y = event.clientY - bounds.top;
-
-			mousePosition.x = (mouseClientPosition.x / bounds.width) * 2 - 1;
-			mousePosition.y = -(mouseClientPosition.y / bounds.height) * 2 + 1.0;
-
-			selection = dataRenderer?.getInfoAtPoint(mousePosition);
-		};
 
 		threeDomContainer.addEventListener('mousemove', onMouseMove);
 
@@ -81,6 +129,7 @@
 
 	onDestroy(() => {
 		dataRenderer?.destroy();
+		threeDomContainer.removeEventListener('mousemove', onMouseMove);
 		unsubscriber?.();
 	});
 
@@ -113,7 +162,7 @@
 			return formatPowerOfTen(value);
 		}
 
-		return value.toFixed(2).toString();
+		return value.toFixed(3).toString();
 	};
 
 	const onLayerSelected = (evt: CustomEvent<LayerSelectionEvent<IPlaneData, any>>) => {
@@ -134,32 +183,14 @@
 		dataRenderer.hideAllLayers();
 		layerVisibility = dataRenderer.getLayerVisibility();
 	};
-
-	const normalizedValueForSelection = (axis: Axis, selection?: IPlaneSelection) => {
-		if (!selection) {
-			return;
-		}
-
-		switch (axis) {
-			case Axis.X:
-				return selection.x / (selection.layer.points[0].length - 1);
-			case Axis.Y:
-				return selection.y / selection.layer.max;
-			case Axis.Z:
-				return selection.z / (selection.layer.points.length - 1);
-		}
-	};
 </script>
 
-<!-- <SliceSelection
-	scale={0.6}
-	x={normalizedValueForSelection(Axis.X, selection)}
-	z={normalizedValueForSelection(Axis.Z, selection)}
-/> -->
-
 <div class="absolute bottom-0 left-2">
-	<Card noPad class="py-2 px-4"><SliceGraph {options} {layerVisibility} /></Card>
-	<Card noPad class="py-2 px-4"><SliceGraph axis={Axis.Z} {options} {layerVisibility} /></Card>
+	<Card noPad class="py-2 px-4"><SliceGraph bind:slice={xSlice} {options} {layerVisibility} /></Card
+	>
+	<Card noPad class="py-2 px-4"
+		><SliceGraph bind:slice={ySlice} axis={Axis.Z} {options} {layerVisibility} /></Card
+	>
 </div>
 
 <div class="plane-graph-ui legend absolute isolate left-2 top-16 w-[250px]">
@@ -198,33 +229,97 @@
 
 	{#if selection && $dataStore}
 		<div
+			use:draggable={{ enabled: isSelectionLocked }}
+			use:positionPortal={mouseClientPosition}
 			transition:fade={{ duration: 75 }}
-			class="absolute px-3 py-2 rounded-lg border backdrop-blur-md border-slate-900 bg-slate-700/80 text-slate-100"
-			style="left: {mouseClientPosition.x}px; top: {mouseClientPosition.y -
-				40}px; font-family: monospace;"
+			class="absolute rounded-lg border backdrop-blur-md border-slate-900 bg-slate-700/80 text-slate-100"
+			class:shadow-lg={$isSelectionLocked}
+			class:border-blue-500={$isSelectionLocked}
+			class:border-2={$isSelectionLocked}
+			style="font-family: monospace;"
 		>
-			<div class="flex justify-between whitespace-nowrap gap-2 flex-nowrap">
-				<div>
-					<div
-						class="flex-shrink-0 rounded-full border border-slate-800"
-						style={`background-color: ${selection.layer.color}; width: 12px; height:12px; display: inline-block;`}
-					/>
-					<span class="font-bold">{selection.layer.name}</span>
+			<div class="px-3 pt-2">
+				<div class="flex pb-2 justify-between items-center whitespace-nowrap gap-2 flex-nowrap">
+					<div>
+						<div
+							class="flex-shrink-0 rounded-full border border-slate-800"
+							style={`background-color: ${selection.layer.color}; width: 12px; height:12px; display: inline-block;`}
+						/>
+						<span class="font-bold">{selection.layer.name}</span>
+					</div>
+					<div>
+						<Button
+							size={ButtonSize.SM}
+							color={ButtonColor.INVERTED}
+							on:click={() => {
+								if (selection) {
+									xSlice = selection.x;
+									ySlice = selection.z;
+								}
+							}}><LayersIcon slot="leading" size="10" />Show</Button
+						>
+						<Button
+							size={ButtonSize.SM}
+							color={!$isSelectionLocked ? ButtonColor.INVERTED : ButtonColor.SECONDARY}
+							on:click={() => ($isSelectionLocked = !$isSelectionLocked)}
+							><LockIcon slot="leading" size="10" />x:{selection.x} z:{selection.z}</Button
+						>
+					</div>
 				</div>
-				<span class="text-slate-400">x:{selection.x} z:{selection.z}</span>
+				<div class="flex justify-between gap-2">
+					<span>[x]{$dataStore.labels.x}:</span>
+					<span>{selection.normalizedCoords.x * $dataStore.ranges.x[1]}</span>
+				</div>
+				<div class="flex justify-between gap-2">
+					<span>[y]{$dataStore.labels.y}:</span>
+					<span>{selection.y}</span>
+				</div>
+				<div class="flex justify-between gap-2">
+					<span>[z]{$dataStore.labels.z}:</span>
+					<span>{selection.normalizedCoords.z * $dataStore.ranges.z[1]}</span>
+				</div>
 			</div>
-			<div class="flex justify-between gap-2">
-				<span>[x]{$dataStore.labels.x}:</span>
-				<span>{selection.normalizedCoords.x * $dataStore.ranges.x[1]}</span>
-			</div>
-			<div class="flex justify-between gap-2">
-				<span>[y]{$dataStore.labels.y}:</span>
-				<span>{selection.normalizedCoords.y * $dataStore.ranges.y[1]}</span>
-			</div>
-			<div class="flex justify-between gap-2">
-				<span>[z]{$dataStore.labels.z}:</span>
-				<span>{selection.normalizedCoords.z * $dataStore.ranges.z[1]}</span>
-			</div>
+			{#if selectionInfoPromise}
+				<hr class="border-slate-700 m-2" />
+				<div class="px-3 pb-2 tooltip-content overflow-auto max-h-96 max-w-sm">
+					{#await selectionInfoPromise}
+						Loading info...
+					{:then result}
+						{#if result}
+							{#each Object.entries(result) as [key, value]}
+								<div class="flex gap-2 justify-between"><b>{key}</b><span>{value}</span></div>
+							{/each}
+						{:else}
+							Result empty
+						{/if}
+					{:catch err}
+						Failed to load info {err}
+					{/await}
+				</div>
+			{/if}
 		</div>
 	{/if}
 </div>
+
+<style lang="scss">
+	.tooltip-content {
+		// Reset scroll bar styles
+		&::-webkit-scrollbar {
+			width: 0.4em;
+		}
+
+		&::-webkit-scrollbar-track {
+			@apply dark:bg-slate-900 bg-slate-300;
+			opacity: 0.01;
+		}
+
+		&::-webkit-scrollbar-thumb {
+			@apply bg-slate-300 dark:bg-slate-600;
+			border-radius: 20px;
+		}
+
+		&::-webkit-scrollbar-corner {
+			opacity: 0.01;
+		}
+	}
+</style>

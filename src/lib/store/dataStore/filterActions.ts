@@ -1,11 +1,14 @@
 import type { BaseStoreType } from './DataStore';
 import { DataAggregation, DataScaling, type FilterOptions, type IDataStore } from './types';
 
-interface ITiledDataRow {
+export interface ITiledDataRow {
 	mode: string;
 	x: number;
 	z: number;
 	y: number;
+	rawX: number;
+	rawY: number;
+	rawZ: number;
 	name: string;
 }
 
@@ -59,14 +62,35 @@ export const dataStoreFilterExtension = (store: BaseStoreType) => {
 		}
 	};
 
-	const defaultTiledDataOptions = {
+	const defaultTiledDataOptions: ITiledDataOptions = {
 		xColumnName: 'iterations',
 		yColumnName: 'fpr',
 		zColumnName: 'cpu_time',
 		tileCount: 20,
 		scaleY: DataScaling.LINEAR,
 		scaleX: DataScaling.LINEAR,
-		scaleZ: DataScaling.LINEAR
+		scaleZ: DataScaling.LINEAR,
+		aggregation: DataAggregation.MIN
+	};
+
+	const getEntry = async (
+		tableName: string,
+		columnName: string,
+		columnValue: string
+	): Promise<Record<string, any> | undefined> => {
+		const query = `SELECT * FROM "${tableName}" WHERE "${columnName}" = ${columnValue};`;
+
+		const resp = await store.executeQuery(query);
+		if (!resp) {
+			throw new Error('Failed to get min/max');
+		}
+
+		const rows = resp.toArray();
+		if (rows.length !== 1) {
+			return undefined;
+		}
+
+		return rows[0] as Record<string, any>;
 	};
 
 	const getMinMax = async (
@@ -79,7 +103,11 @@ export const dataStoreFilterExtension = (store: BaseStoreType) => {
 			columnName,
 			'"'
 		)}) AS min, MAX(${getSqlScaleWrapper(scale, columnName, '"')}) AS max FROM ${tableName}
-		${scale === DataScaling.LOG ? `WHERE "${columnName}" >= 0` : ''}
+		WHERE ${
+			scale === DataScaling.LOG
+				? `"${columnName}" >= 0 and "${columnName}" != 'NaN'`
+				: `"${columnName}" != 'NaN'`
+		}
 		`;
 
 		const resp = await store.executeQuery(query);
@@ -125,12 +153,17 @@ export const dataStoreFilterExtension = (store: BaseStoreType) => {
 		SELECT
 			${where ? `"${where.columnName}",` : ''}
 			${options.aggregation}(${yColValue}) AS y,
+			any_value("name") as name,
 			FLOOR((${xColValue} - ${xMin}) / ${xBucketSize}) AS x,
-		   	FLOOR((${zColValue} - ${zMin}) / ${zBucketSize}) AS z
+		   	FLOOR((${zColValue} - ${zMin}) / ${zBucketSize}) AS z,
+			any_value("${options.xColumnName}") as "rawX", any_value("${
+			options.yColumnName
+		}") as "rawY", any_value("${options.zColumnName}") as "rawZ"
 	FROM "${tableName}"
-	${where ? `WHERE "${where.columnName}" = '${where.value}'` : ''}
-	${options.scaleY === DataScaling.LOG ? `WHERE "${options.yColumnName}" >= 0` : ''}
-	GROUP BY ${where ? `"${where.columnName}",` : ''} z, x
+	WHERE "${options.yColumnName}" != 'NaN' and x != 'NaN' and z != 'NaN'
+	${where ? `and "${where.columnName}" = '${where.value}'` : ''}
+	${options.scaleY === DataScaling.LOG ? `and "${options.yColumnName}" >= 0` : ''}
+	GROUP BY z, x, ${where ? `"${where.columnName}",` : ''}
 	ORDER BY z ASC, x ASC;
 	`;
 		// GROUP BY ${groupBy ? 'mode,' : ''} z, x, name, "${options.zColumnName}", "${options.xColumnName}"
@@ -157,7 +190,7 @@ export const dataStoreFilterExtension = (store: BaseStoreType) => {
 		zRange?: ValueRange,
 		where?: { columnName: string; value: string }
 	): Promise<{
-		data: Float32Array[];
+		data: number[][];
 		min: number;
 		max: number;
 		queryResult?: ITiledDataRow[];
@@ -170,24 +203,23 @@ export const dataStoreFilterExtension = (store: BaseStoreType) => {
 		try {
 			const rows = await getTiledRows(tableName, options, xRange, yRange, zRange, where);
 
+			const zDim = (options.zTileCount ?? options.tileCount) + 1;
+			const xDim = (options.xTileCount ?? options.tileCount) + 1;
+
 			// Transform rows into a 2D array for display
-			const data = Array.from(
-				{ length: (options.xTileCount ?? options.tileCount) + 1 },
-				() => new Float32Array((options.xTileCount ?? options.tileCount) + 1)
-			);
+			const data: number[][] = new Array(xDim).fill(0).map(() => new Array(zDim).fill(0));
 
 			let min = Number.MAX_VALUE;
 			let max = Number.MIN_VALUE;
 
-			rows.forEach((r) => {
+			rows.forEach((r, i) => {
 				if (r.x < 0 || r.z < 0 || Number.isNaN(r.y)) {
 					return;
 				}
 				min = Math.min(min, r.y);
 				max = Math.max(max, r.y);
-				data[r.x][r.z] = r.y;
+				data[r.z][r.x] = r.y;
 			});
-
 			return {
 				data,
 				min,
@@ -207,6 +239,7 @@ export const dataStoreFilterExtension = (store: BaseStoreType) => {
 	return {
 		getFiltersOptions,
 		getTiledData,
-		getMinMax
+		getMinMax,
+		getEntry
 	};
 };

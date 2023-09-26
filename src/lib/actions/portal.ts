@@ -77,6 +77,27 @@ const getPosition = (
 	return [left, top];
 };
 
+const restrictToScreen = (node: HTMLElement, x: number, y: number, spacing = 3) => {
+	const componentBounds = node.getBoundingClientRect();
+
+	let left = x;
+	let top = y;
+
+	// Adjust if off-screen
+	if (left + componentBounds.width > window.innerWidth) {
+		left = window.innerWidth - (componentBounds.width + spacing);
+	}
+
+	if (top + componentBounds.height > window.innerHeight) {
+		top = window.innerHeight - (componentBounds.height + spacing);
+	}
+
+	if (left < 0) left = spacing;
+	if (top < 0) top = spacing;
+
+	return [left, top];
+};
+
 export interface PortalOptions {
 	rootClass: string;
 	placement: PortalPlacement;
@@ -96,6 +117,50 @@ export const relativePortal = (node: HTMLElement, _options: Partial<PortalOption
 	}
 
 	const position = getPosition(node, parent, placement);
+	if (!position) {
+		return;
+	}
+
+	const [left, top] = position;
+
+	node.style.left = `${left}px`;
+	node.style.top = `${top}px`;
+
+	// TODO: Update position on resize
+
+	// Find next portal-root class along the node tree to attack
+	const portalRoot = findParentWithClass(node, rootClass);
+
+	let targetElement: HTMLElement | null;
+	if (portalRoot) {
+		targetElement = portalRoot;
+	} else {
+		targetElement = document.querySelector('main');
+	}
+
+	targetElement?.appendChild(node).focus();
+
+	return {
+		destroy() {
+			if (targetElement?.contains(node)) {
+				targetElement?.removeChild(node);
+			}
+		}
+	};
+};
+
+export const positionPortal = (
+	node: HTMLElement,
+	_options: Partial<PortalOptions> & { x: number; y: number }
+) => {
+	const { rootClass, x, y } = { ...defaultPortalOptions, ..._options };
+	// position node relative to its parent
+	const parent = node.parentElement;
+	if (!parent) {
+		return portal(node);
+	}
+
+	const position = restrictToScreen(node, x, y);
 	if (!position) {
 		return;
 	}

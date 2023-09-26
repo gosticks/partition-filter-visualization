@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 
-type Data = (number[] | Float32Array)[];
+type Data = number[][];
 export class DataPlaneShapeGeometry extends THREE.BufferGeometry {
 	static readonly pointComponentSize = 3;
 
@@ -77,8 +77,8 @@ export class DataPlaneShapeGeometry extends THREE.BufferGeometry {
 		}
 
 		if (interpolateZeroes) {
-			for (let x = 0; x < this.normalizedData.length; x++) {
-				for (let z = 0; z < this.normalizedData[x].length; z++) {
+			for (let z = 0; z < this.normalizedData.length; z++) {
+				for (let x = 0; x < this.normalizedData[z].length; x++) {
 					// Only interpolate within surface
 					if (
 						z < 1 ||
@@ -89,7 +89,7 @@ export class DataPlaneShapeGeometry extends THREE.BufferGeometry {
 						continue;
 					}
 
-					const value = this.normalizedData[x][z];
+					const value = this.normalizedData[z][x];
 					if (value === 0) {
 						const interpolatedValue = this.interpolate(this.normalizedData, z, x);
 						if (interpolatedValue !== null) {
@@ -190,7 +190,7 @@ export class DataPlaneShapeGeometry extends THREE.BufferGeometry {
 
 				// Add top plane coordinates
 				vertices[vertexIdx] = x / (width - 1); //x
-				vertices[vertexIdx + 1] = normalizedData[x][z]; //y
+				vertices[vertexIdx + 1] = normalizedData[z][x]; //y
 				vertices[vertexIdx + 2] = z / (depth - 1); //z
 
 				if (this.drawsBottom) {
