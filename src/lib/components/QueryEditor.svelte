@@ -2,16 +2,10 @@
 	import { onMount, onDestroy } from 'svelte';
 
 	import CodeEditor from './CodeEditor.svelte';
-	import type { AsyncDuckDBConnection } from '@duckdb/duckdb-wasm';
 	import type { editor } from 'monaco-editor';
 	import Button from './button/Button.svelte';
 	import { dataStore } from '$lib/store/dataStore/DataStore';
-	import Card from './Card.svelte';
 	import { ButtonColor } from './button/type';
-
-	let dbConnection: AsyncDuckDBConnection | undefined = undefined;
-
-	let isLoading: boolean = true;
 
 	let currentQuery: ReturnType<typeof dataStore.executeQuery> | undefined = undefined;
 
@@ -36,14 +30,12 @@
 
 		// Store query in session storage
 		sessionStorage.setItem(storageKey, value);
-		isLoading = true;
 		try {
 			currentQuery = dataStore.executeQuery(value);
 		} catch (error) {
 			console.error(error);
 			currentQuery = Promise.reject(error);
 		} finally {
-			isLoading = false;
 		}
 	}
 

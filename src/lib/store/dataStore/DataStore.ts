@@ -4,7 +4,6 @@ import type { IDataStore, TableSchema } from './types';
 import { browser } from '$app/environment';
 import { dataStoreFilterExtension } from './filterActions';
 import { AsyncDuckDB, ConsoleLogger, LogLevel } from '@duckdb/duckdb-wasm';
-import { withUrlStorage } from '../urlStorage';
 import { withLogMiddleware } from '../logMiddleware';
 
 const initialStore: IDataStore = {
@@ -17,6 +16,7 @@ const initialStore: IDataStore = {
 };
 
 const _baseStore = () => {
+	console.log('Initializing data store');
 	const store = withLogMiddleware(writable<IDataStore>(initialStore), 'DataStore');
 
 	const { set, update, subscribe } = store;
@@ -27,49 +27,48 @@ const _baseStore = () => {
 			return store;
 		});
 	};
-
-	// The first time store is created initialize duckdb
-	const initDuckDB = async () => {
-		const { db } = get(store);
-		if (db) {
-			console.log('Database already initialized');
-			return db; // Return existing database, if any
-		}
-
-		setIsLoading(true);
-
-		// Dynamically import duckdb wasm
-		const duckdbWasm = await import('@duckdb/duckdb-wasm/dist/duckdb-mvp.wasm?url').then(
-			(m) => m.default
-		);
-		const duckdbWorker = await import(
-			'@duckdb/duckdb-wasm/dist/duckdb-browser-mvp.worker.js?worker'
-		).then((m) => m.default);
-
-		// Instantiate worker
-		const logger = new ConsoleLogger(LogLevel.WARNING);
-		const worker = new duckdbWorker();
-
-		// and asynchronous database
-		const newDbInstance = new AsyncDuckDB(logger, worker);
-		await newDbInstance.instantiate(duckdbWasm);
-
-		const conn = await newDbInstance.connect();
-
-		update((store) => {
-			store.db = newDbInstance;
-			store.isLoading = false;
-			store.sharedConnection = conn;
-			return store;
-		});
-		console.debug('Initialized duckdb');
-		return newDbInstance;
-	};
-
 	let promise: Promise<AsyncDuckDB> | null = null;
 
-	// Initialize duckdb only on client
 	if (browser) {
+		// The first time store is created initialize duckdb
+		const initDuckDB = async () => {
+			const { db } = get(store);
+			if (db) {
+				console.log('Database already initialized');
+				return db; // Return existing database, if any
+			}
+
+			setIsLoading(true);
+
+			// Dynamically import duckdb wasm
+			const duckdbWasm = await import('@duckdb/duckdb-wasm/dist/duckdb-mvp.wasm?url').then(
+				(m) => m.default
+			);
+			const duckdbWorker = await import(
+				'@duckdb/duckdb-wasm/dist/duckdb-browser-mvp.worker.js?worker'
+			).then((m) => m.default);
+
+			// Instantiate worker
+			const logger = new ConsoleLogger(LogLevel.WARNING);
+			const worker = new duckdbWorker();
+
+			// and asynchronous database
+			const newDbInstance = new AsyncDuckDB(logger, worker);
+			await newDbInstance.instantiate(duckdbWasm);
+
+			const conn = await newDbInstance.connect();
+
+			update((store) => {
+				store.db = newDbInstance;
+				store.isLoading = false;
+				store.sharedConnection = conn;
+				return store;
+			});
+			console.debug('Initialized duckdb');
+			return newDbInstance;
+		};
+
+		// Initialize duckdb only on client
 		promise = initDuckDB();
 	}
 
@@ -215,7 +214,7 @@ const _dataStore = () => {
 	return {
 		...store,
 		...dataStoreLoadExtension(store, store.rawStore),
-		...dataStoreFilterExtension(store, store.rawStore)
+		...dataStoreFilterExtension(store)
 	};
 };
 
