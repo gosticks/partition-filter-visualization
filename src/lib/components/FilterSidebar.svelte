@@ -20,10 +20,9 @@
 	} from 'svelte-feather-icons';
 	import { ButtonColor, ButtonSize, ButtonVariant } from './button/type';
 	import Dialog, { DialogSize, getDialogContext } from './dialog/Dialog.svelte';
-	import TableSelection from './tableSelection/TableSelection.svelte';
+	import TableSelection, { type TableSelectionEvent } from './tableSelection/TableSelection.svelte';
 	import QueryEditor from './QueryEditor.svelte';
 	import { fadeSlide } from '$lib/transitions/fadeSlide';
-	import type { TableSelectionEvent } from './tableSelection/types';
 
 	let optionsStore: GraphOptions['optionsStore'] | undefined;
 	let isFilterBarOpen: boolean = true;
@@ -41,7 +40,11 @@
 		}
 
 		if (externalTables && externalTables.fileList) {
-			dataStore.loadEntriesFromFileList(externalTables.fileList);
+			filterStore.selectTablesFromFiles(externalTables.fileList);
+		}
+
+		if (externalTables && externalTables.url) {
+			filterStore.selectTableFromURL(externalTables.url);
 		}
 	}
 

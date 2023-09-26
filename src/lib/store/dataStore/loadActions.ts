@@ -68,16 +68,6 @@ export const dataStoreLoadExtension = (store: BaseStoreType, dataStore: Writable
 		return store.executeQuery(rewriteQuery);
 	};
 
-	const addIndexColumn = async (tableName: string, columnName = 'id') => {
-		console.log('Adding index column:', columnName);
-		const addIndexQuery = `
-	ALTER TABLE "${tableName}"
-	ADD COLUMN "${columnName}" SERIAL PRIMARY KEY;
-		`;
-
-		return store.executeQuery(addIndexQuery);
-	};
-
 	const loadCsvFromFile = (file: File, tableName: string) =>
 		withLoading(async () => {
 			const conn = await store.getConnection();
@@ -90,8 +80,11 @@ export const dataStoreLoadExtension = (store: BaseStoreType, dataStore: Writable
 			store.setIsLoading(true);
 
 			try {
-				await db.registerFileHandle(tableName, file, DuckDBDataProtocol.BROWSER_FILEREADER, true);
+				await db.registerFileHandle(file.name, file, DuckDBDataProtocol.BROWSER_FILEREADER, true);
 				console.log('Registered file handle:', tableName);
+
+				// try reading from file handle
+				await loadCsvFromUrl(file.name, tableName, false);
 			} catch (e) {
 				const msg = `Failed to load table ${tableName} from file ${file.name}`;
 				console.error(msg, e);
@@ -252,9 +245,7 @@ export const dataStoreLoadExtension = (store: BaseStoreType, dataStore: Writable
 				);
 			}
 			case TableSource.FILE: {
-				const csvUrl = ref.file;
-				throw new Error('Not implemented yet');
-				break;
+				return loadCsvFromFile(ref.file, ref.tableName);
 			}
 		}
 	};

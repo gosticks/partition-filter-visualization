@@ -13,8 +13,9 @@
 	import Minimal from '$lib/components/graph/Minimal.svelte';
 	import PlaneGraph from '$lib/components/graph/PlaneGraph.svelte';
 	import { PlaneGraphOptions } from '$lib/store/filterStore/graphs/plane';
-	import TableSelection from '$lib/components/tableSelection/TableSelection.svelte';
-	import type { TableSelectionEvent } from '$lib/components/tableSelection/types';
+	import TableSelection, {
+		type TableSelectionEvent
+	} from '$lib/components/tableSelection/TableSelection.svelte';
 
 	export let data: PageServerData;
 
@@ -32,7 +33,11 @@
 		}
 
 		if (externalTables && externalTables.fileList) {
-			dataStore.loadEntriesFromFileList(externalTables.fileList);
+			filterStore.selectTablesFromFiles(externalTables.fileList);
+		}
+
+		if (externalTables && externalTables.url) {
+			filterStore.selectTableFromURL(externalTables.url);
 		}
 	}
 </script>

@@ -211,6 +211,57 @@ const _filterStore = () => {
 			}
 		},
 
+		selectTableFromURL: async (url: URL) => {
+			// Convert filter options to table references
+			const tableReferences: ITableReference[] = [
+				{
+					name: url.hostname,
+					tableName: url.pathname.replaceAll('/', '-'),
+					source: TableSource.URL,
+					url: url.href
+				}
+			];
+			try {
+				await selectTables(tableReferences);
+				await reloadCurrentGraph();
+				return;
+			} catch (err) {
+				notificationStore.error({
+					message: 'Failed to load tables from file',
+					description: `${tableReferences.map((table) => table.name).join(',')}, err=${
+						err ?? 'Unknown Error'
+					}`
+				});
+			}
+		},
+
+		selectTablesFromFiles: async (fileList: FileList) => {
+			// Convert filter options to table references
+			const tableReferences: ITableReference[] = [];
+
+			for (const file of fileList) {
+				tableReferences.push({
+					name: file.name,
+					tableName: file.name,
+					source: TableSource.FILE,
+					file
+				});
+			}
+
+			try {
+				await selectTables(tableReferences);
+				await reloadCurrentGraph();
+				return;
+			} catch (err) {
+				notificationStore.error({
+					message: 'Failed to load tables from file',
+					description: `${tableReferences.map((table) => table.name).join(',')}, err=${
+						err ?? 'Unknown Error'
+					}`
+				});
+			}
+		},
+
 		selectGraphType: async (graphType: GraphType) => {
 			switch (graphType) {
 				case GraphType.PLANE: {

@@ -66,6 +66,8 @@ export class PlaneRenderer extends GraphRenderer<IPlaneRendererData, IPlaneSelec
 	private selectionMesh?: THREE.Mesh;
 	private selectionMeshX?: THREE.Mesh;
 	private selectionMeshZ?: THREE.Mesh;
+	private selectionMeshX2?: THREE.Mesh;
+	private selectionMeshZ2?: THREE.Mesh;
 	private min = 0;
 	private max = 0;
 
@@ -169,7 +171,7 @@ export class PlaneRenderer extends GraphRenderer<IPlaneRendererData, IPlaneSelec
 		start: THREE.Vector3,
 		end: THREE.Vector3,
 		color: THREE.ColorRepresentation,
-		width = 5
+		width = 2
 	) {
 		const geometry = new THREE.BufferGeometry().setFromPoints([start, end]);
 
@@ -189,12 +191,16 @@ export class PlaneRenderer extends GraphRenderer<IPlaneRendererData, IPlaneSelec
 	) {
 		// cleanup old selection
 		this.selectionMeshX?.removeFromParent();
-		this.selectionMeshX?.remove();
 		this.selectionMeshX = undefined;
 
 		this.selectionMeshZ?.removeFromParent();
-		this.selectionMeshZ?.remove();
 		this.selectionMeshZ = undefined;
+
+		this.selectionMeshX2?.removeFromParent();
+		this.selectionMeshX2 = undefined;
+
+		this.selectionMeshZ2?.removeFromParent();
+		this.selectionMeshZ2 = undefined;
 
 		if (!selection || !selectionMesh) {
 			return;
@@ -205,13 +211,25 @@ export class PlaneRenderer extends GraphRenderer<IPlaneRendererData, IPlaneSelec
 			selectionMesh.position.clone(),
 			0x00ff00
 		);
+		this.selectionMeshZ2 = this.renderLine(
+			new THREE.Vector3(selectionMesh.position.x, selectionMesh.position.y, -0.5),
+			new THREE.Vector3(selectionMesh.position.x, 0, -0.5),
+			0x00ff00
+		);
+
 		this.selectionMeshX = this.renderLine(
 			new THREE.Vector3(-0.5, selectionMesh.position.y, selectionMesh.position.z),
 			selectionMesh.position.clone(),
 			0xff00ff
 		);
 
-		this.add(this.selectionMeshX, this.selectionMeshZ);
+		this.selectionMeshX2 = this.renderLine(
+			new THREE.Vector3(-0.5, selectionMesh.position.y, selectionMesh.position.z),
+			new THREE.Vector3(-0.5, 0, selectionMesh.position.z),
+			0xff00ff
+		);
+
+		this.add(this.selectionMeshX, this.selectionMeshX2, this.selectionMeshZ, this.selectionMeshZ2);
 	}
 
 	getInfoAtPoint(glPoint: THREE.Vector2): IPlaneSelection | undefined {
@@ -220,6 +238,7 @@ export class PlaneRenderer extends GraphRenderer<IPlaneRendererData, IPlaneSelec
 			if (this.selectionMesh) {
 				this.selectionMesh.visible = false;
 			}
+			this.renderSelectionLines();
 			return;
 		}
 		this.raycaster.setFromCamera(glPoint, this.camera);
@@ -229,6 +248,7 @@ export class PlaneRenderer extends GraphRenderer<IPlaneRendererData, IPlaneSelec
 		if (intersection.length === 0) {
 			this.currentSelection = undefined;
 			if (this.selectionMesh) {
+				this.renderSelectionLines();
 				this.selectionMesh.visible = false;
 			}
 			return;
