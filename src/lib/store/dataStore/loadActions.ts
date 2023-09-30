@@ -1,7 +1,6 @@
 import { get, type Writable } from 'svelte/store';
 import type { BaseStoreType } from './DataStore';
 import type { IDataStore, ITableEntry, TableSchema } from './types';
-import { DuckDBDataProtocol } from '@duckdb/duckdb-wasm';
 import { TableSource, type ITableReference } from '../filterStore/types';
 import notificationStore from '../notificationStore';
 
@@ -72,6 +71,9 @@ export const dataStoreLoadExtension = (store: BaseStoreType, dataStore: Writable
 		withLoading(async () => {
 			const conn = await store.getConnection();
 			const { db } = get(dataStore);
+
+			// Must be imported client side since WASM package breaks SvelteKit server SSR at build time
+			const { DuckDBDataProtocol } = (await import('@duckdb/duckdb-wasm')).default;
 
 			if (!db || !conn) {
 				return;
