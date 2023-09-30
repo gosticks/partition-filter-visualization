@@ -27,7 +27,7 @@ jobs:
       - name: Checkout dataset repository
         uses: snow-actions/sparse-checkout@v1.2.0
         with:
-          pattern: benchmark/paper
+          patterns: benchmark/paper
           repository: git@github.com:tum-db/partitioned-filters.git
           path: ./static/dataset
 
