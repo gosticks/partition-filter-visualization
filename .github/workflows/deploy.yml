@@ -19,13 +19,20 @@ jobs:
           node-version: 16
 
       - name: Install pnpm
-        run: npm install -g pnpm
+        run: npm install -g bun
 
       - name: Install Dependencies
-        run: pnpm install
+        run: bun install
+
+      - name: Checkout dataset repository
+        uses: snow-actions/sparse-checkout@v1.2.0
+        with:
+          pattern: benchmark/paper
+          repository: git@github.com:tum-db/partitioned-filters.git
+          path: ./static/dataset
 
       - name: Build
-        run: pnpm run build
+        run: bun run build
 
       - name: Deploy to GitHub Pages
         uses: JamesIves/github-pages-deploy-action@v4.4.3
