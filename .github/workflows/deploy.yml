@@ -18,6 +18,12 @@ jobs:
         with:
           bun-version: latest
 
+      - name: Cache bun modules
+        uses: actions/cache@v3
+        with:
+          path: ~/.bun/install/cache
+          key: ${{ runner.os }}-pnpm-${{ hashFiles('**/bun.lockb') }}
+
       - name: Install Dependencies
         run: bun install
 
