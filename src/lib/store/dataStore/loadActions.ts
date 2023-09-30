@@ -73,7 +73,7 @@ export const dataStoreLoadExtension = (store: BaseStoreType, dataStore: Writable
 			const { db } = get(dataStore);
 
 			// Must be imported client side since WASM package breaks SvelteKit server SSR at build time
-			const { DuckDBDataProtocol } = (await import('@duckdb/duckdb-wasm')).default;
+			const { DuckDBDataProtocol } = await import('@duckdb/duckdb-wasm');
 
 			if (!db || !conn) {
 				return;
