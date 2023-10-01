@@ -1,5 +1,7 @@
 # Partition Filters Visualization
 
+[![Build and Deploy to GitHub Pages](https://github.com/gosticks/partition-filter-visualization/actions/workflows/deploy.yml/badge.svg)](https://github.com/gosticks/partition-filter-visualization/actions/workflows/deploy.yml)
+
 Everything you need to build a Svelte project, powered by [`create-svelte`](https://github.com/sveltejs/kit/tree/master/packages/create-svelte).
 
 ## Creating a project
