@@ -32,11 +32,11 @@ jobs:
         with:
           patterns: benchmark/paper
           repository: tum-db/partitioned-filters
-          path: /dataset
+          path: ./dataset
 
       - name: Copy dataset data into build context
         run: |
-          cp /dataset/benchmark/paper ./static/dataset
+          cp ./dataset/benchmark/paper ./static/dataset
 
       - name: Temporary check
         run: |
