@@ -13,11 +13,16 @@ import {
 	type ITableReference,
 	TableSource,
 	GraphOptions,
-	GraphType
+	GraphType,
+	type ITableRefList,
+	type ITableBuildIn,
+	type ITableExternalUrl,
+	type ITableExternalFile
 } from './types';
 import { PlaneGraphOptions } from './graphs/plane';
 import { defaultLogOptions, withLogMiddleware } from '../logMiddleware';
 import notificationStore from '../notificationStore';
+import type { Dataset, DatasetPath } from '../../../dataset/types';
 
 export interface IFilterStoreGraphOptions {
 	type: GraphType.PLANE;
@@ -36,7 +41,7 @@ export interface IFilterStoreGraphOptions {
 
 const initialStore: IFilterStore = {
 	isLoading: true,
-	preloadedTables: [],
+	preloadedDatasets: [],
 	selectedTables: []
 };
 
@@ -100,11 +105,11 @@ const _filterStore = () => {
 		});
 	};
 
-	const selectTables = async (tables: ITableReference[]) => {
+	const selectTables = async (tables: ITableRefList) => {
 		setIsLoading(true);
 		// Load tables into data store
 		try {
-			const loadedTables = await dataStore.loadTableReferences(tables);
+			const loadedTables = await dataStore.loadCsvsFromRefs(tables);
 			store.update((store) => {
 				store.selectedTables = tables;
 				return store;
@@ -146,14 +151,22 @@ const _filterStore = () => {
 			dataStore.resetDatabase();
 
 			const newInitialState = JSON.parse(JSON.stringify(initialStore));
-			// Inject init preloaded tables
-			newInitialState.preloadedTables = get(store).preloadedTables;
+			newInitialState.preloadedDatasets = get(store).preloadedDatasets;
 			newInitialState.isLoading = false;
 			set(newInitialState);
 		},
 
 		// Actions
-		initWithPreloadedTables: async (tables: Record<string, FilterEntry>) => {
+		initWithPreloadedDatasets: async (datasets: Dataset[]) => {
+			console.log('Loading datasets', datasets);
+			// FIXME: enable after refactor
+			update((store) => {
+				store.preloadedDatasets = datasets;
+				return store;
+			});
+			setIsLoading(false);
+			return;
+
 			setIsLoading(true);
 			const preloadedTables = Object.entries(tables).map(([label, value]) => ({
 				label,
@@ -188,15 +201,39 @@ const _filterStore = () => {
 
 		selectTables,
 
-		selectBuildInTables: async (tables: FilterEntry[]) => {
+		selectDataset: (dataset?: Dataset) => {
+			update((state) => {
+				state.selectedDataset = dataset;
+				return state;
+			});
+		},
+
+		selectBuildInTables: async (dataset: Dataset, tablePaths: DatasetPath[]) => {
+			if (dataset !== get(store).selectedDataset) {
+				// selected dataset and tables to be loaded do
+				// not match
+				return;
+			}
+
 			// Convert filter options to table references
-			const tableReferences: ITableReference[] = tables.flatMap((t) =>
-				t.entries.map((e) => ({
-					name: e.name,
-					tableName: t.name,
-					source: TableSource.BUILD_IN,
-					url: e.dataUrl
-				}))
+			const tableReferences: ITableBuildIn[] = tablePaths.map(
+				(path) => {
+					// FIXME: implement selection for non first element
+					const table = path.entries[0];
+					return {
+						name: table.name,
+						tableName: `${dataset.name}-${table.name}`,
+						source: TableSource.BUILD_IN,
+						url: `${path.path}/${table.dataURL}`,
+						dataset
+					};
+				}
+				// t.entries.map((e) => ({
+				// 	name: e.name,
+				// 	tableName: t.name,
+				// 	source: TableSource.BUILD_IN,
+				// 	url: e.dataUrl
+				// }))
 			);
 
 			try {
@@ -206,16 +243,15 @@ const _filterStore = () => {
 			} catch {
 				notificationStore.error({
 					message: 'Failed to load external tables',
-					description: tables.map((table) => table.name).join(',')
+					description: tablePaths.map((table) => table.name).join(',')
 				});
 			}
 		},
 
 		selectTableFromURL: async (url: URL) => {
 			// Convert filter options to table references
-			const tableReferences: ITableReference[] = [
+			const tableReferences: ITableExternalUrl[] = [
 				{
-					name: url.hostname,
 					tableName: url.pathname.replaceAll('/', '-'),
 					source: TableSource.URL,
 					url: url.href
@@ -228,7 +264,7 @@ const _filterStore = () => {
 			} catch (err) {
 				notificationStore.error({
 					message: 'Failed to load tables from file',
-					description: `${tableReferences.map((table) => table.name).join(',')}, err=${
+					description: `${tableReferences.map((table) => table.tableName).join(',')}, err=${
 						err ?? 'Unknown Error'
 					}`
 				});
@@ -237,11 +273,10 @@ const _filterStore = () => {
 
 		selectTablesFromFiles: async (fileList: FileList) => {
 			// Convert filter options to table references
-			const tableReferences: ITableReference[] = [];
+			const tableReferences: ITableExternalFile[] = [];
 
 			for (const file of fileList) {
 				tableReferences.push({
-					name: file.name,
 					tableName: file.name,
 					source: TableSource.FILE,
 					file
@@ -255,7 +290,7 @@ const _filterStore = () => {
 			} catch (err) {
 				notificationStore.error({
 					message: 'Failed to load tables from file',
-					description: `${tableReferences.map((table) => table.name).join(',')}, err=${
+					description: `${tableReferences.map((table) => table.tableName).join(',')}, err=${
 						err ?? 'Unknown Error'
 					}`
 				});

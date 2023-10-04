@@ -1,8 +1,15 @@
 import { get, type Writable } from 'svelte/store';
 import type { BaseStoreType } from './DataStore';
 import type { IDataStore, ITableEntry, TableSchema } from './types';
-import { TableSource, type ITableReference } from '../filterStore/types';
+import {
+	TableSource,
+	type ITableReference,
+	type ITableRefList,
+	type ITableExternalUrl,
+	type ITableExternalFile
+} from '../filterStore/types';
 import notificationStore from '../notificationStore';
+import { flatGroup } from 'd3';
 
 // Store extension containing actions to load data, transform & drop data
 export const dataStoreLoadExtension = (store: BaseStoreType, dataStore: Writable<IDataStore>) => {
@@ -16,7 +23,7 @@ export const dataStoreLoadExtension = (store: BaseStoreType, dataStore: Writable
 		}
 	};
 
-	const rewriteEntries = async (tableName: string) => {
+	const rewriteExperimentsEntries = async (tableName: string) => {
 		console.log('Rewriting entries for table:', tableName);
 		const rewriteQuery = `
 	ALTER TABLE "${tableName}" ADD COLUMN family TEXT;
@@ -67,46 +74,25 @@ export const dataStoreLoadExtension = (store: BaseStoreType, dataStore: Writable
 		return store.executeQuery(rewriteQuery);
 	};
 
-	const loadCsvFromFile = (file: File, tableName: string) =>
-		withLoading(async () => {
-			const conn = await store.getConnection();
-			const { db } = get(dataStore);
+	const bindFileToDuckDB = async (dbPath: string, file: File) => {
+		const { db } = get(dataStore);
+		const conn = await store.getConnection();
+		if (!db || !conn) {
+			return;
+		}
 
-			// Must be imported client side since WASM package breaks SvelteKit server SSR at build time
-			const { DuckDBDataProtocol } = await import('@duckdb/duckdb-wasm');
+		// Must be imported client side since WASM package breaks SvelteKit server SSR at build time
+		const { DuckDBDataProtocol } = await import('@duckdb/duckdb-wasm');
 
-			if (!db || !conn) {
-				return;
-			}
+		await db.registerFileHandle(dbPath, file, DuckDBDataProtocol.BROWSER_FILEREADER, true);
+	};
 
-			store.setIsLoading(true);
-
-			try {
-				await db.registerFileHandle(file.name, file, DuckDBDataProtocol.BROWSER_FILEREADER, true);
-				console.log('Registered file handle:', tableName);
-
-				// try reading from file handle
-				await loadCsvFromUrl(file.name, tableName, false);
-			} catch (e) {
-				const msg = `Failed to load table ${tableName} from file ${file.name}`;
-				console.error(msg, e);
-				notificationStore.error({
-					message: msg,
-					description: (e as Error)?.message
-				});
-				throw e;
-			} finally {
-				store.setIsLoading(false);
-			}
-		});
-
-	const loadCsvFromUrl = async (
-		path: string,
-		tableName: string,
+	const loadCsvFromRef = async (
+		ref: ITableReference,
 		shouldSetLoading = true,
 		createTable = true,
 		shouldUpdateTableList = true
-	) => {
+	): Promise<ITableEntry | undefined> => {
 		const conn = await store.getConnection();
 
 		if (!conn) {
@@ -118,33 +104,46 @@ export const dataStoreLoadExtension = (store: BaseStoreType, dataStore: Writable
 			store.setIsLoading(true);
 		}
 
+		let url = '';
 		try {
-			await conn.insertCSVFromPath(path, {
-				name: tableName,
+			switch (ref.source) {
+				case TableSource.BUILD_IN:
+					url = new URL(ref.url, location.href).href;
+					break;
+				case TableSource.FILE:
+					await bindFileToDuckDB(ref.file.name, ref.file);
+					url = ref.file.name;
+					break;
+				case TableSource.URL:
+					url = ref.url;
+					break;
+			}
+
+			await conn.insertCSVFromPath(url, {
+				name: ref.tableName,
 				detect: true,
 				create: createTable
 			});
 
-			const schema = await store.getTableSchema(tableName);
-			// const filterOptions = await getFiltersOptions(tableName, Object.keys(schema), conn);
+			const schema = await store.getTableSchema(ref.tableName);
 			const tableEntry: ITableEntry = {
-				name: tableName,
-				dataUrl: path,
+				name: ref.tableName,
 				schema,
-				filterOptions: {}
+				filterOptions: {},
+				ref: ref
 			};
 
 			if (shouldUpdateTableList) {
 				// Update or replace table entry
 				dataStore.update((store) => {
-					store.tables[tableName] = tableEntry;
+					store.tables[ref.tableName] = tableEntry;
 					return store;
 				});
 			}
 
 			return tableEntry;
 		} catch (e) {
-			const msg = `Failed to load table ${tableName} from path ${path}`;
+			const msg = `Failed to load table ${ref.tableName} from path ${url}`;
 			console.error(msg, e);
 			notificationStore.error({
 				message: msg,
@@ -158,9 +157,25 @@ export const dataStoreLoadExtension = (store: BaseStoreType, dataStore: Writable
 		}
 	};
 
-	const postProcessTable = async (tableName: string): Promise<ITableEntry | undefined> => {
+	const postProcessTable = async (
+		tableName: string,
+		refs: ITableRefList
+	): Promise<ITableEntry | undefined> => {
+		console.debug('Post process', { tableName, refs });
+		if (refs.length === 0) {
+			return;
+		}
+		// get list type
+		const refType = refs[0].source;
 		try {
-			await rewriteEntries(tableName);
+			switch (refType) {
+				case TableSource.BUILD_IN: {
+					switch (refs[0].dataset.name) {
+						case 'experiments':
+							await rewriteExperimentsEntries(tableName);
+					}
+				}
+			}
 			// await addIndexColumn(tableName);
 			const schema = await store.getTableSchema(tableName);
 			const filterOptions = {}; //await getFiltersOptions(tableName, Object.keys(schema));
@@ -218,49 +233,15 @@ export const dataStoreLoadExtension = (store: BaseStoreType, dataStore: Writable
 		}, {} as TableSchema);
 	};
 
-	const loadTableReference = async (
-		ref: ITableReference,
-		shouldSetLoading = true,
-		shouldCreateTable = true,
-		shouldUpdateTableList = true
-	) => {
-		console.debug('Loading table reference:', ref);
-		switch (ref.source) {
-			case TableSource.BUILD_IN: {
-				const csvUrl = new URL(ref.url, location.href).href;
-				return loadCsvFromUrl(
-					csvUrl,
-					ref.tableName,
-					shouldSetLoading,
-					shouldCreateTable,
-					shouldUpdateTableList
-				);
-			}
-			case TableSource.URL: {
-				const csvUrl = ref.url;
-				return loadCsvFromUrl(
-					csvUrl,
-					ref.tableName,
-					shouldSetLoading,
-					shouldCreateTable,
-					shouldUpdateTableList
-				);
-			}
-			case TableSource.FILE: {
-				return loadCsvFromFile(ref.file, ref.tableName);
-			}
-		}
-	};
-
 	/**
 	 * Loads all CSVs for the selected filters entries
 	 * @param selected
 	 * @returns
 	 */
-	const loadTableReferences = async (refs: ITableReference[]) =>
+	const loadCsvsFromRefs = async (refs: ITableRefList): Promise<ITableEntry[]> =>
 		withLoading(async () => {
 			if (refs.length === 0) {
-				return;
+				return [];
 			}
 
 			console.debug('Loading table references:', refs);
@@ -270,9 +251,10 @@ export const dataStoreLoadExtension = (store: BaseStoreType, dataStore: Writable
 				if (!acc[ref.tableName]) {
 					acc[ref.tableName] = [];
 				}
-				acc[ref.tableName].push(ref);
+				// type
+				acc[ref.tableName].push(ref as any);
 				return acc;
-			}, {} as Record<string, ITableReference[]>);
+			}, {} as Record<string, ITableRefList>);
 
 			console.debug('Grouped table references:', grouped);
 
@@ -281,7 +263,7 @@ export const dataStoreLoadExtension = (store: BaseStoreType, dataStore: Writable
 			// TODO: add check or te databases
 			if (Object.keys(grouped).every((tableName) => !!get(dataStore).tables[tableName])) {
 				console.log('All tables are already loaded, skipping');
-				return;
+				return [];
 			}
 
 			// Load multiple tables at once but all linked to the same tableName sequentially
@@ -299,14 +281,14 @@ export const dataStoreLoadExtension = (store: BaseStoreType, dataStore: Writable
 					for (const [i, entry] of entries.entries()) {
 						// Only create table for first entry
 						// do not update store table list, this will be done after post processing
-						const loadedTable = await loadTableReference(entry, false, i === 0, false);
+						const loadedTable = await loadCsvFromRef(entry, false, i === 0, false);
 						if (loadedTable) {
 							loadedTables.push(loadedTable);
 						}
 					}
 
 					// Post process tables
-					return postProcessTable(tableName);
+					return postProcessTable(tableName, entries) ?? [];
 				})
 			);
 
@@ -330,6 +312,7 @@ export const dataStoreLoadExtension = (store: BaseStoreType, dataStore: Writable
 				return tableDefinitions;
 			} catch (e) {
 				console.error('Failed to load CSVs:', e);
+				return [];
 			}
 		});
 
@@ -390,18 +373,23 @@ export const dataStoreLoadExtension = (store: BaseStoreType, dataStore: Writable
 	return {
 		// Add modifiers
 		loadEntriesFromFileList: async (fileList: FileList) => {
-			const promises: Promise<void>[] = [];
+			const promises: Promise<ITableEntry | undefined>[] = [];
 
 			for (const file of fileList) {
 				const tableName = file.name.replace('.csv', '');
-				promises.push(loadCsvFromFile(file, tableName));
+				promises.push(
+					loadCsvFromRef({
+						source: TableSource.FILE,
+						file: file,
+						tableName: tableName
+					})
+				);
 			}
 
 			await Promise.all(promises);
 		},
-		loadCsvFromFile,
-		loadCsvFromUrl,
-		loadTableReferences,
+		loadCsvFromRef,
+		loadCsvsFromRefs,
 		resetDatabase,
 		removeTable
 	};

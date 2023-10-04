@@ -1,5 +1,6 @@
 import type { FilterEntry } from '$routes/graph/+page.server';
 import type { Readable } from 'svelte/store';
+import type { Dataset } from '../../../dataset/types';
 
 export enum GraphType {
 	PLANE = 'plane'
@@ -8,47 +9,6 @@ export enum GraphType {
 export type DeepPartial<T> = {
 	[P in keyof T]?: DeepPartial<T[P]>;
 };
-
-type Join<K, P> = K extends string | number
-	? P extends string | number
-		? `${K}.${P}`
-		: never
-	: never;
-
-export type Paths<T, D extends number = 5> = [D] extends [never]
-	? never
-	: T extends object
-	? {
-			[K in keyof T]-?: K extends string | number ? `${K}` | Join<K, Paths<T[K]>> : never;
-	  }[keyof T]
-	: '';
-
-export type PathValue<T, P extends string> = P extends keyof T
-	? T[P]
-	: P extends `${infer K}.${infer Rest}`
-	? K extends keyof T
-		? PathValue<T[K], Rest>
-		: never
-	: never;
-
-export function setObjectValue<T extends object, P extends Paths<T>>(
-	obj: T,
-	path: P,
-	value: any //PathValue<T, P>
-): void {
-	const keys = path.split('.');
-	let current = obj as any; //as DeepPartial<T>;
-
-	for (let i = 0; i < keys.length - 1; i++) {
-		const key = keys[i];
-		if (typeof current[key] !== 'object' || current[key] === null) {
-			current[key] = {};
-		}
-		current = current[key]!;
-	}
-
-	current[keys[keys.length - 1]] = value;
-}
 
 export type SimpleGraphFilterOption =
 	| (
@@ -112,9 +72,10 @@ export abstract class GraphOptions<
 
 export interface IFilterStore {
 	isLoading: boolean;
-	preloadedTables: { label: string; value: FilterEntry }[];
+	preloadedDatasets: Dataset[];
 	// List of available filter options
 	// filterOptions: FilterOptions;
+	selectedDataset?: Dataset;
 	selectedTables: ITableReference[];
 	graphOptions?: GraphOptions;
 }
@@ -125,16 +86,26 @@ export enum TableSource {
 	FILE
 }
 
-export type ITableReference = {
-	name: string;
+interface ITableRef {
 	tableName: string;
-} & (
-	| {
-			source: TableSource.BUILD_IN | TableSource.URL;
-			url: string;
-	  }
-	| {
-			source: TableSource.FILE;
-			file: File;
-	  }
-);
+}
+
+export interface ITableBuildIn extends ITableRef {
+	source: TableSource.BUILD_IN;
+	url: string;
+	dataset: Dataset;
+}
+
+export interface ITableExternalUrl extends ITableRef {
+	source: TableSource.URL;
+	url: string;
+}
+
+export interface ITableExternalFile extends ITableRef {
+	source: TableSource.FILE;
+	file: File;
+}
+
+export type ITableReference = ITableBuildIn | ITableExternalFile | ITableExternalUrl;
+
+export type ITableRefList = ITableBuildIn[] | ITableExternalFile[] | ITableExternalUrl[];

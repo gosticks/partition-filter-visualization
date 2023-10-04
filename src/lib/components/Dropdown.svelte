@@ -59,6 +59,8 @@
 <div
 	class="inline-block ring-offset-2 rounded-md ring-offset-background-50 dark:ring-offset-background-800 {className}"
 	class:ring-4={isOpen}
+	class:pointer-events-none={disabled}
+	class:opacity-50={disabled}
 >
 	{#if $$slots.trigger}
 		<slot name="trigger" />

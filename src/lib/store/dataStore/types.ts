@@ -1,4 +1,5 @@
 import type { AsyncDuckDB, AsyncDuckDBConnection } from '@duckdb/duckdb-wasm';
+import type { ITableReference } from '../filterStore/types';
 
 export type FilterOptions = Record<string, { options: unknown[]; label?: string; type: string }>;
 export type TableSchema = Record<string, 'number' | 'string'>;
@@ -17,8 +18,8 @@ export enum DataAggregation {
 
 export interface ITableEntry {
 	name: string;
-	dataUrl: string;
 	schema: TableSchema;
+	ref: ITableReference;
 	filterOptions: FilterOptions;
 }
 

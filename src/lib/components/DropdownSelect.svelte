@@ -146,7 +146,7 @@
 	<Dropdown
 		buttonClass={expand ? 'w-full' : undefined}
 		{isOpen}
-		disabled={!(options && options.length > 0) || disabled}
+		disabled={!((options && options.length > 0) || optionConstructor) || disabled}
 		{...$$restProps}
 	>
 		<span slot="button">

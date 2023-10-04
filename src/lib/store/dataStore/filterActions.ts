@@ -102,7 +102,7 @@ export const dataStoreFilterExtension = (store: BaseStoreType) => {
 			scale,
 			columnName,
 			'"'
-		)}) AS min, MAX(${getSqlScaleWrapper(scale, columnName, '"')}) AS max FROM ${tableName}
+		)}) AS min, MAX(${getSqlScaleWrapper(scale, columnName, '"')}) AS max FROM "${tableName}"
 		WHERE ${
 			scale === DataScaling.LOG
 				? `"${columnName}" >= 0 and "${columnName}" != 'NaN'`

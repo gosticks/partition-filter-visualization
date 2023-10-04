@@ -36,7 +36,10 @@
 	function onTableSelect(evt: TableSelectionEvent) {
 		const { buildInTables, externalTables } = evt.detail;
 		if (buildInTables) {
-			filterStore.selectBuildInTables(buildInTables.map((option) => option.value));
+			filterStore.selectBuildInTables(
+				buildInTables.dataset,
+				buildInTables.paths.map((option) => option.value)
+			);
 		}
 
 		if (externalTables && externalTables.fileList) {

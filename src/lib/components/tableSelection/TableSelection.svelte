@@ -3,9 +3,9 @@
 
 	export type TableSelectionEvent = CustomEvent<{
 		buildInTables?: {
-			label: string;
-			value: FilterEntry;
-		}[];
+			dataset: Dataset;
+			paths: Option<DatasetPath>[];
+		};
 		externalTables?: {
 			fileList?: FileList;
 			url?: URL;
@@ -19,27 +19,49 @@
 	import type { IFilterStore } from '$lib/store/filterStore/types';
 	import { createEventDispatcher } from 'svelte';
 	import DropZone from '../DropZone.svelte';
-	import DropdownSelect from '../DropdownSelect.svelte';
+	import DropdownSelect, {
+		type DropdownSelectionEvent,
+		type Option,
+		type OptionConstructor
+	} from '../DropdownSelect.svelte';
 	import Divider from '../base/Divider.svelte';
 	import Button from '../button/Button.svelte';
+	import type { Dataset, DatasetPath } from '../../../dataset/types';
+	import { get } from 'svelte/store';
 
 	interface $$Events {
 		select: TableSelectionEvent;
 	}
 
 	var urlInput: string | undefined = undefined;
-	var options: IFilterStore['preloadedTables'];
+	var options: IFilterStore['preloadedDatasets'];
 	const dispatch = createEventDispatcher();
 
-	function onSelectTable(
-		evt: CustomEvent<{ selected: { label: string; value: FilterEntry }[]; meta?: unknown }>
-	) {
-		const selectedTables = $filterStore.preloadedTables.filter(
-			(option) => option.value === evt.detail.selected[0].value
+	function onSelectDataset(evt: DropdownSelectionEvent<Dataset>) {
+		const selectedDataset = $filterStore.preloadedDatasets.filter(
+			(option) => option === evt.detail.selected[0].value
 		);
 
+		// TODO: move outside of this component
+		if (selectedDataset.length === 0) {
+			filterStore.selectDataset(undefined);
+		} else {
+			filterStore.selectDataset(selectedDataset[0]);
+		}
+
+		// FIXME: enable after dataset refactoring
 		dispatch('select', {
-			buildInTables: selectedTables
+			// buildInTables: selectedTables
+		});
+	}
+
+	function onSelectTable(evt: DropdownSelectionEvent<DatasetPath>) {
+		// FIXME: enable after dataset refactoring
+		dispatch('select', {
+			buildInTables: {
+				dataset: get(filterStore).selectedDataset!,
+				paths: evt.detail.selected
+			}
 		});
 	}
 
@@ -65,15 +87,55 @@
 		});
 	}
 
-	$: options = $filterStore.preloadedTables.filter(
-		(option) =>
-			Object.keys($dataStore.tables).findIndex((name) => name === option.value.name) === -1
+	$: options = $filterStore.preloadedDatasets.filter(
+		(option) => Object.keys($dataStore.tables).findIndex((name) => name === option.name) === -1
 	);
+
+	const datasetOptionConstructor: OptionConstructor<Dataset, Dataset> = (value, index, meta) => {
+		console.log(value);
+		return {
+			label: value.name,
+			value: value,
+			id: index,
+			initiallySelected: value === get(filterStore).selectedDataset
+		};
+	};
+
+	const tableOptionConstructor: OptionConstructor<DatasetPath, DatasetPath> = (
+		value,
+		index,
+		meta
+	) => {
+		console.log(value);
+		return {
+			label: value.name,
+			value: value,
+			id: index
+		};
+	};
 </script>
 
-<h2 class="text-2xl font-bold mb-5">Please select filter family</h2>
+<h2 class="text-2xl font-bold mb-5">Please select dataset</h2>
 <p class="mb-2">from filter data provided by us</p>
-<DropdownSelect on:select={onSelectTable} {options} />
+<div class="grid grid-cols-2 gap-2">
+	<DropdownSelect
+		label="Dataset"
+		expand
+		singular
+		on:select={onSelectDataset}
+		optionConstructor={datasetOptionConstructor}
+		values={$filterStore.preloadedDatasets}
+	/>
+	<DropdownSelect
+		disabled={!$filterStore.selectedDataset}
+		label="Table"
+		expand
+		on:select={onSelectTable}
+		optionConstructor={tableOptionConstructor}
+		values={$filterStore.selectedDataset?.entries ?? []}
+	/>
+</div>
+<!-- <DropdownSelect on:select={onSelectTable} {options} /> -->
 <div class="flex mt-5 mb-5 items-center justify-center">
 	<Divider />
 	<div class="mx-4 opacity-50">OR</div>

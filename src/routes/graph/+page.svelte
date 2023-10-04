@@ -22,14 +22,19 @@
 	onMount(async () => {
 		if (!browser) return;
 
+		console.log({ dataset: data.dataset });
+
 		// Pass possible db options to the filter sidebar
-		await filterStore.initWithPreloadedTables(data.filters);
+		await filterStore.initWithPreloadedDatasets(data.dataset);
 	});
 
 	function onTableSelected(evt: TableSelectionEvent) {
 		const { buildInTables, externalTables } = evt.detail;
 		if (buildInTables) {
-			filterStore.selectBuildInTables(buildInTables.map((option) => option.value));
+			filterStore.selectBuildInTables(
+				buildInTables.dataset,
+				buildInTables.paths.map((option) => option.value)
+			);
 		}
 
 		if (externalTables && externalTables.fileList) {
