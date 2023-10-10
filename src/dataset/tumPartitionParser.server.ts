@@ -5,22 +5,28 @@ import {
 	type FSDirectory,
 	type FSItem,
 	type FSFile,
+	type DatasetFile,
 	type DatasetItem,
-	type DatasetPath,
 	type Dataset
 } from './types';
 
-const parseDirectory = (dir: string): FSItem[] => {
+const parseDirectory = (dir: string, stripPrefix: string | undefined = undefined): FSItem[] => {
 	const walkDir = (dir: string): FSItem[] =>
 		fs.readdirSync(dir).map((f) => {
 			const dirPath = path.join(dir, f);
 			const isDirectory = fs.statSync(dirPath).isDirectory();
 
+			let elementPath = '';
+			if (stripPrefix && dirPath.startsWith(stripPrefix)) {
+				elementPath = dirPath.slice(stripPrefix.length, dirPath.length);
+				console.log({ elementPath, dirPath });
+			}
+
 			if (!isDirectory) {
 				return {
 					name: f,
 					ext: path.extname(f),
-					fullPath: dirPath,
+					fullPath: elementPath,
 					type: FSObjectType.FILE
 				} as FSFile;
 			}
@@ -28,7 +34,7 @@ const parseDirectory = (dir: string): FSItem[] => {
 			return {
 				name: f,
 				type: FSObjectType.DIR,
-				fullPath: dirPath,
+				fullPath: elementPath,
 				children: walkDir(dirPath)
 			} as FSDirectory;
 		});
@@ -36,10 +42,11 @@ const parseDirectory = (dir: string): FSItem[] => {
 	return walkDir(dir);
 };
 
-const regex = /^(.*)_(construct|count)(?:_mt)?(?:_(part))?(?:_(100m|1m|10k))?(?:_(.*))?\.(.*)$/;
+const regex =
+	/^(.*)_(construct|count)(?:_mt)?(?:_(part))?(?:_(100m|1m|10k))?(?:-(\d))?(?:_(.*))?\.(.*)$/;
 
-const parseDatasetItems = (dir: FSDirectory): DatasetPath[] => {
-	const paths: DatasetPath[] = [];
+const parseDatasetFiles = (dir: FSDirectory): DatasetItem[] => {
+	const paths: DatasetItem[] = [];
 
 	for (const [i, item] of dir.children.entries()) {
 		if (item.type === FSObjectType.DIR || item.name.endsWith('.json')) {
@@ -51,54 +58,40 @@ const parseDatasetItems = (dir: FSDirectory): DatasetPath[] => {
 			continue;
 		}
 
-		const pathItem: DatasetPath = {
-			name: item.name,
-			path: dir.fullPath.replace('static/', '/'),
-			entries: [
+		const [name, filter, benchType, isPart, numItems, partNum, group, ext] = res;
+		const itemName = `${filter}_${benchType}${group ? `_${group}` : ''}`;
+		const pathItem: DatasetItem = {
+			name: itemName,
+			path: dir.fullPath,
+			files: [
 				{
-					name: item.name.replace('.json', ''),
+					name: itemName,
 					dataURL: item.name.replace('.json', '.csv'),
 					infoURL: item.name
 				}
-			],
-			// add default variant
-			variants: { default: [0] }
+			]
 		};
 
-		const [name, filter, benchType, isPart, numItems, group, ext] = res;
-
-		console.log('############## res', res);
 		paths.push(pathItem);
-		// dp.name = name;
-
-		// const variantName = `${numItems ? `${numItems}` : 'default'}`;
-
-		// if (dp.variants[variantName] === undefined) {
-		// 	dp.variants[variantName] = [i];
-		// } else {
-		// 	dp.variants[variantName] = [...dp.variants[variantName], i];
-		// }
 	}
-
 	return paths;
 };
 
-const parseExperimentDatasetItem = (dir: FSDirectory): DatasetPath => {
-	const dp: DatasetPath = {
-		name: dir.name,
-		path: dir.fullPath.replace('static/', '/'),
-		entries: dir.children
-			.filter((item) => item.type === FSObjectType.FILE && item.name.endsWith('.json'))
-			.map((item) => ({
-				name: item.name.replace('.json', ''),
-				dataURL: item.name.replace('.json', '.csv'),
-				infoURL: item.name
-			})),
-		variants: {}
-	};
+const toDatasetFile = (file: FSFile): DatasetFile => ({
+	name: file.name.replace('.json', ''),
+	dataURL: file.fullPath.replace('.json', '.csv'),
+	infoURL: file.fullPath
+});
+
+const parseExperimentDatasetFile = (dir: FSDirectory): DatasetItem[] => {
+	const variants: Record<string, DatasetItem> = {};
 
 	for (const [i, item] of dir.children.entries()) {
 		if (item.type === FSObjectType.DIR) {
+			continue;
+		}
+		// skip non JSON files
+		if (path.extname(item.name) !== '.json') {
 			continue;
 		}
 
@@ -107,34 +100,46 @@ const parseExperimentDatasetItem = (dir: FSDirectory): DatasetPath => {
 			continue;
 		}
 
-		const [name, filter, benchType, isPart, numItems, group, ext] = res;
+		const [name, filter, benchType, isPart, numItems, partNum, group, ext] = res;
 
-		// skip non JSON files
-		if (ext !== 'json') {
-			continue;
-		}
+		const variantName = [filter, benchType, numItems, group]
+			.filter((item) => item !== undefined)
+			.join('-');
 
-		dp.name = name;
-
-		const variantName = `${numItems ? `${numItems}` : 'default'}`;
-
-		if (dp.variants[variantName] === undefined) {
-			dp.variants[variantName] = [i];
+		if (typeof variants[variantName] === 'undefined') {
+			variants[variantName] = {
+				name: variantName,
+				path: dir.fullPath,
+				files: [toDatasetFile(item)]
+			};
 		} else {
-			dp.variants[variantName] = [...dp.variants[variantName], i];
+			variants[variantName].files.push(toDatasetFile(item));
+		}
+	}
+	return Object.values(variants);
+};
+
+const combineItems = (items: DatasetItem[]): DatasetItem[] => {
+	const namedItems: Record<string, DatasetItem> = {};
+
+	for (const item of items) {
+		if (namedItems[item.name]) {
+			namedItems[item.name].files.push(...item.files);
+		} else {
+			namedItems[item.name] = item;
 		}
 	}
 
-	return dp;
+	return Object.values(namedItems);
 };
 
 const parseDataset = (datasetPath: string) => {
-	const dir = parseDirectory(datasetPath);
+	const dir = parseDirectory(datasetPath, 'static/');
 
 	// Translate dir into dataset
 	const results: Dataset[] = dir.flatMap((item, index, arr) => {
 		if (item.type != FSObjectType.DIR) {
-			return;
+			return [];
 		}
 
 		// Experiment is special case since same dataset is split
@@ -145,45 +150,19 @@ const parseDataset = (datasetPath: string) => {
 			}
 			case 'experiments': {
 				// combine folders with part suffix
-				const items: Record<string, DatasetPath> = {};
+				const items: DatasetItem[] = [];
 				for (const el of item.children) {
 					if (el.type != FSObjectType.DIR) {
 						continue;
 					}
-
-					// Treat each competitor as its own dataset
-					if (el.name === 'competitors') {
-						// FIXME: implement custom handling for competitors
-						continue;
-					}
-
-					// const children = el.children.filter((c) => c.type === FSObjectType.FILE) as FSFile[];
-					const name = el.name.replace('_part', '');
-					const prevItem = items[name];
-
-					const item = parseExperimentDatasetItem(el);
-
-					if (!prevItem) {
-						items[name] = item;
-						continue;
-					}
-
-					// TODO: combine variants
-
-					items[name] = {
-						...prevItem,
-						variants: {
-							...prevItem.variants
-						}
-					};
+					items.push(...parseExperimentDatasetFile(el));
 				}
 
 				const result: Dataset = {
 					name: item.name,
 					path: item.fullPath,
-					entries: Object.values(items)
+					items: combineItems(items)
 				};
-
 				return [result];
 			}
 			default: {
@@ -192,12 +171,11 @@ const parseDataset = (datasetPath: string) => {
 						const isDeepestRoot = item.children.every((child) => child.type === FSObjectType.FILE);
 
 						if (isDeepestRoot) {
-							console.log('####### Deepest root', item.fullPath, isDeepestRoot);
 							return [
 								{
 									name: (prefix ? `${prefix}/` : '') + item.name,
 									path: item.fullPath,
-									entries: parseDatasetItems(item)
+									items: parseDatasetFiles(item)
 								}
 							];
 						}
