@@ -46,6 +46,7 @@
 	export let optionConstructor: OptionConstructor<R, T> | undefined = undefined;
 
 	const selectDispatch = createEventDispatcher();
+	let listElement: HTMLUListElement;
 
 	$: {
 		selectionLabel = labelForSelection(options.filter((o) => selection.has(o.value)));
@@ -145,7 +146,7 @@
 	{/if}
 	<Dropdown
 		buttonClass={expand ? 'w-full' : undefined}
-		{isOpen}
+		bind:isOpen
 		disabled={!((options && options.length > 0) || optionConstructor) || disabled}
 		{...$$restProps}
 	>
@@ -161,10 +162,14 @@
 			<ul>
 				{#each options as option, i}
 					{@const selected = selection.has(option.value)}
-					<li class="border-spacing-1 border-b dark:border-background-900 last:border-b-0">
+					<!-- svelte-ignore a11y-no-noninteractive-tabindex -->
+					<li
+						tabindex={i}
+						class="border-spacing-1 border-b dark:border-background-900 last:border-b-0"
+					>
 						<button
 							on:click={() => internalOnSelect(option)}
-							class="p-2 hover:bg-primary-100 dark:hover:bg-secondary-700 w-full text-left flex gap-2"
+							class="p-2 hover:bg-primary-100 dark:hover:bg-secondary-700 w-full text-left flex gap-2 focus:bg-primary-200 focus:dark:bg-secondary-700"
 						>
 							<div class="w-6 pt pb">
 								{#if singular}

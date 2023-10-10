@@ -36,7 +36,8 @@
 		onClickOutside
 	};
 
-	const toggleDropdown = () => {
+	const toggleDropdown = (evt: MouseEvent) => {
+		evt.preventDefault();
 		isOpen = !isOpen;
 	};
 
@@ -89,11 +90,15 @@
 				placement
 			}}
 			transition:fadeSlide={{ duration: 100 }}
-			class="z-1000 origin-top-left absolute left-0 mt-2 w-64 overflow-hidden rounded-xl shadow-2xl shadow-background-700 dark:shadow-background-950 bg-background-50/80 dark:bg-background-800/95 backdrop-blur-sm ring-background-200/5 dark:ring-background-950/5 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500"
+			class="z-1000 absolute left-0 mt-2 ring-background-200/5 dark:ring-background-950/5 focus:ring-2 focus:ring-offset-2 focus:ring-primary-500"
 		>
-			<div class="dropdown-content w-full h-full overflow-y-auto max-h-[350px]">
-				<div role="none">
-					<slot name="content" />
+			<div
+				class="overflow-hidden rounded-xl shadow-2xl shadow-background-700 dark:shadow-background-950 bg-background-50/80 dark:bg-background-800/95 backdrop-blur-sm"
+			>
+				<div class="dropdown-content w-full overflow-auto max-h-[400px]">
+					<div role="none">
+						<slot name="content" />
+					</div>
 				</div>
 			</div>
 		</div>

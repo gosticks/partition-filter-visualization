@@ -139,7 +139,6 @@ export const relativePortal = (node: HTMLElement, _options: Partial<PortalOption
 	}
 
 	targetElement?.appendChild(node).focus();
-
 	return {
 		destroy() {
 			if (targetElement?.contains(node)) {
@@ -182,7 +181,7 @@ export const positionPortal = (
 		targetElement = document.querySelector('main');
 	}
 
-	targetElement?.appendChild(node).focus();
+	targetElement?.appendChild(node).focus;
 
 	return {
 		destroy() {
