@@ -88,6 +88,7 @@ export enum TableSource {
 
 interface ITableRef {
 	tableName: string;
+	displayName?: string;
 }
 
 export interface ITableBuildIn extends ITableRef {

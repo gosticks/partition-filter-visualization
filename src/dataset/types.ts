@@ -20,25 +20,24 @@ export interface FSDirectory extends FSObject {
 
 export type FSItem = FSFile | FSDirectory;
 
-export interface DatasetItem {
+export interface DatasetFile {
 	name: string;
 	infoURL: string;
 	dataURL: string;
 }
 
-export type DatasetItemIndex = number;
+export type DatasetFileIndex = number;
 
 export interface Dataset {
 	name: string;
 	path: string;
-	entries: DatasetPath[];
+	items: DatasetItem[];
 }
 
-export interface DatasetPath {
+export interface DatasetItem {
 	name: string;
 	path: string;
-	entries: DatasetItem[];
-	variants: { default: number[] } & Record<string, DatasetItemIndex[]>;
+	files: DatasetFile[];
 }
 
-export type DatasetRegistry = DatasetPath[];
+export type DatasetRegistry = DatasetItem[];
