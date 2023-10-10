@@ -13,8 +13,9 @@
 	import Minimal from '$lib/components/graph/Minimal.svelte';
 	import PlaneGraph from '$lib/components/graph/PlaneGraph.svelte';
 	import { PlaneGraphOptions } from '$lib/store/filterStore/graphs/plane';
-	import TableSelection, {
-		type TableSelectionEvent
+	import type {
+		DatasetSelectionEvent,
+		TableSelectionEvent
 	} from '$lib/components/tableSelection/TableSelection.svelte';
 
 	export let data: PageServerData;
@@ -27,6 +28,10 @@
 		// Pass possible db options to the filter sidebar
 		await filterStore.initWithPreloadedDatasets(data.dataset);
 	});
+
+	function onDatasetSelected(evt: DatasetSelectionEvent) {
+		filterStore.selectDataset(evt.detail);
+	}
 
 	function onTableSelected(evt: TableSelectionEvent) {
 		const { buildInTables, externalTables } = evt.detail;
@@ -64,17 +69,8 @@
 			{:else}
 				<GridBackground />
 			{/if}
-			{#if $filterStore.selectedTables.length === 0}
-				<div class="h-full w-full flex flex-col gap-10 justify-center items-center">
-					<MessageCard>
-						<TableSelection on:select={onTableSelected} />
-					</MessageCard>
-				</div>
-			{/if}
 		</div>
-		{#if $filterStore.selectedTables.length !== 0}
-			<FilterSidebar />
-		{/if}
+		<FilterSidebar />
 
 		{#if $filterStore.isLoading || $dataStore.isLoading}
 			<LoadingOverlay isLoading={true} />
