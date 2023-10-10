@@ -20,7 +20,10 @@
 	} from 'svelte-feather-icons';
 	import { ButtonColor, ButtonSize, ButtonVariant } from './button/type';
 	import Dialog, { DialogSize, getDialogContext } from './dialog/Dialog.svelte';
-	import TableSelection, { type TableSelectionEvent } from './tableSelection/TableSelection.svelte';
+	import TableSelection, {
+		type DatasetSelectionEvent,
+		type TableSelectionEvent
+	} from './tableSelection/TableSelection.svelte';
 	import QueryEditor from './QueryEditor.svelte';
 	import { fadeSlide } from '$lib/transitions/fadeSlide';
 
@@ -49,6 +52,10 @@
 		if (externalTables && externalTables.url) {
 			filterStore.selectTableFromURL(externalTables.url);
 		}
+	}
+
+	function onDatasetSelect(evt: DatasetSelectionEvent) {
+		filterStore.selectDataset(evt.detail);
 	}
 
 	function _toggleFilterBar() {
@@ -104,7 +111,7 @@
 				<ul>
 					{#each Object.entries($dataStore.tables) as [tableName, table]}
 						<li class="flex py-1 justify-between items-center">
-							<div>{tableName}</div>
+							<div>{table.displayName ?? table.name}</div>
 							<Button
 								on:click={() => filterStore.removeTable(tableName)}
 								variant={ButtonVariant.LINK}
@@ -122,10 +129,11 @@
 					>
 					{@const dialogCtx = getDialogContext()}
 					<TableSelection
-						on:select={(selection) => {
+						on:selectTable={(selection) => {
 							onTableSelect(selection);
 							dialogCtx.close();
 						}}
+						on:selectDataset={onDatasetSelect}
 					/>
 				</Dialog>
 				{#if Object.keys($dataStore.tables).length > 0}

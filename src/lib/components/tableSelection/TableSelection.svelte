@@ -1,10 +1,10 @@
 <script lang="ts" context="module">
-	import type { FilterEntry } from '$routes/graph/+page.server';
+	export type DatasetSelectionEvent = CustomEvent<Dataset | undefined>;
 
 	export type TableSelectionEvent = CustomEvent<{
 		buildInTables?: {
 			dataset: Dataset;
-			paths: Option<DatasetPath>[];
+			paths: Option<DatasetItem>[];
 		};
 		externalTables?: {
 			fileList?: FileList;
@@ -14,9 +14,7 @@
 </script>
 
 <script lang="ts">
-	import { dataStore } from '$lib/store/dataStore/DataStore';
 	import filterStore from '$lib/store/filterStore/FilterStore';
-	import type { IFilterStore } from '$lib/store/filterStore/types';
 	import { createEventDispatcher } from 'svelte';
 	import DropZone from '../DropZone.svelte';
 	import DropdownSelect, {
@@ -26,15 +24,15 @@
 	} from '../DropdownSelect.svelte';
 	import Divider from '../base/Divider.svelte';
 	import Button from '../button/Button.svelte';
-	import type { Dataset, DatasetPath } from '../../../dataset/types';
+	import type { Dataset, DatasetItem } from '../../../dataset/types';
 	import { get } from 'svelte/store';
 
 	interface $$Events {
-		select: TableSelectionEvent;
+		selectDataset: DatasetSelectionEvent;
+		selectTable: TableSelectionEvent;
 	}
 
 	var urlInput: string | undefined = undefined;
-	var options: IFilterStore['preloadedDatasets'];
 	const dispatch = createEventDispatcher();
 
 	function onSelectDataset(evt: DropdownSelectionEvent<Dataset>) {
@@ -42,22 +40,15 @@
 			(option) => option === evt.detail.selected[0].value
 		);
 
-		// TODO: move outside of this component
 		if (selectedDataset.length === 0) {
-			filterStore.selectDataset(undefined);
+			dispatch('selectDataset');
 		} else {
-			filterStore.selectDataset(selectedDataset[0]);
+			dispatch('selectDataset', selectedDataset[0]);
 		}
-
-		// FIXME: enable after dataset refactoring
-		dispatch('select', {
-			// buildInTables: selectedTables
-		});
 	}
 
-	function onSelectTable(evt: DropdownSelectionEvent<DatasetPath>) {
-		// FIXME: enable after dataset refactoring
-		dispatch('select', {
+	function onSelectTable(evt: DropdownSelectionEvent<DatasetItem>) {
+		dispatch('selectTable', {
 			buildInTables: {
 				dataset: get(filterStore).selectedDataset!,
 				paths: evt.detail.selected
@@ -66,7 +57,7 @@
 	}
 
 	function filesDropped(files: FileList) {
-		dispatch('select', {
+		dispatch('selectTable', {
 			externalTables: {
 				fileList: files
 			}
@@ -79,20 +70,14 @@
 		}
 
 		const url = new URL(urlInput);
-		console.log('URL selected:', url);
-		dispatch('select', {
+		dispatch('selectTable', {
 			externalTables: {
 				url
 			}
 		});
 	}
 
-	$: options = $filterStore.preloadedDatasets.filter(
-		(option) => Object.keys($dataStore.tables).findIndex((name) => name === option.name) === -1
-	);
-
 	const datasetOptionConstructor: OptionConstructor<Dataset, Dataset> = (value, index, meta) => {
-		console.log(value);
 		return {
 			label: value.name,
 			value: value,
@@ -101,12 +86,11 @@
 		};
 	};
 
-	const tableOptionConstructor: OptionConstructor<DatasetPath, DatasetPath> = (
+	const tableOptionConstructor: OptionConstructor<DatasetItem, DatasetItem> = (
 		value,
 		index,
 		meta
 	) => {
-		console.log(value);
 		return {
 			label: value.name,
 			value: value,
@@ -132,7 +116,7 @@
 		expand
 		on:select={onSelectTable}
 		optionConstructor={tableOptionConstructor}
-		values={$filterStore.selectedDataset?.entries ?? []}
+		values={$filterStore.selectedDataset?.items ?? []}
 	/>
 </div>
 <!-- <DropdownSelect on:select={onSelectTable} {options} /> -->

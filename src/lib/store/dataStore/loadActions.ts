@@ -128,6 +128,7 @@ export const dataStoreLoadExtension = (store: BaseStoreType, dataStore: Writable
 			const schema = await store.getTableSchema(ref.tableName);
 			const tableEntry: ITableEntry = {
 				name: ref.tableName,
+				displayName: ref.displayName,
 				schema,
 				filterOptions: {},
 				ref: ref
@@ -258,14 +259,6 @@ export const dataStoreLoadExtension = (store: BaseStoreType, dataStore: Writable
 
 			console.debug('Grouped table references:', grouped);
 
-			// Check if references are already loaded
-			// FIXME: for not assume we are reloading same samples and skip
-			// TODO: add check or te databases
-			if (Object.keys(grouped).every((tableName) => !!get(dataStore).tables[tableName])) {
-				console.log('All tables are already loaded, skipping');
-				return [];
-			}
-
 			// Load multiple tables at once but all linked to the same tableName sequentially
 			// This is required since we need to rewrite the entries for each table
 			// and a table should only be created once
@@ -277,6 +270,7 @@ export const dataStoreLoadExtension = (store: BaseStoreType, dataStore: Writable
 
 					const loadedTables: ITableEntry[] = [];
 
+					console.debug('loading table group:', { tableName, entries });
 					// Load grouped entries sequentially
 					for (const [i, entry] of entries.entries()) {
 						// Only create table for first entry
@@ -285,7 +279,9 @@ export const dataStoreLoadExtension = (store: BaseStoreType, dataStore: Writable
 						if (loadedTable) {
 							loadedTables.push(loadedTable);
 						}
+						console.debug('loaded:', { tableName, entry });
 					}
+					console.debug('applying post processing:', { tableName, entries });
 
 					// Post process tables
 					return postProcessTable(tableName, entries) ?? [];
@@ -299,7 +295,7 @@ export const dataStoreLoadExtension = (store: BaseStoreType, dataStore: Writable
 				const tableDefinitions = promiseResult.filter(
 					(t) => t !== undefined
 				) as unknown as ITableEntry[];
-				console.log('Loaded tables:', { tableDefinitions, promiseResult });
+				console.debug('loaded tables into db:', { tableDefinitions, promiseResult });
 				// Update data store
 				dataStore.update((store) => {
 					tableDefinitions.forEach((table) => {
@@ -308,7 +304,7 @@ export const dataStoreLoadExtension = (store: BaseStoreType, dataStore: Writable
 					store.combinedSchema = computeCombinedTableSchema();
 					return store;
 				});
-
+				console.debug('loaded tables', { tableDefinitions });
 				return tableDefinitions;
 			} catch (e) {
 				console.error('Failed to load CSVs:', e);

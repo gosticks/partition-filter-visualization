@@ -1,6 +1,5 @@
 import { get, writable } from 'svelte/store';
 import { dataStore } from '../dataStore/DataStore';
-import type { FilterEntry } from '../../../routes/graph/proxy+page.server';
 import {
 	withUrlStorage,
 	type UrlEncoder,
@@ -10,7 +9,6 @@ import {
 } from '../urlStorage';
 import {
 	type IFilterStore,
-	type ITableReference,
 	TableSource,
 	GraphOptions,
 	GraphType,
@@ -22,7 +20,7 @@ import {
 import { PlaneGraphOptions } from './graphs/plane';
 import { defaultLogOptions, withLogMiddleware } from '../logMiddleware';
 import notificationStore from '../notificationStore';
-import type { Dataset, DatasetPath } from '../../../dataset/types';
+import type { Dataset, DatasetItem } from '../../../dataset/types';
 
 export interface IFilterStoreGraphOptions {
 	type: GraphType.PLANE;
@@ -53,6 +51,12 @@ const urlEncoder: UrlEncoder = (key, type, value) => {
 		}
 		return (value as GraphOptions).getType();
 	}
+
+	if (key === 'selectedTables') {
+		console.error('ENCODING BROKEN');
+		return;
+	}
+
 	const encodedValue = defaultUrlEncoder(key, type, value);
 	// console.log('Encoding', key, encodedValue, value, JSON.stringify(value));
 	return encodedValue;
@@ -64,13 +68,20 @@ const urlEncoder: UrlEncoder = (key, type, value) => {
 let _graphOptions: GraphOptions | null = null;
 
 const urlDecoder: UrlDecoder = (key, type, value) => {
-	if (key === 'graphOptions') {
-		const graphType = value as GraphType;
-		switch (graphType) {
-			case GraphType.PLANE: {
-				_graphOptions = new PlaneGraphOptions();
-				return undefined;
+	switch (key) {
+		case 'graphOptions': {
+			const graphType = value as GraphType;
+			switch (graphType) {
+				case GraphType.PLANE: {
+					_graphOptions = new PlaneGraphOptions();
+					return undefined;
+				}
 			}
+			break;
+		}
+		case 'selectedTables': {
+			console.error('ENCODING BROKEN');
+			return;
 		}
 	}
 
@@ -111,7 +122,7 @@ const _filterStore = () => {
 		try {
 			const loadedTables = await dataStore.loadCsvsFromRefs(tables);
 			store.update((store) => {
-				store.selectedTables = tables;
+				store.selectedTables = [...store.selectedTables, ...tables];
 				return store;
 			});
 		} catch (e) {
@@ -135,6 +146,7 @@ const _filterStore = () => {
 		set,
 		update,
 		subscribe,
+		selectTables,
 
 		removeTable: async (tableName: string) => {
 			try {
@@ -164,25 +176,32 @@ const _filterStore = () => {
 				store.preloadedDatasets = datasets;
 				return store;
 			});
-			setIsLoading(false);
-			return;
-
-			setIsLoading(true);
-			const preloadedTables = Object.entries(tables).map(([label, value]) => ({
-				label,
-				value
-			}));
-
-			update((store) => {
-				store.preloadedTables = preloadedTables;
-				return store;
-			});
 
 			// Attempt reloading selected tables
 			const { selectedTables } = get(store);
-			if (selectedTables.length) {
+			if (selectedTables.length !== 0) {
+				// group tables by ref type
+				const buildInTables = selectedTables.filter(
+					(t) => t.source === TableSource.BUILD_IN
+				) as ITableBuildIn[];
+				const fileTables = selectedTables.filter(
+					(t) => t.source === TableSource.FILE
+				) as ITableExternalFile[];
+				const urlTables = selectedTables.filter(
+					(t) => t.source === TableSource.URL
+				) as ITableExternalUrl[];
+
 				try {
-					await selectTables(selectedTables);
+					if (buildInTables.length !== 0) {
+						await selectTables(buildInTables);
+					}
+					if (urlDecoder.length !== 0) {
+						await selectTables(urlTables);
+					}
+					if (fileTables.length !== 0) {
+						alert('TODO: request user to reupload tables');
+						// await selectTables(fileTables);
+					}
 
 					if (_graphOptions && _graphOptions !== null) {
 						update((store) => {
@@ -197,9 +216,8 @@ const _filterStore = () => {
 			}
 
 			setIsLoading(false);
+			return;
 		},
-
-		selectTables,
 
 		selectDataset: (dataset?: Dataset) => {
 			update((state) => {
@@ -208,7 +226,7 @@ const _filterStore = () => {
 			});
 		},
 
-		selectBuildInTables: async (dataset: Dataset, tablePaths: DatasetPath[]) => {
+		selectBuildInTables: async (dataset: Dataset, tablePaths: DatasetItem[]) => {
 			if (dataset !== get(store).selectedDataset) {
 				// selected dataset and tables to be loaded do
 				// not match
@@ -216,25 +234,15 @@ const _filterStore = () => {
 			}
 
 			// Convert filter options to table references
-			const tableReferences: ITableBuildIn[] = tablePaths.map(
-				(path) => {
-					// FIXME: implement selection for non first element
-					const table = path.entries[0];
-					return {
-						name: table.name,
-						tableName: `${dataset.name}-${table.name}`,
-						source: TableSource.BUILD_IN,
-						url: `${path.path}/${table.dataURL}`,
-						dataset
-					};
-				}
-				// t.entries.map((e) => ({
-				// 	name: e.name,
-				// 	tableName: t.name,
-				// 	source: TableSource.BUILD_IN,
-				// 	url: e.dataUrl
-				// }))
-			);
+			const tableReferences: ITableBuildIn[] = tablePaths.flatMap((item) => {
+				return item.files.map((file) => ({
+					tableName: item.name,
+					displayName: file.name,
+					source: TableSource.BUILD_IN,
+					url: file.dataURL,
+					dataset
+				}));
+			});
 
 			try {
 				await selectTables(tableReferences);

@@ -18,6 +18,7 @@ export enum DataAggregation {
 
 export interface ITableEntry {
 	name: string;
+	displayName?: string;
 	schema: TableSchema;
 	ref: ITableReference;
 	filterOptions: FilterOptions;
