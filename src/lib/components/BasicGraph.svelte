@@ -20,6 +20,7 @@
 		};
 		registerOnBeforeRender: (callback: GraphRenderLoopCallback) => GraphUnsubscribe;
 		registerOnAfterRender: (callback: GraphRenderLoopCallback) => GraphUnsubscribe;
+		getScreenshot: () => string;
 	};
 
 	export const CTX_NAME_GRAPH = 'graph';
@@ -134,9 +135,11 @@
 			antialias: true,
 			powerPreference: 'high-performance',
 			// logarithmicDepthBuffer: true,
-			failIfMajorPerformanceCaveat: true,
-			precision: 'lowp'
+			preserveDrawingBuffer: true,
+			failIfMajorPerformanceCaveat: true
+			// precision: 'lowp'
 		});
+		renderer.domElement.setAttribute('id', 'basic-graph');
 		renderer.setPixelRatio(window.devicePixelRatio || 1);
 		renderer.setClearColor(0x000000, 0);
 		renderer.setSize(containerElement.clientWidth, containerElement.clientHeight);
@@ -211,8 +214,11 @@
 		};
 	};
 
+	const getScreenshot = () => renderer.domElement.toDataURL('image/png');
+
 	setGraphContext({
 		getValues: getContextValues,
+		getScreenshot: getScreenshot,
 		registerOnBeforeRender,
 		registerOnAfterRender
 	});

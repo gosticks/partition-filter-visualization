@@ -76,7 +76,9 @@
 			transition:fly={{ y: -120, delay: 25, duration: 150 }}
 			class="modal rounded-3xl shadow-xl backdrop-blur-lg bg-background-50/75 dark:bg-background-900/75 {size}"
 		>
-			{#if $$slots.title}<div class="pb-4 mb-2 border-b">
+			{#if $$slots.title}<div
+					class="pb-4 mb-2 border-b border-background-100 dark:border-background-800"
+				>
 					<h2 class="font-bold text-xl"><slot name="title" /></h2>
 				</div>{/if}
 			<slot />

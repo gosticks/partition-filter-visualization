@@ -194,39 +194,40 @@
 </div>
 
 <div class="plane-graph-ui legend absolute isolate left-2 top-16 w-[250px]">
-	<Card title="Layers" noPad>
-		<div class="max-h-96 px-4 py-2 border-b dark:border-background-800 border-t overflow-auto">
-			{#if $dataStore}
-				<LayerGroup
-					selection={selection?.layer}
-					on:select={onLayerSelected}
-					{layerVisibility}
-					layers={$dataStore.layers}
-				/>
-			{/if}
-		</div>
-		<div class="px-4 pb-2">
-			<Button
-				size={ButtonSize.SM}
-				color={ButtonColor.SECONDARY}
-				class="mt-2"
-				disabled={layerVisibility.every(
-					([l, children]) => l === true && children.every((l) => l === true)
-				)}
-				on:click={showAllLayers}>Show all</Button
-			>
-			<Button
-				size={ButtonSize.SM}
-				color={ButtonColor.SECONDARY}
-				class="mt-2"
-				disabled={layerVisibility.every(
-					([l, children]) => l !== true && children.every((l) => l !== true)
-				)}
-				on:click={hideAllLayers}>Hide all</Button
-			>
-		</div>
-	</Card>
-
+	{#if $dataStore?.layers}
+		<Card title="Layers" noPad>
+			<div class="max-h-96 px-4 py-2 border-b dark:border-background-800 border-t overflow-auto">
+				{#if $dataStore}
+					<LayerGroup
+						selection={selection?.layer}
+						on:select={onLayerSelected}
+						{layerVisibility}
+						layers={$dataStore.layers}
+					/>
+				{/if}
+			</div>
+			<div class="px-4 pb-2">
+				<Button
+					size={ButtonSize.SM}
+					color={ButtonColor.SECONDARY}
+					class="mt-2"
+					disabled={layerVisibility.every(
+						([l, children]) => l === true && children.every((l) => l === true)
+					)}
+					on:click={showAllLayers}>Show all</Button
+				>
+				<Button
+					size={ButtonSize.SM}
+					color={ButtonColor.SECONDARY}
+					class="mt-2"
+					disabled={layerVisibility.every(
+						([l, children]) => l !== true && children.every((l) => l !== true)
+					)}
+					on:click={hideAllLayers}>Hide all</Button
+				>
+			</div>
+		</Card>
+	{/if}
 	{#if selection && $dataStore}
 		<div
 			use:draggable={{ enabled: isSelectionLocked }}

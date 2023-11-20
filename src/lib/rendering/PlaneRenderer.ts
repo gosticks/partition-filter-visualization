@@ -5,6 +5,7 @@ import { colorBrewer, graphColors } from './colors';
 import { AxisRenderer, type AxisLabelRenderer } from './AxisRenderer';
 import { MeshLine, MeshLineMaterial } from 'three.meshline';
 import { Vector } from 'apache-arrow';
+import { Theme } from '$lib/store/SettingsStore';
 
 export interface IPlaneData {
 	points: number[][];
@@ -376,17 +377,29 @@ export class PlaneRenderer extends GraphRenderer<IPlaneRendererData, IPlaneSelec
 		);
 		// Set position of each dot
 		const matrix = new THREE.Matrix4();
+		const transparent = new THREE.Color(0x00000000);
+		const mainColor = new THREE.Color(0xffffff);
+
 		const yAxisScaleFactor = this.yAxisNormalizationFactor;
 		for (let i = 0; i < layerGeometry.pointsPerPlane; i++) {
 			const idx = i * DataPlaneShapeGeometry.pointComponentSize;
 
 			// Apply scale
+			// matrix.scale(one);
+			// if (pointBuffer[idx + 1] == 0) {
+			// 	matrix.scale(zero);
+			// }
 			matrix.setPosition(
 				pointBuffer[idx],
 				pointBuffer[idx + 1] * yAxisScaleFactor,
 				pointBuffer[idx + 2]
 			);
-
+			if (pointBuffer[idx + 1] == 0) {
+				dotMesh.setColorAt(i, transparent);
+				continue;
+			} else {
+				dotMesh.setColorAt(i, mainColor);
+			}
 			dotMesh.setMatrixAt(i, matrix);
 			hitDotMesh.setMatrixAt(i, matrix);
 		}
@@ -487,7 +500,7 @@ export class PlaneRenderer extends GraphRenderer<IPlaneRendererData, IPlaneSelec
 						const childGroup = new THREE.Group();
 						const geo = childMesh.geometry as DataPlaneShapeGeometry;
 						if (!geo) {
-							throw Error('Plane mesh be initialized before dot geometry can be created');
+							throw Error('Plane mesh must be initialized before dot geometry can be created');
 						}
 						const dotMesh = this.renderPlaneDots(geo, i, subIndex);
 
@@ -576,8 +589,6 @@ export class PlaneRenderer extends GraphRenderer<IPlaneRendererData, IPlaneSelec
 			plane.children[1].children.map((childLayer) => childLayer.visible)
 		]);
 	}
-
-	makeSelectionActive() {}
 
 	showAllLayers(): void {
 		this.planes.forEach((plane) => {

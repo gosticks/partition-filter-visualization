@@ -9,6 +9,7 @@
 	import OptionRenderer from './OptionRenderer.svelte';
 	import Divider from './base/Divider.svelte';
 	import {
+		CameraIcon,
 		InfoIcon,
 		LayersIcon,
 		MoonIcon,
@@ -26,6 +27,7 @@
 	} from './tableSelection/TableSelection.svelte';
 	import QueryEditor from './QueryEditor.svelte';
 	import { fadeSlide } from '$lib/transitions/fadeSlide';
+	import { getGraphContext, type GraphService } from './BasicGraph.svelte';
 
 	let optionsStore: GraphOptions['optionsStore'] | undefined;
 	let isFilterBarOpen: boolean = true;
@@ -58,13 +60,30 @@
 		filterStore.selectDataset(evt.detail);
 	}
 
-	function _toggleFilterBar() {
+	function toggleFilterBar() {
 		isFilterBarOpen = !isFilterBarOpen;
+	}
+
+	function captureScreenshot() {
+		const canvas = document.getElementById('basic-graph') as HTMLCanvasElement;
+		if (canvas) {
+			const imgData = canvas.toDataURL('image/png');
+
+			var link = document.createElement('a');
+			link.href = imgData;
+			link.download = 'screenshot.png';
+			link.click();
+		}
 	}
 </script>
 
 <div class="absolute right-4 pt-4 t-0 top-0 w-96 max-h-full overflow-y-auto">
 	<div class="mb-4 gap-3 flex justify-end mr-1">
+		<Button size={ButtonSize.LG} color={ButtonColor.SECONDARY} on:click={captureScreenshot}>
+			<div class="py">
+				<CameraIcon size="20" />
+			</div>
+		</Button>
 		<Button
 			size={ButtonSize.LG}
 			color={ButtonColor.SECONDARY}
@@ -89,7 +108,7 @@
 		<Button
 			size={ButtonSize.LG}
 			color={isFilterBarOpen ? ButtonColor.PRIMARY : ButtonColor.SECONDARY}
-			on:click={_toggleFilterBar}
+			on:click={toggleFilterBar}
 		>
 			<div class="py">
 				<SettingsIcon size="20" />

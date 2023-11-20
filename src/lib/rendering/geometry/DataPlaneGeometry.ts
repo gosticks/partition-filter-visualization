@@ -9,6 +9,10 @@ export class DataPlaneShapeGeometry extends THREE.BufferGeometry {
 	private width: number;
 	private depth: number;
 
+	// tesselation used to interpolate between data points
+	// e.g. is set to 2  num polygonPoints = (2 * width - 1) * (2 * height - 1)
+	private tesselationFactor = 1;
+
 	private indexBuffer: Uint32Array | undefined = undefined;
 	private pointBuffer: Float32Array | undefined = undefined;
 
@@ -49,8 +53,6 @@ export class DataPlaneShapeGeometry extends THREE.BufferGeometry {
 					maxValue = Math.max(maxValue, value);
 				});
 			});
-
-			console.log('Max value', maxValue);
 
 			if (maxValue !== 0) {
 				this.normalizedData = data.map((row) => row.map((value) => value / maxValue));
@@ -109,7 +111,7 @@ export class DataPlaneShapeGeometry extends THREE.BufferGeometry {
 		}
 
 		const y = matrix[z][x];
-		if (y !== 0) {
+		if (y != 0) {
 			return y;
 		}
 
@@ -126,6 +128,27 @@ export class DataPlaneShapeGeometry extends THREE.BufferGeometry {
 		}
 
 		return null;
+	}
+
+	hasNonValueNeighbor(matrix: Data, z: number, x: number, value = 0): boolean {
+		// Check for next non zero in row, col direction and diagonal
+		if (z < 1 || x < 1 || z >= matrix.length - 1 || x >= matrix[z].length - 1) {
+			return false;
+		}
+
+		if (matrix[z - 1][x - 1] !== value || matrix[z + 1][x + 1] !== value) {
+			return true;
+		}
+
+		if (matrix[z - 1][x] !== value || matrix[z + 1][x] !== value) {
+			return true;
+		}
+
+		if (matrix[z][x - 1] !== value || matrix[z][x + 1] !== value) {
+			return true;
+		}
+
+		return false;
 	}
 
 	/**
@@ -175,11 +198,15 @@ export class DataPlaneShapeGeometry extends THREE.BufferGeometry {
 		const indices = this.indexBuffer;
 
 		const bufferElementSize = 3;
-		const numPolygons = (width - 1) * (depth - 1) * (this.drawsBottom ? 2 : 1);
+		const tesselationFactor = Math.max(Math.round(this.tesselationFactor), 1);
+		const numPolygons =
+			(width * tesselationFactor - 1) *
+			(depth * tesselationFactor - 1) *
+			(this.drawsBottom ? 2 : 1);
 
 		const hasBottomLayer = this.previousNormalizedData !== undefined;
 
-		const polyindicesPerPlane = numPolygons * 3;
+		const polyIndicesPerPlane = numPolygons * 3;
 
 		// Add all points to the geometry
 		for (let z = 0; z < depth; z++) {
@@ -187,6 +214,8 @@ export class DataPlaneShapeGeometry extends THREE.BufferGeometry {
 				const pointIdx = z * width + x;
 				const vertexIdx = pointIdx * bufferElementSize;
 				const indexIdx = (z * (width - 1) + x) * 6;
+
+				const yAxisValue = normalizedData[z][x];
 
 				// Add top plane coordinates
 				vertices[vertexIdx] = x / (width - 1); //x
@@ -200,6 +229,10 @@ export class DataPlaneShapeGeometry extends THREE.BufferGeometry {
 						? this.previousNormalizedData?.[z][x] ?? 0 // syntax enforced by strict null checks (should never happen)
 						: 0;
 					vertices[vertexIdx + pointsPerPlane * bufferElementSize + 2] = z / (depth - 1); //z
+				}
+
+				if (yAxisValue == 0 && !this.hasNonValueNeighbor(normalizedData, z, x)) {
+					continue;
 				}
 
 				if (z === depth - 1 || x === width - 1) {
@@ -217,13 +250,13 @@ export class DataPlaneShapeGeometry extends THREE.BufferGeometry {
 
 				if (this.drawsBottom) {
 					// Add bottom plane indices
-					indices[indexIdx + polyindicesPerPlane] = indices[indexIdx] + pointsPerPlane;
-					indices[indexIdx + polyindicesPerPlane + 1] = indices[indexIdx + 1] + pointsPerPlane;
-					indices[indexIdx + polyindicesPerPlane + 2] = indices[indexIdx + 2] + pointsPerPlane;
+					indices[indexIdx + polyIndicesPerPlane] = indices[indexIdx] + pointsPerPlane;
+					indices[indexIdx + polyIndicesPerPlane + 1] = indices[indexIdx + 1] + pointsPerPlane;
+					indices[indexIdx + polyIndicesPerPlane + 2] = indices[indexIdx + 2] + pointsPerPlane;
 
-					indices[indexIdx + polyindicesPerPlane + 3] = indices[indexIdx + 3] + pointsPerPlane;
-					indices[indexIdx + polyindicesPerPlane + 4] = indices[indexIdx + 4] + pointsPerPlane;
-					indices[indexIdx + polyindicesPerPlane + 5] = indices[indexIdx + 5] + pointsPerPlane;
+					indices[indexIdx + polyIndicesPerPlane + 3] = indices[indexIdx + 3] + pointsPerPlane;
+					indices[indexIdx + polyIndicesPerPlane + 4] = indices[indexIdx + 4] + pointsPerPlane;
+					indices[indexIdx + polyIndicesPerPlane + 5] = indices[indexIdx + 5] + pointsPerPlane;
 				}
 			}
 		}

@@ -1,4 +1,4 @@
-import { Object3D, Vector2, Vector3 } from 'three';
+import { Object3D, Vector2 } from 'three';
 
 export abstract class GraphRenderer<T = unknown, InstanceMetaInfo = any> extends Object3D {
 	public scene: THREE.Scene | undefined = undefined;

@@ -49,14 +49,14 @@
 	<div class="grid grid-cols-8 max-h-full">
 		<div class="col-span-3">
 			<h3 class="font-semibold text-lg mb-3">Query</h3>
-			<div class="border">
+			<div class="border border-background-100 dark:border-background-800">
 				<CodeEditor bind:editor class="h-[60vh] w-full" />
 			</div>
 		</div>
 		<div class="col-span-3">
 			<h3 class="font-semibold text-lg mb-3">Output</h3>
 			<div
-				class="h-[60vh] overflow-auto border-t border-b border-r"
+				class="h-[60vh] overflow-auto border-t border-b border-r border-background-100 dark:border-background-800"
 				style="font-family: monospace;"
 			>
 				{#if currentQuery}
@@ -105,7 +105,7 @@
 				{#each $dataStore.previousQueries as entry}
 					<!-- svelte-ignore a11y-click-events-have-key-events -->
 					<div
-						class="relative border-b select-none cursor-pointer first:border-t py-2 px-2 hover:text-background-900 text-background-500 hover:bg-background-100 dark:hover:bg-background-600"
+						class="relative border-background-100 dark:border-background-800 border-b select-none cursor-pointer first:border-t py-2 px-2 hover:text-background-900 text-background-500 hover:bg-background-100 dark:hover:bg-background-600"
 						style="font-family: monospace;"
 						on:click={() => {
 							editor.setValue(entry.query);
