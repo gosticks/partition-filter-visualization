@@ -15,27 +15,19 @@ import {
 	type ITableRefList,
 	type ITableBuildIn,
 	type ITableExternalUrl,
-	type ITableExternalFile
+	type ITableExternalFile,
+	type ITableReference
 } from './types';
 import { PlaneGraphOptions } from './graphs/plane';
 import { defaultLogOptions, withLogMiddleware } from '../logMiddleware';
 import notificationStore from '../notificationStore';
 import type { Dataset, DatasetItem } from '../../../dataset/types';
 
-export interface IFilterStoreGraphOptions {
-	type: GraphType.PLANE;
-	options: {
-		x: string;
-		y: string;
-		z: string;
-		mode: string;
-		axisRanges?: Partial<{
-			x: [number, number];
-			y: [number, number];
-			z: [number, number];
-		}>;
-	};
-}
+type UrlTableSelection = {
+	source: TableSource;
+	tableName: string;
+	datasetName?: string; // Only set for source == build_in
+};
 
 const initialStore: IFilterStore = {
 	isLoading: true,
@@ -43,56 +35,67 @@ const initialStore: IFilterStore = {
 	selectedTables: []
 };
 
-const urlEncoder: UrlEncoder = (key, type, value) => {
-	if (key === 'graphOptions') {
-		console.log('Encoding graph options', value);
-		if (!value) {
-			return undefined;
-		}
-		return (value as GraphOptions).getType();
-	}
-
-	if (key === 'selectedTables') {
-		console.error('ENCODING BROKEN');
-		return;
-	}
-
-	const encodedValue = defaultUrlEncoder(key, type, value);
-	// console.log('Encoding', key, encodedValue, value, JSON.stringify(value));
-	return encodedValue;
-};
-
-// Store renderer temporarily globally and
-// Set it after database init was completed
-
-let _graphOptions: GraphOptions | null = null;
-
-const urlDecoder: UrlDecoder = (key, type, value) => {
-	switch (key) {
-		case 'graphOptions': {
-			const graphType = value as GraphType;
-			switch (graphType) {
-				case GraphType.PLANE: {
-					_graphOptions = new PlaneGraphOptions();
-					return undefined;
-				}
-			}
-			break;
-		}
-		case 'selectedTables': {
-			console.error('ENCODING BROKEN');
-			return;
-		}
-	}
-
-	return defaultUrlDecoder(key, type, value);
-};
-
 // Hacky way to create a new store with a new base object
 const baseStore = writable<IFilterStore>(JSON.parse(JSON.stringify(initialStore)));
 
 const _filterStore = () => {
-	console.log('### INIT STORE ###', get(baseStore));
+	const urlEncoder: UrlEncoder = (key, type, value) => {
+		if (key === 'graphOptions') {
+			console.log('Encoding graph options', value);
+			if (!value) {
+				return undefined;
+			}
+			return (value as GraphOptions).getType();
+		}
+
+		if (key === 'selectedTables') {
+			const val = value as ITableReference[];
+
+			return defaultUrlEncoder(
+				key,
+				type,
+				val.map(
+					(el) =>
+						({
+							source: el.source,
+							tableName: el.tableName,
+							datasetName: el.source == TableSource.BUILD_IN ? el.dataset.name : undefined
+						} as UrlTableSelection)
+				)
+			);
+		}
+
+		const encodedValue = defaultUrlEncoder(key, type, value);
+		// console.log('Encoding', key, encodedValue, value, JSON.stringify(value));
+		return encodedValue;
+	};
+
+	// Store renderer temporarily globally and
+	// Set it after database init was completed
+	let urlRestoredGraphOptions: GraphOptions | null = null;
+	let urlRestoredTableSelection: UrlTableSelection[] = [];
+	const urlDecoder: UrlDecoder = (key, type, value) => {
+		switch (key) {
+			case 'graphOptions': {
+				const graphType = value as GraphType;
+				switch (graphType) {
+					case GraphType.PLANE: {
+						urlRestoredGraphOptions = new PlaneGraphOptions();
+						return undefined;
+					}
+				}
+				break;
+			}
+			case 'selectedTables': {
+				urlRestoredTableSelection = defaultUrlDecoder(key, type, value) as UrlTableSelection[];
+
+				return [];
+			}
+		}
+
+		return defaultUrlDecoder(key, type, value);
+	};
+
 	const store = withLogMiddleware(
 		withUrlStorage(
 			baseStore,
@@ -142,6 +145,30 @@ const _filterStore = () => {
 		}
 	};
 
+	const selectBuildInTables = async (dataset: Dataset, tablePaths: DatasetItem[]) => {
+		// Convert filter options to table references
+		const tableReferences: ITableBuildIn[] = tablePaths.flatMap((item) => {
+			return item.files.map((file) => ({
+				tableName: item.name,
+				displayName: file.name,
+				source: TableSource.BUILD_IN,
+				url: file.dataURL,
+				dataset
+			}));
+		});
+
+		try {
+			await selectTables(tableReferences);
+			await reloadCurrentGraph();
+			return;
+		} catch {
+			notificationStore.error({
+				message: 'Failed to load external tables',
+				description: tablePaths.map((table) => table.name).join(',')
+			});
+		}
+	};
+
 	return {
 		set,
 		update,
@@ -169,45 +196,59 @@ const _filterStore = () => {
 		},
 
 		// Actions
+
+		// initWithPreloadedDatasets:
+		// called after frontend completed mount of graph component and server defined Datasets are available to the client
+		// This is the perfect spot for restoring state since initial server and client states are available
 		initWithPreloadedDatasets: async (datasets: Dataset[]) => {
-			console.log('Loading datasets', datasets);
-			// FIXME: enable after refactor
 			update((store) => {
 				store.preloadedDatasets = datasets;
+
 				return store;
 			});
 
+			// restore selected tables not that we have the paths from the server
+			const restoredSelectedTables: [Dataset, DatasetItem][] = [];
+
+			urlRestoredTableSelection.forEach((selection) => {
+				switch (selection.source) {
+					case TableSource.BUILD_IN: {
+						const dataset = datasets.find((dataset) => dataset.name == selection.datasetName);
+						if (dataset) {
+							const datasetItem = dataset.items.find((item) => item.name == selection.tableName);
+							if (datasetItem) {
+								console.log(datasetItem);
+								restoredSelectedTables.push([dataset, datasetItem]);
+							}
+						}
+						break;
+					}
+					case TableSource.URL:
+						console.warn('restore from URL not supported yet');
+						break;
+					case TableSource.FILE:
+						console.warn('restore from FILE not supported yet');
+						break;
+				}
+			});
+			// remove temporary url values
+			urlRestoredTableSelection = [];
+			// load all tables
+			for (const [dataset, item] of restoredSelectedTables) {
+				await selectBuildInTables(dataset, [item]);
+			}
+			urlRestoredGraphOptions = null;
+
 			// Attempt reloading selected tables
-			const { selectedTables } = get(store);
-			if (selectedTables.length !== 0) {
-				// group tables by ref type
-				const buildInTables = selectedTables.filter(
-					(t) => t.source === TableSource.BUILD_IN
-				) as ITableBuildIn[];
-				const fileTables = selectedTables.filter(
-					(t) => t.source === TableSource.FILE
-				) as ITableExternalFile[];
-				const urlTables = selectedTables.filter(
-					(t) => t.source === TableSource.URL
-				) as ITableExternalUrl[];
-
+			if (get(store).selectedTables.length !== 0) {
 				try {
-					if (buildInTables.length !== 0) {
-						await selectTables(buildInTables);
-					}
-					if (urlDecoder.length !== 0) {
-						await selectTables(urlTables);
-					}
-					if (fileTables.length !== 0) {
-						alert('TODO: request user to reupload tables');
-						// await selectTables(fileTables);
-					}
-
-					if (_graphOptions && _graphOptions !== null) {
+					if (urlRestoredGraphOptions && urlRestoredGraphOptions !== null) {
 						update((store) => {
-							store.graphOptions = _graphOptions ?? undefined;
+							store.graphOptions = urlRestoredGraphOptions ?? undefined;
 							return store;
 						});
+						// remove temporary url values
+						urlRestoredGraphOptions = null;
 						await reloadCurrentGraph();
 					}
 				} catch (e) {
@@ -218,42 +259,12 @@ const _filterStore = () => {
 			setIsLoading(false);
 			return;
 		},
-
+		selectBuildInTables,
 		selectDataset: (dataset?: Dataset) => {
 			update((state) => {
 				state.selectedDataset = dataset;
 				return state;
 			});
-		},
-
-		selectBuildInTables: async (dataset: Dataset, tablePaths: DatasetItem[]) => {
-			if (dataset !== get(store).selectedDataset) {
-				// selected dataset and tables to be loaded do
-				// not match
-				return;
-			}
-
-			// Convert filter options to table references
-			const tableReferences: ITableBuildIn[] = tablePaths.flatMap((item) => {
-				return item.files.map((file) => ({
-					tableName: item.name,
-					displayName: file.name,
-					source: TableSource.BUILD_IN,
-					url: file.dataURL,
-					dataset
-				}));
-			});
-
-			try {
-				await selectTables(tableReferences);
-				await reloadCurrentGraph();
-				return;
-			} catch {
-				notificationStore.error({
-					message: 'Failed to load external tables',
-					description: tablePaths.map((table) => table.name).join(',')
-				});
-			}
 		},
 
 		selectTableFromURL: async (url: URL) => {
