@@ -73,8 +73,6 @@ export abstract class GraphOptions<
 export interface IFilterStore {
 	isLoading: boolean;
 	preloadedDatasets: Dataset[];
-	// List of available filter options
-	// filterOptions: FilterOptions;
 	selectedDataset?: Dataset;
 	selectedTables: ITableReference[];
 	graphOptions?: GraphOptions;
