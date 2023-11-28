@@ -19,7 +19,6 @@ const parseDirectory = (dir: string, stripPrefix: string | undefined = undefined
 			let elementPath = '';
 			if (stripPrefix && dirPath.startsWith(stripPrefix)) {
 				elementPath = dirPath.slice(stripPrefix.length, dirPath.length);
-				console.log({ elementPath, dirPath });
 			}
 
 			if (!isDirectory) {
