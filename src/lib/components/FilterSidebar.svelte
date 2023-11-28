@@ -28,6 +28,7 @@
 	import QueryEditor from './QueryEditor.svelte';
 	import { fadeSlide } from '$lib/transitions/fadeSlide';
 	import { getGraphContext, type GraphService } from './BasicGraph.svelte';
+	import { get } from 'svelte/store';
 
 	let optionsStore: GraphOptions['optionsStore'] | undefined;
 	let isFilterBarOpen: boolean = true;
@@ -64,14 +65,106 @@
 		isFilterBarOpen = !isFilterBarOpen;
 	}
 
-	function captureScreenshot() {
+	function canvasFilledRegionBounds(ctx: WebGL2RenderingContext | WebGLRenderingContext) {
+		const pixels = new Uint8ClampedArray(ctx.drawingBufferWidth * ctx.drawingBufferHeight * 4);
+
+		ctx.readPixels(
+			0,
+			0,
+			ctx.drawingBufferWidth,
+			ctx.drawingBufferHeight,
+			ctx.RGBA,
+			ctx.UNSIGNED_BYTE,
+			pixels
+		);
+
+		let pixelCount = pixels.length;
+		let bound = {
+			top: -1,
+			left: -1,
+			right: -1,
+			bottom: -1
+		};
+		let x = 0;
+		let y = 0;
+		for (let i = 0; i < pixelCount; i += 4) {
+			if (pixels[i + 3] !== 0) {
+				x = (i / 4) % ctx.drawingBufferWidth;
+				y = ~~(i / 4 / ctx.drawingBufferWidth);
+				if (bound.top === -1) {
+					bound.top = y;
+				}
+				if (bound.left === -1) {
+					bound.left = x;
+				} else if (x < bound.left) {
+					bound.left = x;
+				}
+				if (bound.right === -1) {
+					bound.right = x;
+				} else if (bound.right < x) {
+					bound.right = x;
+				}
+				if (bound.bottom === -1) {
+					bound.bottom = y;
+				} else if (bound.bottom < y) {
+					bound.bottom = y;
+				}
+			}
+		}
+
+		return bound;
+	}
+
+	function drawCanvasToCanvas(
+		srcCtx: WebGL2RenderingContext | WebGLRenderingContext,
+		dstCtx: CanvasRenderingContext2D,
+		bound: ReturnType<typeof canvasFilledRegionBounds>
+	) {
+		dstCtx.drawImage(
+			srcCtx.canvas,
+			-bound.left,
+			-(srcCtx.drawingBufferHeight - bound.bottom), // canvas2d is inverted compared to pixels of canvas 3d
+			srcCtx.drawingBufferWidth,
+			srcCtx.drawingBufferHeight
+		);
+	}
+
+	function captureScreenshot(backgroundFill?: string | CanvasGradient | CanvasPattern) {
 		const canvas = document.getElementById('basic-graph') as HTMLCanvasElement;
 		if (canvas) {
-			const imgData = canvas.toDataURL('image/png');
+			const copyCtx = document.createElement('canvas').getContext('2d');
+			if (!copyCtx) {
+				return;
+			}
+			// FIXME: should be linked to THREEJS otherwise ctx ID might differ
+			// resulting in invalid screenshots
+			const originalCtx = canvas.getContext('webgl2');
+			if (!originalCtx) {
+				return;
+			}
+			const bound = canvasFilledRegionBounds(originalCtx);
+			let trimHeight = bound.bottom - bound.top,
+				trimWidth = bound.right - bound.left;
 
-			var link = document.createElement('a');
+			copyCtx.canvas.width = trimWidth;
+			copyCtx.canvas.height = trimHeight;
+			if (backgroundFill) {
+				copyCtx.fillStyle = backgroundFill;
+				copyCtx.fillRect(0, 0, copyCtx.canvas.width, copyCtx.canvas.height);
+			}
+			drawCanvasToCanvas(originalCtx, copyCtx, bound);
+			const imgData = copyCtx.canvas.toDataURL('image/png');
+
+			let link = document.createElement('a');
 			link.href = imgData;
-			link.download = 'screenshot.png';
+
+			const state = get(filterStore);
+			let imageName = 'screenshot';
+			if (state.graphOptions) {
+				imageName = state.graphOptions.description() ?? imageName;
+			}
+
+			link.download = `${imageName}.png`;
 			link.click();
 		}
 	}
@@ -79,7 +172,7 @@
 
 <div class="absolute right-4 pt-4 t-0 top-0 w-96 max-h-full overflow-y-auto">
 	<div class="mb-4 gap-3 flex justify-end mr-1">
-		<Button size={ButtonSize.LG} color={ButtonColor.SECONDARY} on:click={captureScreenshot}>
+		<Button size={ButtonSize.LG} color={ButtonColor.SECONDARY} on:click={() => captureScreenshot()}>
 			<div class="py">
 				<CameraIcon size="20" />
 			</div>
