@@ -87,11 +87,21 @@ export class PlaneGraphOptions extends GraphOptions<
 
 	public toString(): string {
 		const state = get(this._optionsStore);
-		console.log('Encoding', state);
 		return urlEncodeObject({
 			type: this.getType(),
 			state
 		});
+	}
+
+	public description(): string | null {
+		const state = get(this._optionsStore);
+		if (!state.isValid) {
+			return null;
+		}
+		console.log(state);
+		return `${this.getType()}-${state.xColumnName}-${state.yColumnName}-${state.zColumnName}-${
+			state.tileCount
+		}x${state.tileCount}`;
 	}
 
 	private isValid(state: Partial<RequiredOptions> | undefined): boolean {
