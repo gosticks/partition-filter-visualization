@@ -5,6 +5,7 @@ export interface TextTextureOptions {
 	font: string;
 	fontSize: number;
 	fontLineHeight: number;
+	rotation: number;
 }
 
 export class TextTexture extends THREE.CanvasTexture {
@@ -48,10 +49,6 @@ export class TextTexture extends THREE.CanvasTexture {
 
 		this.canvas = canvas;
 		this.context = context;
-
-		// TODO: maybe reuse canvas if we update the labels frequently
-		// Remove the canvas from the DOM
-		// document.removeChild(textCanvas);
 	}
 
 	dispose(): void {
