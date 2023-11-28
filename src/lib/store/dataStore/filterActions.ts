@@ -148,6 +148,24 @@ export const dataStoreFilterExtension = (store: BaseStoreType) => {
 		const zColValue = getSqlScaleWrapper(options.scaleZ, options.zColumnName, '"');
 		const yColValue = getSqlScaleWrapper(options.scaleY, options.yColumnName, '"');
 
+		const queryV2 = `
+		SELECT x, y, z, name, "${options.xColumnName}" as rawX, "${options.yColumnName}" as rawY, "${
+			options.xColumnName
+		}" as rawX
+		FROM "${tableName}" a
+		RIGHT JOIN (
+			SELECT 	FLOOR((${xColValue} - ${xMin}) / ${xBucketSize}) AS x,
+					FLOOR((${zColValue} - ${zMin}) / ${zBucketSize}) AS z,
+					${options.aggregation}(${yColValue}) AS y
+			FROM "${tableName}"
+			GROUP BY x, z
+		) b ON a."${options.yColumnName}" = b.y
+		WHERE "${options.yColumnName}" != 'NaN' and x != 'NaN' and z != 'NaN'
+		${where ? `and "${where.columnName}" = '${where.value}'` : ''}
+		${options.scaleY === DataScaling.LOG ? `and "${options.yColumnName}" >= 0` : ''}
+		ORDER BY x ASC, y ASC ${where ? `, "${where.columnName}"` : ''}
+		`;
+
 		// FIXME: this currently incorrectly pairs up x and z values within a mode/group
 		const query = `
 		SELECT
@@ -170,7 +188,7 @@ export const dataStoreFilterExtension = (store: BaseStoreType) => {
 		// ORDER BY z ASC, x ASC;
 
 		try {
-			const resp = await store.executeQuery(query);
+			const resp = await store.executeQuery(queryV2);
 			if (!resp) {
 				// TODO: fix/handle this
 				return [];
