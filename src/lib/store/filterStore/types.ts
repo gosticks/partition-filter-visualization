@@ -68,6 +68,8 @@ export abstract class GraphOptions<
 	public static fromString(str: string): GraphOptions | null {
 		return null;
 	}
+
+	public abstract description(): string | null;
 }
 
 export interface IFilterStore {

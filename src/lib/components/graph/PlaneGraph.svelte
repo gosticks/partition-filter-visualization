@@ -140,16 +140,22 @@
 		return `10^${exponent}`;
 	}
 
-	const labelForAxis = (axis: Axis, segment: number) => {
+	const labelForAxis = (axis: Axis, segment: number, numSegments: number) => {
 		const store = dataStore;
 		if (!store) {
 			return;
 		}
 
 		const range = $dataStore!.ranges[axis];
+
+		if (Axis.Y == axis && range) {
+			console.log({ range, segment });
+			return ((range[1] / numSegments) * segment).toFixed(2);
+		}
+
 		const tileRange = $dataStore!.tileRange[axis as keyof IPlaneRendererData['tileRange']];
 		if (!range || !tileRange) {
-			return segment.toFixed(2);
+			return segment.toFixed(4);
 		}
 		const [min, max] = range;
 

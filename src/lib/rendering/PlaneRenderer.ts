@@ -636,7 +636,7 @@ export class PlaneRenderer extends GraphRenderer<IPlaneRendererData, IPlaneSelec
 			},
 			y: {
 				labelText: this.data?.labels?.y ?? 'y',
-				segments: 10
+				segments: this.dataWidth - 1
 			},
 			z: {
 				labelText: this.data?.labels?.z ?? 'z',
