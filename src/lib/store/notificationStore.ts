@@ -37,6 +37,10 @@ const notificationStore = () => {
 				notifications.shift();
 			}
 
+			if (notification.dismissDuration) {
+				setTimeout(() => removeNotification(notificationInstance.id), notification.dismissDuration);
+			}
+
 			notifications.push(notificationInstance);
 			return notifications;
 		});
@@ -46,13 +50,13 @@ const notificationStore = () => {
 
 	const error = (options: IKnownTypeNotificationOptions) => {
 		console.error(options.message);
-		return addNotification({ ...options, type: NotificationType.error });
+		return addNotification({ dismissDuration: 10000, ...options, type: NotificationType.error });
 	};
 	const info = (options: IKnownTypeNotificationOptions) => {
-		return addNotification({ ...options, type: NotificationType.info });
+		return addNotification({ dismissDuration: 2000, ...options, type: NotificationType.info });
 	};
 	const success = (options: IKnownTypeNotificationOptions) => {
-		return addNotification({ ...options, type: NotificationType.success });
+		return addNotification({ dismissDuration: 2000, ...options, type: NotificationType.success });
 	};
 
 	const removeNotification = (id: number) => {

@@ -22,7 +22,8 @@
 	import type { ITiledDataRow } from '$lib/store/dataStore/filterActions';
 	import { positionPortal } from '$lib/actions/portal';
 	import { draggable } from '$lib/actions/draggable';
-	import { LayersIcon, LockIcon } from 'svelte-feather-icons';
+	import { CopyIcon, LayersIcon, LockIcon } from 'svelte-feather-icons';
+	import notificationStore from '$lib/store/notificationStore';
 
 	export let options: PlaneGraphOptions;
 
@@ -183,6 +184,14 @@
 		dataRenderer.hideAllLayers();
 		layerVisibility = dataRenderer.getLayerVisibility();
 	};
+
+	const copyValue = (value: string) => {
+		navigator.clipboard.writeText(value);
+		notificationStore.info({
+			message: 'Value copied to clipboard',
+			dismissDuration: 1000
+		});
+	};
 </script>
 
 <div class="absolute bottom-0 left-2">
@@ -288,7 +297,17 @@
 					{:then result}
 						{#if result}
 							{#each Object.entries(result) as [key, value]}
-								<div class="flex gap-2 justify-between"><b>{key}</b><span>{value}</span></div>
+								<div class="flex gap-2 justify-between">
+									<div>
+										<Button
+											variant={ButtonVariant.LINK}
+											on:click={() => copyValue(value)}
+											size={ButtonSize.SM}><b class="mr-2">{key}</b><CopyIcon size="12" /></Button
+										>
+									</div>
+
+									<span>{value}</span>
+								</div>
 							{/each}
 						{:else}
 							Result empty
