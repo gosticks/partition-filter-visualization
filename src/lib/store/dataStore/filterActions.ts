@@ -166,27 +166,6 @@ export const dataStoreFilterExtension = (store: BaseStoreType) => {
 		ORDER BY x ASC, y ASC ${where ? `, "${where.columnName}"` : ''}
 		`;
 
-		// FIXME: this currently incorrectly pairs up x and z values within a mode/group
-		const query = `
-		SELECT
-			${where ? `"${where.columnName}",` : ''}
-			${options.aggregation}(${yColValue}) AS y,
-			any_value("name") as name,
-			FLOOR((${xColValue} - ${xMin}) / ${xBucketSize}) AS x,
-		   	FLOOR((${zColValue} - ${zMin}) / ${zBucketSize}) AS z,
-			any_value("${options.xColumnName}") as "rawX", any_value("${
-			options.yColumnName
-		}") as "rawY", any_value("${options.zColumnName}") as "rawZ"
-	FROM "${tableName}"
-	WHERE "${options.yColumnName}" != 'NaN' and x != 'NaN' and z != 'NaN'
-	${where ? `and "${where.columnName}" = '${where.value}'` : ''}
-	${options.scaleY === DataScaling.LOG ? `and "${options.yColumnName}" >= 0` : ''}
-	GROUP BY z, x, ${where ? `"${where.columnName}",` : ''}
-	ORDER BY z ASC, x ASC;
-	`;
-		// GROUP BY ${groupBy ? 'mode,' : ''} z, x, name, "${options.zColumnName}", "${options.xColumnName}"
-		// ORDER BY z ASC, x ASC;
-
 		try {
 			const resp = await store.executeQuery(queryV2);
 			if (!resp) {
