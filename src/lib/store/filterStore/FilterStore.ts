@@ -38,6 +38,16 @@ const initialStore: IFilterStore = {
 // Hacky way to create a new store with a new base object
 const baseStore = writable<IFilterStore>(JSON.parse(JSON.stringify(initialStore)));
 
+const storeEncodeSelectedTables = (tables: IFilterStore['selectedTables']) =>
+	tables.map(
+		(el) =>
+			({
+				source: el.source,
+				tableName: el.tableName,
+				datasetName: el.source == TableSource.BUILD_IN ? el.dataset.name : undefined
+			} as UrlTableSelection)
+	);
+
 const _filterStore = () => {
 	const urlEncoder: UrlEncoder = (key, type, value) => {
 		if (key === 'graphOptions') {
@@ -51,18 +61,7 @@ const _filterStore = () => {
 		if (key === 'selectedTables') {
 			const val = value as ITableReference[];
 
-			return defaultUrlEncoder(
-				key,
-				type,
-				val.map(
-					(el) =>
-						({
-							source: el.source,
-							tableName: el.tableName,
-							datasetName: el.source == TableSource.BUILD_IN ? el.dataset.name : undefined
-						} as UrlTableSelection)
-				)
-			);
+			return defaultUrlEncoder(key, type, storeEncodeSelectedTables(val));
 		}
 
 		const encodedValue = defaultUrlEncoder(key, type, value);
@@ -136,12 +135,12 @@ const _filterStore = () => {
 		}
 	};
 
-	const reloadCurrentGraph = () => {
+	const reloadCurrentGraph = async () => {
 		// reload state with table changes
 		const state = get(store);
 		if (state.graphOptions) {
 			state.graphOptions.reloadFilterOptions();
-			state.graphOptions.applyOptionsIfValid();
+			await state.graphOptions.applyOptionsIfValid();
 		}
 	};
 
@@ -152,7 +151,8 @@ const _filterStore = () => {
 				tableName: item.name,
 				displayName: file.name,
 				source: TableSource.BUILD_IN,
-				url: file.dataURL,
+				// FIXME: create correct path on server
+				url: '/' + file.dataURL,
 				dataset
 			}));
 		});
@@ -186,6 +186,15 @@ const _filterStore = () => {
 			}
 		},
 
+		toStateObject: () => {
+			const state = get(store);
+
+			return {
+				selectedTables: storeEncodeSelectedTables(state.selectedTables),
+				graphOptions: state.graphOptions?.toStateObject()
+			};
+		},
+
 		reset: () => {
 			dataStore.resetDatabase();
 
@@ -200,15 +209,29 @@ const _filterStore = () => {
 		// initWithPreloadedDatasets:
 		// called after frontend completed mount of graph component and server defined Datasets are available to the client
 		// This is the perfect spot for restoring state since initial server and client states are available
-		initWithPreloadedDatasets: async (datasets: Dataset[]) => {
+		initWithPreloadedDatasets: async (datasets: Dataset[], selectedGraph?: any) => {
 			update((store) => {
 				store.preloadedDatasets = datasets;
-
 				return store;
 			});
 
 			// restore selected tables not that we have the paths from the server
 			const restoredSelectedTables: [Dataset, DatasetItem][] = [];
+
+			// FIXME: cleanup & and handle edge cases
+			if (selectedGraph) {
+				console.log('using selected Graph', selectedGraph);
+				urlRestoredTableSelection = selectedGraph.selectedTables;
+
+				if (selectedGraph['graphOptions']) {
+					const graphType = selectedGraph.graphOptions.type as GraphType;
+					switch (graphType) {
+						case GraphType.PLANE: {
+							urlRestoredGraphOptions = new PlaneGraphOptions(selectedGraph.graphOptions.state);
+						}
+					}
+				}
+			}
 
 			urlRestoredTableSelection.forEach((selection) => {
 				switch (selection.source) {
@@ -237,7 +260,6 @@ const _filterStore = () => {
 			for (const [dataset, item] of restoredSelectedTables) {
 				await selectBuildInTables(dataset, [item]);
 			}
-			urlRestoredGraphOptions = null;
 
 			// Attempt reloading selected tables
 			if (get(store).selectedTables.length !== 0) {
@@ -247,14 +269,14 @@ const _filterStore = () => {
 							store.graphOptions = urlRestoredGraphOptions ?? undefined;
 							return store;
 						});
-						// remove temporary url values
-						urlRestoredGraphOptions = null;
 						await reloadCurrentGraph();
 					}
 				} catch (e) {
 					console.error('Failed to load selected tables:', e);
 				}
 			}
+			// remove temporary url values
+			urlRestoredGraphOptions = null;
 
 			setIsLoading(false);
 			return;

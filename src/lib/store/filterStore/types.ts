@@ -1,4 +1,4 @@
-import type { FilterEntry } from '$routes/graph/+page.server';
+import type { FilterEntry } from '$routes/graph/[slug]/+page.server';
 import type { Readable } from 'svelte/store';
 import type { Dataset } from '../../../dataset/types';
 
@@ -65,6 +65,10 @@ export abstract class GraphOptions<
 	public abstract optionsStore: Readable<Options | undefined>;
 
 	public abstract toString(): string;
+	public abstract toStateObject(): {
+		type: GraphType;
+		state: any;
+	};
 	public static fromString(str: string): GraphOptions | null {
 		return null;
 	}

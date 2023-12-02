@@ -34,7 +34,6 @@ export class PlaneGraphOptions extends GraphOptions<
 
 	constructor(initialState: Partial<RequiredOptions> = {}) {
 		super({});
-
 		this._dataStore = writable(undefined);
 		this.dataStore = readonly(this._dataStore);
 
@@ -57,7 +56,6 @@ export class PlaneGraphOptions extends GraphOptions<
 						return initialOptions;
 					}
 					const state = urlDecodeObject(value);
-					console.log('URL decoded state', state);
 					return {
 						isRendered: false,
 						isValid: this.isValid(state),
@@ -75,6 +73,32 @@ export class PlaneGraphOptions extends GraphOptions<
 		this.applyOptionsIfValid();
 	}
 
+	public toString(): string {
+		const state = get(this._optionsStore);
+		return urlEncodeObject({
+			type: this.getType(),
+			state
+		});
+	}
+
+	public toStateObject() {
+		const state = get(this._optionsStore);
+		return {
+			type: this.getType(),
+			state
+		};
+	}
+
+	public description(): string | null {
+		const state = get(this._optionsStore);
+		if (!state.isValid) {
+			return null;
+		}
+		return `${this.getType()}-${state.xColumnName}-${state.yColumnName}-${state.zColumnName}-${
+			state.tileCount
+		}x${state.tileCount}`;
+	}
+
 	public setFilterOption = <K extends keyof RequiredOptions>(key: K, value: RequiredOptions[K]) => {
 		this._optionsStore.update((store) => {
 			(store as Partial<RequiredOptions>)[key] = value;
@@ -85,25 +109,7 @@ export class PlaneGraphOptions extends GraphOptions<
 		this.applyOptionsIfValid();
 	};
 
-	public toString(): string {
-		const state = get(this._optionsStore);
-		return urlEncodeObject({
-			type: this.getType(),
-			state
-		});
-	}
-
-	public description(): string | null {
-		const state = get(this._optionsStore);
-		if (!state.isValid) {
-			return null;
-		}
-		console.log(state);
-		return `${this.getType()}-${state.xColumnName}-${state.yColumnName}-${state.zColumnName}-${
-			state.tileCount
-		}x${state.tileCount}`;
-	}
-
+	// Utility method to check if current user input results in a valid graph state
 	private isValid(state: Partial<RequiredOptions> | undefined): boolean {
 		if (!state) {
 			return false;
@@ -123,6 +129,8 @@ export class PlaneGraphOptions extends GraphOptions<
 		return isValid;
 	}
 
+	// performs a DB query and constructs UI Options that will be used for dropdowns and other components
+	// to configure a given graph
 	public reloadFilterOptions() {
 		const data = get(dataStore);
 		const stringTableColumns = Object.entries(data.combinedSchema)
@@ -238,6 +246,8 @@ export class PlaneGraphOptions extends GraphOptions<
 		}
 	}
 
+	// if options are valid dataStore will be updated with new values
+	// dataStore is used for actual rendering
 	public async applyOptionsIfValid() {
 		const state = get(this._optionsStore);
 		console.log('applying store', state);

@@ -63,8 +63,6 @@ export const withSingleKeyUrlStorage = <S>(
 	// Restore state from storage
 	const params = new URLSearchParams(location.search);
 
-	console.log('withDecoder', params);
-
 	// Set initial store state
 	store.set(decoder(params.get(key)));
 
@@ -126,6 +124,7 @@ export const withUrlStorage = <S extends object, T extends EncodableTypes = Enco
 
 	// Set initial store state
 	store.update((state) => {
+		console.log('[state-decode] restoring state', {initial: state});
 		entries.forEach(([key, type]) => {
 			const value = params.get(key.toString());
 
@@ -135,10 +134,10 @@ export const withUrlStorage = <S extends object, T extends EncodableTypes = Enco
 
 			// Type cast to unknown to allow dynamic key access
 			(state[key] as unknown) = decoder(key.toString(), type, value);
-			console.debug('[state-decode]', key, value, state[key]);
+			console.debug('[state-decode] decoding:', {key, paramsValue: value, newState: state[key]});
 			return;
 		});
-		console.log('Restored state', state);
+		console.log('[state-decode] restored state', {restored: state});
 		return state;
 	});
 

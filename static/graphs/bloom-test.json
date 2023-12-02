@@ -1,0 +1,20 @@
+{
+	"name": "Bloom Filter Test",
+	"description": "Some description can go here",
+	"selectedTables": [{ "source": 0, "tableName": "bloom-count-10k", "datasetName": "experiments" }],
+	"graphOptions": {
+		"type": "plane",
+		"state": {
+			"isRendered": false,
+			"isValid": true,
+			"xColumnName": "bits",
+			"yColumnName": "cpu_time",
+			"zColumnName": "fpr",
+			"scaleX": "linear",
+			"scaleY": "linear",
+			"scaleZ": "linear",
+			"tileCount": 10,
+			"aggregation": "min"
+		}
+	}
+}
