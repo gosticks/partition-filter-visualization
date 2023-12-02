@@ -307,7 +307,7 @@ export const dataStoreLoadExtension = (store: BaseStoreType, dataStore: Writable
 				console.debug('loaded tables', { tableDefinitions });
 				return tableDefinitions;
 			} catch (e) {
-				console.error('Failed to load CSVs:', e);
+				console.error('Failed to load CSVs:', { e, refs });
 				return [];
 			}
 		});
