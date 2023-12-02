@@ -1,11 +1,12 @@
 <script lang="ts">
-	import type { PageServerData } from './$types';
+	import type { PageServerData } from '../$types';
 	import BasicGraph from '$lib/components/BasicGraph.svelte';
 	import LoadingOverlay from '$lib/components/LoadingOverlay.svelte';
 	import type { Vector2 } from 'three';
 	import { dataStore } from '$lib/store/dataStore/DataStore';
 	import { browser } from '$app/environment';
 	import { onMount } from 'svelte';
+	import { page } from '$app/stores';
 	import FilterSidebar from '$lib/components/FilterSidebar.svelte';
 	import GridBackground from '$lib/components/GridBackground.svelte';
 	import filterStore from '$lib/store/filterStore/FilterStore';
@@ -19,13 +20,18 @@
 
 	export let data: PageServerData;
 
+	// Accessing the slug parameter
+	$: slug = $page.params.slug;
+
 	onMount(async () => {
 		if (!browser) return;
-
-		console.log({ dataset: data.dataset });
+		let selectedGraph: any;
+		if (slug !== 'custom') {
+			selectedGraph = JSON.parse(await (await fetch(`/graphs/${slug}.json`)).text());
+		}
 
 		// Pass possible db options to the filter sidebar
-		await filterStore.initWithPreloadedDatasets(data.dataset);
+		await filterStore.initWithPreloadedDatasets(data.dataset, selectedGraph);
 	});
 </script>
 

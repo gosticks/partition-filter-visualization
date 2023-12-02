@@ -3,6 +3,10 @@
 	import GridBackground from '$lib/components/GridBackground.svelte';
 	import MessageCard from '$lib/components/MessageCard.svelte';
 	import Button from '$lib/components/button/Button.svelte';
+	import { ChevronRightIcon } from 'svelte-feather-icons';
+	import type { PageServerData } from './$types';
+
+	export let data: PageServerData;
 </script>
 
 <div class="relative min-h-screen p-10 gap-14 flex flex-col items-center">
@@ -20,9 +24,19 @@
 	<div class="max-w-6xl w-full">
 		<h2 class="text-3xl font-bold mb-4">Featured comparisons</h2>
 		<div class="-mx-6 grid gap-10 grid-cols-3">
-			<MessageCard>
-				<h3 class="text-2xl font-bold mb-4">Memory vs FP</h3>
-			</MessageCard>
+			{#each data.items as item}
+				<a href="/graph/{item.href}"
+					><MessageCard class="hover:shadow-2xl transition-shadow">
+						<div class="flex place-content-between items-center">
+							<div>
+								<h3 class="text-2xl font-bold mb-4">{item.name}</h3>
+								<p>{item.description}</p>
+							</div>
+							<ChevronRightIcon size="24" class="opacity-40" />
+						</div>
+					</MessageCard>
+				</a>
+			{/each}
 		</div>
 	</div>
 	<div class="max-w-6xl w-full">
