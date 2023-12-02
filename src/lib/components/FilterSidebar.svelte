@@ -10,8 +10,10 @@
 	import Divider from './base/Divider.svelte';
 	import {
 		CameraIcon,
+		CpuIcon,
 		InfoIcon,
 		LayersIcon,
+		MehIcon,
 		MoonIcon,
 		PlusIcon,
 		RefreshCcwIcon,
@@ -27,8 +29,8 @@
 	} from './tableSelection/TableSelection.svelte';
 	import QueryEditor from './QueryEditor.svelte';
 	import { fadeSlide } from '$lib/transitions/fadeSlide';
-	import { getGraphContext, type GraphService } from './BasicGraph.svelte';
 	import { get } from 'svelte/store';
+	import notificationStore from '$lib/store/notificationStore';
 
 	let optionsStore: GraphOptions['optionsStore'] | undefined;
 	let isFilterBarOpen: boolean = true;
@@ -168,9 +170,18 @@
 			link.click();
 		}
 	}
+
+	const copyConfigValue = () => {
+		const value = JSON.stringify(filterStore.toStateObject());
+		navigator.clipboard.writeText(value);
+		notificationStore.info({
+			message: 'Graph State copied to clipboard',
+			dismissDuration: 1000
+		});
+	};
 </script>
 
-<div class="absolute right-4 pt-4 t-0 top-0 w-96 max-h-full overflow-y-auto">
+<div class="absolute right-4 pt-4 t-0 top-0 max-h-full overflow-y-auto">
 	<div class="mb-4 gap-3 flex justify-end mr-1">
 		<Button size={ButtonSize.LG} color={ButtonColor.SECONDARY} on:click={() => captureScreenshot()}>
 			<div class="py">
@@ -189,6 +200,9 @@
 					<SunIcon size="20" />
 				{/if}
 			</div>
+		</Button>
+		<Button on:click={copyConfigValue} color={ButtonColor.SECONDARY} size={ButtonSize.LG}>
+			<CpuIcon slot="leading" size="20" />
 		</Button>
 		<Dialog size={DialogSize.large}>
 			<Button slot="trigger" color={ButtonColor.SECONDARY} size={ButtonSize.LG}>
@@ -209,7 +223,7 @@
 		</Button>
 	</div>
 	{#if isFilterBarOpen}
-		<div transition:fadeSlide={{ duration: 100 }}>
+		<div class="w-96" transition:fadeSlide={{ duration: 100 }}>
 			<Card>
 				<div class="flex justify-between items-center">
 					<h3 class="font-semibold text-lg">Loaded table</h3>
