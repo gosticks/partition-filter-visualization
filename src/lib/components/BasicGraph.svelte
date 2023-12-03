@@ -10,17 +10,23 @@
 		group: THREE.Group
 	) => void;
 
+	export type CameraState = {
+		position: THREE.Vector3; rotation: THREE.Euler;
+	};
+
 	// let displatFilter: ;
 	export type GraphService = {
 		getValues: () => {
 			scene: THREE.Scene;
 			camera: THREE.Camera;
 			renderer: THREE.WebGLRenderer;
-			domElement: HTMLElement;
+			domElement: HTMLDivElement;
 		};
 		registerOnBeforeRender: (callback: GraphRenderLoopCallback) => GraphUnsubscribe;
 		registerOnAfterRender: (callback: GraphRenderLoopCallback) => GraphUnsubscribe;
 		getScreenshot: () => string;
+		getCameraState: () => (CameraState);
+		setCameraState: (state: CameraState) => void;
 	};
 
 	export const CTX_NAME_GRAPH = 'graph';
@@ -216,14 +222,15 @@
 
 	const getScreenshot = () => renderer.domElement.toDataURL('image/png');
 
-	setGraphContext({
-		getValues: getContextValues,
-		getScreenshot: getScreenshot,
-		registerOnBeforeRender,
-		registerOnAfterRender
-	});
+	const getCameraState = () => ({rotation: camera.rotation, position: camera.position})
+	export const setCameraState = (state: CameraState) => {
+			camera.rotation.copy(state.rotation);
+			camera.position.copy(state.position);
+			controls.update();
+		}
 
-	function getContextValues() {
+
+	export const getValues = () => {
 		return {
 			scene,
 			camera,
@@ -231,6 +238,18 @@
 			domElement: containerElement
 		};
 	}
+
+	export const getContextValues = () => ({
+		getValues: getValues,
+		getScreenshot: getScreenshot,
+		getCameraState: getCameraState,
+		setCameraState: setCameraState,
+		registerOnBeforeRender,
+		registerOnAfterRender
+	});
+
+	setGraphContext(getContextValues());
+
 
 	onDestroy(() => {
 		if (!browser) {
@@ -263,16 +282,15 @@
 	}
 </script>
 
-<div>
 	<div class="relative w-screen h-screen">
 		<div bind:this={containerElement} class="w-full h-full overflow-hidden isolate" />
 		<!-- Render children only after setup complete -->
 		{#if isSetupComplete}
-			<slot />
-			<Stats />
+		<slot name="inner" />
+		<Stats />
 		{/if}
 	</div>
-</div>
+	<slot />
 
 <style lang="scss">
 	.bar-chart-container {

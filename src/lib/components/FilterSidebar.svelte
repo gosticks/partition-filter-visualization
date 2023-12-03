@@ -31,7 +31,9 @@
 	import { fadeSlide } from '$lib/transitions/fadeSlide';
 	import { get } from 'svelte/store';
 	import notificationStore from '$lib/store/notificationStore';
+	import { getGraphContext, type GraphService } from './BasicGraph.svelte';
 
+	const graphService: GraphService = getGraphContext();
 	let optionsStore: GraphOptions['optionsStore'] | undefined;
 	let isFilterBarOpen: boolean = true;
 
@@ -132,48 +134,60 @@
 	}
 
 	function captureScreenshot(backgroundFill?: string | CanvasGradient | CanvasPattern) {
-		const canvas = document.getElementById('basic-graph') as HTMLCanvasElement;
-		if (canvas) {
-			const copyCtx = document.createElement('canvas').getContext('2d');
-			if (!copyCtx) {
-				return;
-			}
-			// FIXME: should be linked to THREEJS otherwise ctx ID might differ
-			// resulting in invalid screenshots
-			const originalCtx = canvas.getContext('webgl2');
-			if (!originalCtx) {
-				return;
-			}
-			const bound = canvasFilledRegionBounds(originalCtx);
-			let trimHeight = bound.bottom - bound.top,
-				trimWidth = bound.right - bound.left;
-
-			copyCtx.canvas.width = trimWidth;
-			copyCtx.canvas.height = trimHeight;
-			if (backgroundFill) {
-				copyCtx.fillStyle = backgroundFill;
-				copyCtx.fillRect(0, 0, copyCtx.canvas.width, copyCtx.canvas.height);
-			}
-			drawCanvasToCanvas(originalCtx, copyCtx, bound);
-			const imgData = copyCtx.canvas.toDataURL('image/png');
-
-			let link = document.createElement('a');
-			link.href = imgData;
-
-			const state = get(filterStore);
-			let imageName = 'screenshot';
-			if (state.graphOptions) {
-				imageName = state.graphOptions.description() ?? imageName;
-			}
-
-			link.download = `${imageName}.png`;
-			link.click();
+		const {renderer} = graphService.getValues();
+		const srcCtx = renderer.getContext()
+		const copyCtx = document.createElement('canvas').getContext('2d');
+		if (!copyCtx) {
+			return;
 		}
+
+		const bound = canvasFilledRegionBounds(srcCtx);
+		let trimHeight = bound.bottom - bound.top,
+			trimWidth = bound.right - bound.left;
+
+		copyCtx.canvas.width = trimWidth;
+		copyCtx.canvas.height = trimHeight;
+		if (backgroundFill) {
+			copyCtx.fillStyle = backgroundFill;
+			copyCtx.fillRect(0, 0, copyCtx.canvas.width, copyCtx.canvas.height);
+		}
+		drawCanvasToCanvas(srcCtx, copyCtx, bound);
+		const imgData = copyCtx.canvas.toDataURL('image/png');
+
+		let link = document.createElement('a');
+		link.href = imgData;
+
+		const state = get(filterStore);
+		let imageName = 'screenshot';
+		if (state.graphOptions) {
+			imageName = state.graphOptions.description() ?? imageName;
+		}
+
+		link.download = `${imageName}.png`;
+		link.click();
 	}
 
 	const copyConfigValue = () => {
-		const value = JSON.stringify(filterStore.toStateObject());
-		navigator.clipboard.writeText(value);
+		const cameraState = graphService.getCameraState();
+		console.log(JSON.stringify(cameraState));
+
+ 		const state = {
+			...filterStore.toStateObject(),
+			ui: {
+				rotation: {
+					x: cameraState.rotation.x,
+					y: cameraState.rotation.y,
+					z: cameraState.rotation.z,
+				},
+				position: {
+					x: cameraState.position.x,
+					y: cameraState.position.y,
+					z: cameraState.position.z,
+				},
+			}
+		};
+
+		navigator.clipboard.writeText(JSON.stringify(state));
 		notificationStore.info({
 			message: 'Graph State copied to clipboard',
 			dismissDuration: 1000

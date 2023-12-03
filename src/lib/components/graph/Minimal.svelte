@@ -3,7 +3,7 @@
 	import type { GraphService } from './types';
 	import { Minimap as MinimapRenderer } from '$lib/rendering/Minimap';
 	import { browser } from '$app/environment';
-	import { getGraphContext } from '../BasicGraph.svelte';
+	import { getGraphContext, type CameraState } from '../BasicGraph.svelte';
 
 	const graphService: GraphService = getGraphContext();
 
@@ -28,6 +28,8 @@
 	onDestroy(() => {
 		minimalRenderer?.destroy();
 	});
+
+	export let setCameraState = (state:CameraState) => minimalRenderer?.setCameraState(state)
 </script>
 
 <div

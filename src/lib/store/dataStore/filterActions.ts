@@ -1,3 +1,4 @@
+import type {  Point3D } from '$lib/rendering/geometry/SparsePlaneGeometry';
 import type { BaseStoreType } from './DataStore';
 import { DataAggregation, DataScaling, type FilterOptions, type IDataStore } from './types';
 
@@ -163,7 +164,7 @@ export const dataStoreFilterExtension = (store: BaseStoreType) => {
 		WHERE "${options.yColumnName}" != 'NaN' and x != 'NaN' and z != 'NaN'
 		${where ? `and "${where.columnName}" = '${where.value}'` : ''}
 		${options.scaleY === DataScaling.LOG ? `and "${options.yColumnName}" >= 0` : ''}
-		ORDER BY x ASC, y ASC ${where ? `, "${where.columnName}"` : ''}
+		ORDER BY x ASC, z ASC ${where ? `, "${where.columnName}"` : ''}
 		`;
 
 		try {
@@ -188,6 +189,7 @@ export const dataStoreFilterExtension = (store: BaseStoreType) => {
 		where?: { columnName: string; value: string }
 	): Promise<{
 		data: number[][];
+		points: Point3D[];
 		min: number;
 		max: number;
 		queryResult?: ITiledDataRow[];
@@ -199,12 +201,12 @@ export const dataStoreFilterExtension = (store: BaseStoreType) => {
 
 		try {
 			const rows = await getTiledRows(tableName, options, xRange, yRange, zRange, where);
-
+			const points = rows.map(row => [row.x, row.z, row.y] as Point3D);
 			const zDim = (options.zTileCount ?? options.tileCount) + 1;
 			const xDim = (options.xTileCount ?? options.tileCount) + 1;
 
 			// Transform rows into a 2D array for display
-			const data: number[][] = new Array(xDim).fill(0).map(() => new Array(zDim).fill(0));
+			const data: number[][] = new Array(xDim).fill(-1).map(() => new Array(zDim).fill(-1));
 
 			let min = Number.MAX_VALUE;
 			let max = Number.MIN_VALUE;
@@ -217,8 +219,11 @@ export const dataStoreFilterExtension = (store: BaseStoreType) => {
 				max = Math.max(max, r.y);
 				data[r.z][r.x] = r.y;
 			});
+
+
 			return {
 				data,
+				points,
 				min,
 				max,
 				queryResult: rows
@@ -227,6 +232,7 @@ export const dataStoreFilterExtension = (store: BaseStoreType) => {
 			console.error('Failed to create tiled data:', e);
 			return {
 				data: [],
+				points: [],
 				min: 0,
 				max: 0
 			};

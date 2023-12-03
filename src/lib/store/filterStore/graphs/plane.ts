@@ -322,9 +322,10 @@ export class PlaneGraphOptions extends GraphOptions<
 					);
 
 					return data.map((value, index) => ({
-						points: value.data,
+						points: value.points,
 						min: value.min,
 						max: value.max,
+
 						isChild: true,
 						name: values[index] as string,
 						color: colorBrewer.Set2[8][index % colorBrewer.Set2[8].length],
@@ -336,7 +337,7 @@ export class PlaneGraphOptions extends GraphOptions<
 			);
 
 			const layers = promise.map((data, index) => ({
-				points: data.data,
+				points: data.points,
 				layers: childLayers[index],
 				min: data.min,
 				max: data.max,

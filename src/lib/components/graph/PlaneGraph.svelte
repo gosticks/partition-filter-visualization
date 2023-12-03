@@ -64,11 +64,8 @@
 		layerVisibility = dataRenderer.getLayerVisibility();
 	};
 
-	const findRowData = async (tableName: string, x: number, z: number, rows: ITiledDataRow[]) => {
-		const row = rows.find((row) => row.x === x && row.z === z);
-		if (row && row.name) {
-			return await dbStore.getEntry(tableName, 'name', `'${row.name}'`);
-		}
+	const findRowData = async (tableName: string, row: ITiledDataRow) => {
+		return await dbStore.getEntry(tableName, 'name', `'${row.name}'`);
 	};
 
 	const onMouseMove = (event: MouseEvent) => {
@@ -93,8 +90,7 @@
 		const selectionChanged =
 			!selection ||
 			newSelection.layer !== selection?.layer ||
-			newSelection.x !== selection?.x ||
-			newSelection.z !== selection?.z;
+			newSelection.point !== selection?.point;
 
 		if (!selectionChanged) {
 			return;
@@ -105,12 +101,9 @@
 			if (selectionInfoPromise) {
 				selectionInfoPromise;
 			}
-
 			selectionInfoPromise = findRowData(
 				selection.parent ? selection.parent.name : selection.layer.name,
-				selection.x,
-				selection.z,
-				selection.layer.meta.rows as any
+				 selection.dataIndex,
 			);
 		}
 	};
@@ -284,15 +277,15 @@
 				</div>
 				<div class="flex justify-between gap-2">
 					<span>[x]{$dataStore.labels.x}:</span>
-					<span>{selection.normalizedCoords.x * $dataStore.ranges.x[1]}</span>
+					<span>{selection.point[0]}</span>
 				</div>
 				<div class="flex justify-between gap-2">
 					<span>[y]{$dataStore.labels.y}:</span>
-					<span>{selection.y}</span>
+					<span>{selection.point[2]}</span>
 				</div>
 				<div class="flex justify-between gap-2">
 					<span>[z]{$dataStore.labels.z}:</span>
-					<span>{selection.normalizedCoords.z * $dataStore.ranges.z[1]}</span>
+					<span>{selection.point[1]}</span>
 				</div>
 			</div>
 			{#if selectionInfoPromise}

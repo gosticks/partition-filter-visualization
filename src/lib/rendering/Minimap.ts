@@ -17,6 +17,7 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls';
 import { Easing, Tween } from '@tweenjs/tween.js';
 import { colorBrewer } from './colors';
+import type { CameraState } from '$lib/components/BasicGraph.svelte';
 
 const grayColorList = [
 	'#2B2B2B', // Charcoal Gray
@@ -97,6 +98,12 @@ export class Minimap {
 
 	destroy() {
 		this.stopped = true;
+	}
+
+	public setCameraState(state:CameraState) {
+		this.camera.position.copy(state.position);
+		this.camera.rotation.copy(state.rotation);
+		this.controls.update();
 	}
 
 	private onCanvasHover(event: MouseEvent) {
