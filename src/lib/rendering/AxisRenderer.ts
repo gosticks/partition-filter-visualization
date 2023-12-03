@@ -138,6 +138,28 @@ export class SingleAxis extends THREE.Group {
 		this.segmentLabels.children.forEach(
 			(child) => ((child as THREE.Sprite).material.opacity = opacity)
 		);
+		if (this.label) {
+			this.label.material.opacity = opacity;
+			if (this.axis == Axis.X) {
+				// TODO: adjust sprite rotation based on camera angle to maintain relative angle towards center
+			}
+			// console.log({
+			// 	xy: Math.abs(Math.atan2(cameraDirection.x, cameraDirection.y) / (Math.PI * 2)),
+			// 	yz: Math.abs(Math.atan2(cameraDirection.y, cameraDirection.z) / (Math.PI * 2)),
+			// 	xz: Math.abs(Math.atan2(cameraDirection.x, cameraDirection.z) / (Math.PI * 2))
+			// });
+			// this.label!.material.rotation = -Math.atan2(cameraDirection.x, cameraDirection.z);
+
+			// v3.project(camera);
+			// v3.x *= camera.aspect;
+			// v2.x *= camera.aspect;
+			// v2.sub(v3);
+			// v2.sub(new THREE.Vector2(v3.x, v3.y));
+
+			// this.label!.material.rotation = v2.angle();
+		}
+
+		// console.log(Math.atan2(cameraDirection.z, cameraDirection.x));
 	};
 
 	get fontAspectRation() {
@@ -172,15 +194,16 @@ export class SingleAxis extends THREE.Group {
 		const labelOffset = this.direction.clone().multiplyScalar(0.5);
 
 		label.position.set(
-			labelOffset.x === 0 ? -labelScale : labelOffset.x,
-			labelOffset.y === 0 ? -labelScale : labelOffset.y,
-			labelOffset.z === 0 ? -labelScale : labelOffset.z
+			labelOffset.x === 0 ? -labelScale * 3 : labelOffset.x,
+			labelOffset.y === 0 ? -labelScale * 3 : labelOffset.y,
+			labelOffset.z === 0 ? -labelScale * 3 : labelOffset.z
 		);
 
 		const textWidth = labelText.length * this.fontAspectRation;
 		if (this.axis === Axis.Y) {
-			// FIXME: use rotation instead of magic constant
-			label.position.x = -0.1 - textWidth * 0.05;
+			label.position.x = -0.1 - textWidth * 0.015;
+			label.position.z = -0.1 - textWidth * 0.015;
+			label.material.rotation = Math.PI / 2;
 		}
 
 		label.scale.set(labelScale * textWidth, labelScale, labelScale);
@@ -195,6 +218,7 @@ export class SingleAxis extends THREE.Group {
 			new THREE.SpriteMaterial({
 				transparent: true,
 				depthWrite: false,
+				// rotation: Math.PI / 2,
 				map: new TextTexture(text, {
 					...this.options.textOptions,
 					fontSize: this.options.textOptions.fontSize * 0.5
@@ -206,13 +230,27 @@ export class SingleAxis extends THREE.Group {
 
 		const labelScale = this.options.labelScale ?? SingleAxis.defaultSegmentSize;
 
-		const sizeScale = 4 / numSegments;
-		const nonMainAxisOffset = (this.axis === Axis.Y ? 0.7 : 0.2) + 0.1 * sizeScale;
+		const sizeScale = Math.min(16 / numSegments, 0.5);
+		const nonMainAxisOffset = this.axis === Axis.Y ? labelScale * textWidth * 4 : 0.0;
 		label.position.set(
 			labelOffset.x === 0 ? -nonMainAxisOffset * labelScale : labelOffset.x,
 			labelOffset.y === 0 ? -nonMainAxisOffset * labelScale : labelOffset.y,
 			labelOffset.z === 0 ? -nonMainAxisOffset * labelScale : labelOffset.z
 		);
+
+		// Apply rotation to fit larger labels
+		if (this.axis != Axis.Y) {
+			label.material.rotation = -Math.PI / 4;
+			label.position.y -= (labelScale * textWidth * sizeScale) / 2;
+		}
+
+		if (this.axis == Axis.X) {
+			label.position.z -= (labelScale * textWidth * sizeScale) / 2;
+		}
+		if (this.axis == Axis.Z) {
+			label.position.x -= (labelScale * textWidth * sizeScale) / 2;
+		}
+
 		label.scale.set(labelScale * textWidth, labelScale, labelScale).multiplyScalar(sizeScale);
 		return label;
 	}
@@ -241,12 +279,28 @@ export class SingleAxis extends THREE.Group {
 		this.segmentLabels.clear();
 		this.segmentLines.clear();
 
+		let segmentLineDirection = new THREE.Vector3();
+		const segmentLineLength = 0.01;
+		switch (this.axis) {
+			case Axis.X:
+				segmentLineDirection = new THREE.Vector3(0, 0, -segmentLineLength);
+				break;
+			case Axis.Y:
+				segmentLineDirection = new THREE.Vector3(-segmentLineLength, 0, -segmentLineLength);
+				break;
+			case Axis.Z:
+				segmentLineDirection = new THREE.Vector3(-segmentLineLength, 0, 0);
+				break;
+		}
+
 		const geometry = new THREE.BufferGeometry().setFromPoints([
 			new THREE.Vector3(0, 0, 0),
 			// Get 90 deg angle to direction vector
-			new THREE.Vector3(1, 0, 0)
+			segmentLineDirection
 		]);
 
+		const meshLine = new MeshLine();
+		meshLine.setGeometry(geometry);
 		for (let i = 0; i <= this.options.segments; i++) {
 			// Render segments
 			const material = new MeshLineMaterial({
@@ -254,10 +308,9 @@ export class SingleAxis extends THREE.Group {
 				lineWidth: this.options.lineWidth
 			});
 
-			const segmentLine = new THREE.Mesh(geometry, material);
-
-			segmentLine.position.set(0, 0, 0);
-			// segmentLine.scale.set(scale.x, scale.y, scale.z);
+			const segmentLine = new THREE.Mesh(meshLine.geometry, material);
+			const pos = this.direction.clone().multiplyScalar((1 / this.options.segments) * i);
+			segmentLine.position.set(pos.x, pos.y, pos.z);
 			this.segmentLines.add(segmentLine);
 
 			// Render segment
