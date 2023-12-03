@@ -1,8 +1,8 @@
 <script lang="ts">
 	import type { PageServerData } from '../$types';
-	import BasicGraph from '$lib/components/BasicGraph.svelte';
+	import BasicGraph, { type CameraState, type GraphService } from '$lib/components/BasicGraph.svelte';
 	import LoadingOverlay from '$lib/components/LoadingOverlay.svelte';
-	import type { Vector2 } from 'three';
+	import { Euler, Vector3, type Vector2 } from 'three';
 	import { dataStore } from '$lib/store/dataStore/DataStore';
 	import { browser } from '$app/environment';
 	import { onMount } from 'svelte';
@@ -19,7 +19,7 @@
 	} from '$lib/components/tableSelection/TableSelection.svelte';
 
 	export let data: PageServerData;
-
+	let setCameraState: (state: CameraState) => void;
 	// Accessing the slug parameter
 	$: slug = $page.params.slug;
 
@@ -32,31 +32,35 @@
 
 		// Pass possible db options to the filter sidebar
 		await filterStore.initWithPreloadedDatasets(data.dataset, selectedGraph);
+
+
+		if (selectedGraph["ui"]) {
+			const rotation = new Euler(selectedGraph["ui"].rotation.x, selectedGraph["ui"].rotation.y, selectedGraph["ui"].rotation.z);
+			const position = new Vector3(selectedGraph["ui"].position.x, selectedGraph["ui"].position.y, selectedGraph["ui"].position.z);
+			console.log({rotation, position});
+
+			// FIXME: something is resetting position
+			setCameraState({position, rotation});
+		}
 	});
 </script>
 
-<div>
-	<div class="relative">
-		<div class="h-screen w-full">
+<div class="h-screen w-full relative">
+	<BasicGraph>
+	<svelte:fragment slot="inner">
 			{#if $filterStore.graphOptions}
-				<div class="flex-grow flex-shrink">
-					<div class="flex flex-col">
-						<BasicGraph>
-							{#if $filterStore.graphOptions instanceof PlaneGraphOptions}
-								<PlaneGraph options={$filterStore.graphOptions} />
-							{/if}
-							<Minimal />
-						</BasicGraph>
-					</div>
-				</div>
+				{#if $filterStore.graphOptions instanceof PlaneGraphOptions}
+					<PlaneGraph options={$filterStore.graphOptions} />
+				{/if}
+				<Minimal bind:setCameraState={setCameraState} />
 			{:else}
-				<GridBackground />
+			<GridBackground />
 			{/if}
-		</div>
-		<FilterSidebar />
 
-		{#if $filterStore.isLoading || $dataStore.isLoading}
-			<LoadingOverlay isLoading={true} />
-		{/if}
-	</div>
+	</svelte:fragment>
+		<FilterSidebar />
+	</BasicGraph>
+	{#if $filterStore.isLoading || $dataStore.isLoading}
+	<LoadingOverlay isLoading={true} />
+	{/if}
 </div>
