@@ -14,6 +14,8 @@
 </script>
 
 <script lang="ts">
+	import type { DropdownSelectionEvent } from './DropdownSelect.svelte';
+
 	import { select } from 'd3';
 
 	import { ButtonColor, ButtonSize } from './button/type';
