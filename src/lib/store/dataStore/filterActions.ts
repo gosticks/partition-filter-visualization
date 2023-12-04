@@ -13,6 +13,15 @@ export interface ITiledDataRow {
 	name: string;
 }
 
+export type IQueryResult = {
+	// data: number[][];
+	points: Point3D[];
+	min: number;
+	max: number;
+	tiles: [number, number];
+	queryResult?: ITiledDataRow[];
+}
+
 export type MinValue = number;
 export type MaxValue = number;
 export type ValueRange = [MinValue, MaxValue];
@@ -169,11 +178,14 @@ export const dataStoreFilterExtension = (store: BaseStoreType) => {
 
 		try {
 			const resp = await store.executeQuery(queryV2);
+
+
 			if (!resp) {
 				// TODO: fix/handle this
 				return [];
 			}
-			return resp.toArray();
+			// TODO: move deduplication to DB for now simply do this in place
+			return resp.toArray().filter((val, index, arr) => index === 0 ? true : val["x"] != arr[index-1]["x"] || val["z"] != arr[index-1]["z"] )
 		} catch (e) {
 			console.error(e);
 			return [];
@@ -187,13 +199,7 @@ export const dataStoreFilterExtension = (store: BaseStoreType) => {
 		yRange?: ValueRange,
 		zRange?: ValueRange,
 		where?: { columnName: string; value: string }
-	): Promise<{
-		data: number[][];
-		points: Point3D[];
-		min: number;
-		max: number;
-		queryResult?: ITiledDataRow[];
-	}> => {
+	): Promise<IQueryResult> => {
 		const options = {
 			...defaultTiledDataOptions,
 			..._options
@@ -205,8 +211,6 @@ export const dataStoreFilterExtension = (store: BaseStoreType) => {
 			const zDim = (options.zTileCount ?? options.tileCount) + 1;
 			const xDim = (options.xTileCount ?? options.tileCount) + 1;
 
-			// Transform rows into a 2D array for display
-			const data: number[][] = new Array(xDim).fill(-1).map(() => new Array(zDim).fill(-1));
 
 			let min = Number.MAX_VALUE;
 			let max = Number.MIN_VALUE;
@@ -217,24 +221,23 @@ export const dataStoreFilterExtension = (store: BaseStoreType) => {
 				}
 				min = Math.min(min, r.y);
 				max = Math.max(max, r.y);
-				data[r.z][r.x] = r.y;
 			});
 
 
 			return {
-				data,
 				points,
 				min,
 				max,
+				tiles: [xDim, zDim],
 				queryResult: rows
 			};
 		} catch (e) {
 			console.error('Failed to create tiled data:', e);
 			return {
-				data: [],
 				points: [],
 				min: 0,
-				max: 0
+				max: 0,
+				tiles: [0, 0],
 			};
 		}
 	};

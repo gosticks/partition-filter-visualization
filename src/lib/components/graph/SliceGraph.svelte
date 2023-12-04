@@ -6,7 +6,7 @@
 		PlaneRenderer
 	} from '$lib/rendering/PlaneRenderer';
 	import Slider, { type SliderInputEvent } from '../slider/Slider.svelte';
-	import type { PlaneGraphOptions } from '$lib/store/filterStore/graphs/plane';
+	import type { PlaneGraphModel } from '$lib/store/filterStore/graphs/plane';
 	import SliceSelection from './SliceSelection.svelte';
 	import Dropdown, { getDropdownCtx } from '../Dropdown.svelte';
 	import Button from '../button/Button.svelte';
@@ -27,13 +27,12 @@
 	import type { LayerVisibilityList } from '../layerLegend/LayerGroup.svelte';
 	import { Axis } from '$lib/rendering/AxisRenderer';
 	import Dialog, { DialogSize } from '../dialog/Dialog.svelte';
-	import type { ITableReference } from '$lib/store/filterStore/types';
 	import type { ITiledDataRow } from '$lib/store/dataStore/filterActions';
 	import DropdownSelect, { type DropdownSelectionEvent } from '../DropdownSelect.svelte';
 	import BasicGraph from '../BasicGraph.svelte';
 	import { DataScaling } from '$lib/store/dataStore/types';
 
-	export let options: PlaneGraphOptions;
+	export let options: PlaneGraphModel;
 	export let layerVisibility: LayerVisibilityList;
 	export let axis: Axis = Axis.X;
 	// If enabled adds an expand button that rerenders the slice graph into a dialog

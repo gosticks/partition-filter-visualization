@@ -27,7 +27,7 @@ export abstract class GraphRenderer<T = unknown, InstanceMetaInfo = any> extends
 	 * Used to update rendering based on data changes
 	 * @param data
 	 */
-	abstract updateWithData(data: T, colorPalette?: THREE.ColorRepresentation[]): void;
+	abstract update(data: T, options: any, colorPalette?: THREE.ColorRepresentation[]): void;
 
 	abstract getInfoAtPoint(glPoint: Vector2): InstanceMetaInfo | undefined;
 }

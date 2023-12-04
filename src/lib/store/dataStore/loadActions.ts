@@ -1,15 +1,12 @@
 import { get, type Writable } from 'svelte/store';
 import type { BaseStoreType } from './DataStore';
-import type { IDataStore, ITableEntry, TableSchema } from './types';
+import type { IDataStore, ILoadedTable, ITableBuildIn,  TableSchema } from './types';
 import {
 	TableSource,
 	type ITableReference,
 	type ITableRefList,
-	type ITableExternalUrl,
-	type ITableExternalFile
-} from '../filterStore/types';
+} from './types';
 import notificationStore from '../notificationStore';
-import { flatGroup } from 'd3';
 
 // Store extension containing actions to load data, transform & drop data
 export const dataStoreLoadExtension = (store: BaseStoreType, dataStore: Writable<IDataStore>) => {
@@ -92,12 +89,11 @@ export const dataStoreLoadExtension = (store: BaseStoreType, dataStore: Writable
 		shouldSetLoading = true,
 		createTable = true,
 		shouldUpdateTableList = true
-	): Promise<ITableEntry | undefined> => {
+	): Promise<ILoadedTable | undefined> => {
 		const conn = await store.getConnection();
 
 		if (!conn) {
-			// TODO: add error handling
-			return;
+			throw new Error("no database connection")
 		}
 
 		if (shouldSetLoading) {
@@ -119,6 +115,11 @@ export const dataStoreLoadExtension = (store: BaseStoreType, dataStore: Writable
 					break;
 			}
 
+			if (createTable) {
+				// remove old table with this name
+				await removeTable(ref.tableName);
+			}
+
 			await conn.insertCSVFromPath(url, {
 				name: ref.tableName,
 				detect: true,
@@ -126,23 +127,24 @@ export const dataStoreLoadExtension = (store: BaseStoreType, dataStore: Writable
 			});
 
 			const schema = await store.getTableSchema(ref.tableName);
-			const tableEntry: ITableEntry = {
+			const prevRefs = get(store).tables[ref.tableName]?.refs ?? [];
+			const loadedTableInfo: ILoadedTable = {
 				name: ref.tableName,
 				displayName: ref.displayName,
 				schema,
 				filterOptions: {},
-				ref: ref
+				refs: createTable ? [ref] : [...prevRefs, ref]
 			};
 
 			if (shouldUpdateTableList) {
 				// Update or replace table entry
 				dataStore.update((store) => {
-					store.tables[ref.tableName] = tableEntry;
+					store.tables[ref.tableName] = loadedTableInfo
 					return store;
 				});
 			}
 
-			return tableEntry;
+			return loadedTableInfo;
 		} catch (e) {
 			const msg = `Failed to load table ${ref.tableName} from path ${url}`;
 			console.error(msg, e);
@@ -161,7 +163,7 @@ export const dataStoreLoadExtension = (store: BaseStoreType, dataStore: Writable
 	const postProcessTable = async (
 		tableName: string,
 		refs: ITableRefList
-	): Promise<ITableEntry | undefined> => {
+	): Promise<ILoadedTable | undefined> => {
 		console.debug('Post process', { tableName, refs });
 		if (refs.length === 0) {
 			return;
@@ -171,17 +173,18 @@ export const dataStoreLoadExtension = (store: BaseStoreType, dataStore: Writable
 		try {
 			switch (refType) {
 				case TableSource.BUILD_IN: {
-					switch (refs[0].dataset.name) {
-						case 'experiments':
+					// FIXME: handle table parsing
+					// switch (refs[0].dataset.name) {
+						// case 'experiments':
 							await rewriteExperimentsEntries(tableName);
-					}
+					// }
 				}
 			}
 			// await addIndexColumn(tableName);
 			const schema = await store.getTableSchema(tableName);
 			const filterOptions = {}; //await getFiltersOptions(tableName, Object.keys(schema));
 			console.log('Rewrite response:', { schema, filterOptions, table: tableName });
-			return { schema, filterOptions, name: tableName, dataUrl: '' };
+			return { schema, filterOptions, name: tableName, refs };
 		} catch (e) {
 			console.error(`Failed to rewrite entries for table ${tableName}:`, e);
 			return undefined;
@@ -234,12 +237,13 @@ export const dataStoreLoadExtension = (store: BaseStoreType, dataStore: Writable
 		}, {} as TableSchema);
 	};
 
+
 	/**
 	 * Loads all CSVs for the selected filters entries
 	 * @param selected
 	 * @returns
 	 */
-	const loadCsvsFromRefs = async (refs: ITableRefList): Promise<ITableEntry[]> =>
+	const loadCsvsFromRefs = async (refs: ITableReference[]): Promise<ILoadedTable[]> =>
 		withLoading(async () => {
 			if (refs.length === 0) {
 				return [];
@@ -268,7 +272,7 @@ export const dataStoreLoadExtension = (store: BaseStoreType, dataStore: Writable
 						return [];
 					}
 
-					const loadedTables: ITableEntry[] = [];
+					const loadedTables: ILoadedTable[] = [];
 
 					console.debug('loading table group:', { tableName, entries });
 					// Load grouped entries sequentially
@@ -294,7 +298,7 @@ export const dataStoreLoadExtension = (store: BaseStoreType, dataStore: Writable
 				const promiseResult = await promise;
 				const tableDefinitions = promiseResult.filter(
 					(t) => t !== undefined
-				) as unknown as ITableEntry[];
+				) as unknown as ILoadedTable[];
 				console.debug('loaded tables into db:', { tableDefinitions, promiseResult });
 				// Update data store
 				dataStore.update((store) => {
@@ -369,7 +373,7 @@ export const dataStoreLoadExtension = (store: BaseStoreType, dataStore: Writable
 	return {
 		// Add modifiers
 		loadEntriesFromFileList: async (fileList: FileList) => {
-			const promises: Promise<ITableEntry | undefined>[] = [];
+			const promises: Promise<ILoadedTable | undefined>[] = [];
 
 			for (const file of fileList) {
 				const tableName = file.name.replace('.csv', '');

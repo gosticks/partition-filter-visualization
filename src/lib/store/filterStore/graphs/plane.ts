@@ -1,16 +1,21 @@
-import type { IPlaneChildData, IPlaneRendererData } from '$lib/rendering/PlaneRenderer';
+import {
+	PlaneRenderer,
+	type IPlaneChildData,
+	type IPlaneRenderOptions,
+	type IPlaneRendererData,
+	PlaneTriangulation
+} from '$lib/rendering/PlaneRenderer';
 import { dataStore } from '$lib/store/dataStore/DataStore';
 import { get, readonly, writable, type Readable, type Writable } from 'svelte/store';
-import { GraphOptions, GraphType } from '../types';
+import { GraphOptions, GraphType, type GraphFilterOptions } from '../types';
 import { DataAggregation, DataScaling } from '$lib/store/dataStore/types';
 import { colorBrewer, graphColors } from '$lib/rendering/colors';
 import type { ITiledDataOptions, ValueRange } from '$lib/store/dataStore/filterActions';
-import { urlDecodeObject, urlEncodeObject, withSingleKeyUrlStorage } from '$lib/store/urlStorage';
 import { withLogMiddleware } from '$lib/store/logMiddleware';
 import notificationStore from '$lib/store/notificationStore';
 
 type RequiredOptions = ITiledDataOptions & {
-	groupBy: string;
+	groupBy?: string;
 };
 
 export type IPlaneGraphState = (
@@ -22,8 +27,11 @@ export type IPlaneGraphState = (
 	  } & Partial<RequiredOptions>)
 ) & { isRendered: boolean };
 
-export class PlaneGraphOptions extends GraphOptions<
+const defaultInitialState = {};
+
+export class PlaneGraphModel extends GraphOptions<
 	Partial<RequiredOptions>,
+	IPlaneRenderOptions,
 	IPlaneRendererData | undefined
 > {
 	private _dataStore: Writable<IPlaneRendererData | undefined>;
@@ -32,10 +40,43 @@ export class PlaneGraphOptions extends GraphOptions<
 	public dataStore: Readable<IPlaneRendererData | undefined>;
 	public optionsStore: Readable<Partial<RequiredOptions>>;
 
-	constructor(initialState: Partial<RequiredOptions> = {}) {
+	private _renderOptions: IPlaneRenderOptions;
+
+	public get renderSettings() {
+		return this._renderOptions as Readonly<IPlaneRenderOptions>;
+	}
+
+	private renderOptionFields: GraphFilterOptions<IPlaneRenderOptions> = {
+		showSelection: {
+			type: 'boolean',
+			label: 'Data points',
+			default: true,
+			required: true
+		},
+		triangulation: {
+			type: 'string',
+			label: 'Triangulation',
+			options: Object.values(PlaneTriangulation),
+			required: true
+		}
+	};
+
+	public getRenderOptionFields() {
+		return this.renderOptionFields;
+	}
+
+	constructor(
+		initialState: Partial<RequiredOptions> = defaultInitialState,
+		renderSettings: Partial<IPlaneRenderOptions> = {}
+	) {
 		super({});
 		this._dataStore = writable(undefined);
 		this.dataStore = readonly(this._dataStore);
+
+		this._renderOptions = {
+			...PlaneRenderer.defaultRenderOptions(),
+			...renderSettings
+		};
 
 		// Check if options are initially valid
 		const initialOptions = {
@@ -44,48 +85,25 @@ export class PlaneGraphOptions extends GraphOptions<
 			isValid: this.isValid(initialState)
 		} as IPlaneGraphState;
 
-		this._optionsStore = withLogMiddleware(
-			withSingleKeyUrlStorage(
-				writable(initialOptions),
-				'filterStore',
-				(state) => {
-					return urlEncodeObject(state);
-				},
-				(value) => {
-					if (!value || value === 'undefined') {
-						return initialOptions;
-					}
-					const state = urlDecodeObject(value);
-					return {
-						isRendered: false,
-						isValid: this.isValid(state),
-						...state
-					} as IPlaneGraphState;
-				}
-			),
-			'PlaneGraphOptions',
-			{
-				color: 'orange'
-			}
-		);
+		this._optionsStore = withLogMiddleware(writable(initialOptions), 'PlaneGraphModel', {
+			color: 'orange'
+		});
+
 		this.optionsStore = readonly(this._optionsStore);
 		this.reloadFilterOptions();
+
+		// if no default init was passed in attempt to init with some data based defaults
+		if (initialState === defaultInitialState) {
+			this.resetOptions();
+		}
+
 		this.applyOptionsIfValid();
 	}
 
-	public toString(): string {
-		const state = get(this._optionsStore);
-		return urlEncodeObject({
-			type: this.getType(),
-			state
-		});
-	}
-
 	public toStateObject() {
-		const state = get(this._optionsStore);
 		return {
-			type: this.getType(),
-			state
+			data: this.getCurrentOptions(),
+			render: this._renderOptions
 		};
 	}
 
@@ -109,12 +127,25 @@ export class PlaneGraphOptions extends GraphOptions<
 		this.applyOptionsIfValid();
 	};
 
+	public setRenderOption = <K extends keyof IPlaneRenderOptions>(
+		key: K,
+		value: IPlaneRenderOptions[K]
+	) => {
+		this._renderOptions[key] = value;
+		this.applyOptionsIfValid();
+	};
+
 	// Utility method to check if current user input results in a valid graph state
 	private isValid(state: Partial<RequiredOptions> | undefined): boolean {
 		if (!state) {
 			return false;
 		}
-		const isValid = Object.entries(this.filterOptions).every(([key, value]) => {
+
+		if (Object.keys(state).length === 0) {
+			return false;
+		}
+
+		const isValid = Object.entries(this.filterOptionFields).every(([key, value]) => {
 			if (value.type === 'row') {
 				return value.keys.every((key, index) =>
 					value.items[index].required ? state[key] !== undefined : true
@@ -124,9 +155,23 @@ export class PlaneGraphOptions extends GraphOptions<
 			return value.required ? state[key as keyof RequiredOptions] !== undefined : true;
 		});
 
-		console.log({ isValid });
-
 		return isValid;
+	}
+
+	private resetOptions() {
+		this._optionsStore.update((state) => {
+			for (const [k, v] of Object.entries(this.filterOptionFields)) {
+				if (v.type === 'row') {
+					v.keys.forEach((key, index) => {
+						(state as any)[key as keyof RequiredOptions] = v.items[index].default;
+					});
+				} else {
+					(state as any)[k as keyof RequiredOptions] = v.default;
+				}
+			}
+			state.isValid = this.isValid(state);
+			return state;
+		});
 	}
 
 	// performs a DB query and constructs UI Options that will be used for dropdowns and other components
@@ -139,7 +184,7 @@ export class PlaneGraphOptions extends GraphOptions<
 		const numberTableColumns = Object.entries(data.combinedSchema)
 			.filter(([, type]) => type === 'number')
 			.map(([column]) => column);
-		this.filterOptions = {
+		this.filterOptionFields = {
 			groupBy: {
 				type: 'string',
 				options: stringTableColumns,
@@ -161,13 +206,15 @@ export class PlaneGraphOptions extends GraphOptions<
 						type: 'string',
 						options: numberTableColumns,
 						label: 'X Axis',
-						required: true
+						required: true,
+						default: numberTableColumns[Math.floor(Math.random() * numberTableColumns.length)]
 					},
 					{
 						type: 'string',
 						options: Object.values(DataScaling),
 						label: 'X Scale',
-						required: true
+						required: true,
+						default: DataScaling.LINEAR
 					}
 				]
 			},
@@ -180,13 +227,15 @@ export class PlaneGraphOptions extends GraphOptions<
 						type: 'string',
 						options: numberTableColumns,
 						label: 'Y Axis',
-						required: true
+						required: true,
+						default: numberTableColumns[Math.floor(Math.random() * numberTableColumns.length)]
 					},
 					{
 						type: 'string',
 						options: Object.values(DataScaling),
 						label: 'Y Scale',
-						required: true
+						required: true,
+						default: DataScaling.LINEAR
 					}
 				]
 			},
@@ -199,13 +248,15 @@ export class PlaneGraphOptions extends GraphOptions<
 						type: 'string',
 						options: numberTableColumns,
 						label: 'Z Axis',
-						required: true
+						required: true,
+						default: numberTableColumns[Math.floor(Math.random() * numberTableColumns.length)]
 					},
 					{
 						type: 'string',
-						options: [DataScaling.LINEAR, DataScaling.LOG],
+						options: Object.values(DataScaling),
 						label: 'Z Scale',
-						required: true
+						required: true,
+						default: DataScaling.LINEAR
 					}
 				]
 			},
@@ -213,7 +264,8 @@ export class PlaneGraphOptions extends GraphOptions<
 				type: 'number',
 				options: [2, 128],
 				label: 'Tile Count',
-				required: true
+				required: true,
+				default: 24
 			}
 		};
 	}
@@ -225,65 +277,28 @@ export class PlaneGraphOptions extends GraphOptions<
 	public getCurrentOptions() {
 		return get(this._optionsStore);
 	}
-
-	public async getGlobalRange(
-		columnName: string,
-		scaling: DataScaling
-	): Promise<ValueRange | null> {
-		const data = get(dataStore);
-		const tables = Object.keys(data.tables);
-
-		try {
-			const result = await Promise.all(
-				tables.map((table) => dataStore.getMinMax(table, columnName, scaling))
-			);
-			return result.reduce(
-				(acc, [min, max]) => [Math.min(acc[0], min), Math.max(acc[1], max)],
-				[0, -Infinity]
-			);
-		} catch {
-			return null;
-		}
-	}
-
 	// if options are valid dataStore will be updated with new values
 	// dataStore is used for actual rendering
 	public async applyOptionsIfValid() {
 		const state = get(this._optionsStore);
-		console.log('applying store', state);
 		if (state.isValid !== true) {
 			return;
 		}
 
+		const ranges = await this.getGlobalRanges();
+		if (ranges === null) {
+			return;
+		}
+
+		const [xAxisRange, yAxisRange, zAxisRange] = ranges;
+
 		// Get available tables
 		const data = get(dataStore);
+		const tables = Object.keys(data.tables);
+		const hasGroupBy = state.groupBy !== null;
 
 		// Get all layers
 		try {
-			const tables = Object.keys(data.tables);
-			console.debug('loading data from tables', tables);
-			const xAxisRange = await this.getGlobalRange(state.xColumnName, state.scaleX);
-			const yAxisRange = await this.getGlobalRange(state.yColumnName, state.scaleY);
-			const zAxisRange = await this.getGlobalRange(state.zColumnName, state.scaleZ);
-			if (!xAxisRange || !yAxisRange || !zAxisRange) {
-				notificationStore.error({
-					message: 'Data range invalid',
-					description: JSON.stringify({
-						column: state.xColumnName,
-						xAxisRange,
-						yAxisRange,
-						zAxisRange
-					})
-				});
-				return;
-			}
-
-			console.debug('axis ranges', {
-				xAxisRange,
-				yAxisRange,
-				zAxisRange
-			});
-
 			const promise = await Promise.all(
 				tables.map((table) =>
 					dataStore.getTiledData(
@@ -297,48 +312,15 @@ export class PlaneGraphOptions extends GraphOptions<
 			);
 
 			// If group by set also query groupBy data
-			const childLayers = await Promise.all<IPlaneChildData[]>(
-				tables.map(async (table) => {
-					const values = await dataStore.getDistinctValues(table, state.groupBy);
-					if (values.length > 30) {
-						const error = `Too many options returned by group by number=${values.length} (limit 10)`;
-						notificationStore.error({
-							message: error
-						});
-						throw new Error(error);
-					}
-
-					const data = await Promise.all(
-						values.map((value) =>
-							dataStore.getTiledData(
-								table,
-								state as RequiredOptions,
-								xAxisRange,
-								yAxisRange,
-								zAxisRange,
-								{ columnName: state.groupBy, value: value as string }
-							)
-						)
-					);
-
-					return data.map((value, index) => ({
-						points: value.points,
-						min: value.min,
-						max: value.max,
-
-						isChild: true,
-						name: values[index] as string,
-						color: colorBrewer.Set2[8][index % colorBrewer.Set2[8].length],
-						meta: {
-							rows: value.queryResult
-						}
-					}));
-				})
-			);
+			const childLayers = hasGroupBy
+				? await Promise.all(
+						tables.map((table) => this.queryGroupedLayers(table, state.groupBy!, ranges))
+				  )
+				: null;
 
 			const layers = promise.map((data, index) => ({
 				points: data.points,
-				layers: childLayers[index],
+				layers: childLayers?.[index],
 				min: data.min,
 				max: data.max,
 				name: tables[index] as string,
@@ -368,6 +350,108 @@ export class PlaneGraphOptions extends GraphOptions<
 		} catch (e) {
 			console.error('Failed to load tiled data:', e);
 			return;
+		}
+	}
+
+	private async getGlobalRange(
+		columnName: string,
+		scaling: DataScaling
+	): Promise<ValueRange | null> {
+		const data = get(dataStore);
+		const tables = Object.keys(data.tables);
+
+		try {
+			const result = await Promise.all(
+				tables.map((table) => dataStore.getMinMax(table, columnName, scaling))
+			);
+			return result.reduce(
+				(acc, [min, max]) => [Math.min(acc[0], min), Math.max(acc[1], max)],
+				[0, -Infinity]
+			);
+		} catch {
+			return null;
+		}
+	}
+
+	// Get ranges along all selected columns and all tables
+	private async getGlobalRanges(): Promise<[ValueRange, ValueRange, ValueRange] | null> {
+		const state = get(this._optionsStore);
+		if (state.isValid !== true) {
+			return null;
+		}
+
+		// Get all layers
+		try {
+			const xAxisRange = await this.getGlobalRange(state.xColumnName, state.scaleX);
+			const yAxisRange = await this.getGlobalRange(state.yColumnName, state.scaleY);
+			const zAxisRange = await this.getGlobalRange(state.zColumnName, state.scaleZ);
+			if (!xAxisRange || !yAxisRange || !zAxisRange) {
+				throw Error(`Data ranges empty, x:${xAxisRange}, y:${yAxisRange}, z:${zAxisRange}`);
+			}
+
+			return [xAxisRange, yAxisRange, zAxisRange];
+		} catch (err) {
+			notificationStore.error({
+				message: `Could not compute data range: ${err}`,
+				description: 'Verify databases are loaded correctly and contain the selected columns'
+			});
+			console.error({ msg: 'getGlobalRanges:', state });
+			return null;
+		}
+	}
+
+	private async queryGroupedLayers(
+		tableName: string,
+		groupColumn: string,
+		ranges: [ValueRange, ValueRange, ValueRange],
+		groupValueLimit: number = 40
+	): Promise<IPlaneChildData[]> {
+		const state = get(this._optionsStore);
+		if (state.isValid !== true) {
+			return [];
+		}
+
+		const values = await dataStore.getDistinctValues(tableName, groupColumn);
+		if (values.length > groupValueLimit) {
+			throw Error(
+				`Too many options for group by: col:${groupColumn} has ${values.length} distinct values`
+			);
+		}
+
+		try {
+			const data = await Promise.all(
+				values.map((value) =>
+					dataStore.getTiledData(
+						tableName,
+						state as RequiredOptions,
+						ranges[0],
+						ranges[1],
+						ranges[2],
+						{
+							columnName: groupColumn,
+							value: value as string
+						}
+					)
+				)
+			);
+
+			return data.map((value, index) => ({
+				points: value.points,
+				min: value.min,
+				max: value.max,
+
+				isChild: true,
+				name: values[index] as string,
+				color: colorBrewer.Set2[8][index % colorBrewer.Set2[8].length],
+				meta: {
+					rows: value.queryResult
+				}
+			}));
+		} catch (err) {
+			notificationStore.error({
+				message: `${err}`
+			});
+			return [];
 		}
 	}
 }

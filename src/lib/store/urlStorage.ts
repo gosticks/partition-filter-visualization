@@ -60,6 +60,10 @@ export const withSingleKeyUrlStorage = <S>(
 	encoder: (state: S) => string | null,
 	decoder: (value?: string | null) => S
 ) => {
+	if (!browser) {
+		return store;
+	}
+
 	// Restore state from storage
 	const params = new URLSearchParams(location.search);
 

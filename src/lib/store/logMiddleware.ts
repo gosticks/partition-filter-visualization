@@ -1,5 +1,4 @@
-import { get, type Subscriber, type Writable } from 'svelte/store';
-import { detailedDiff } from 'deep-object-diff';
+import type{ Subscriber, Writable } from 'svelte/store';
 export const defaultLogOptions = {
 	color: 'blue'
 };

@@ -4,10 +4,13 @@ import { identity } from "./transformers";
 export type Point2D = [number, number];
 export type Point3D = [number, number, number];
 
+
+
+// Geometry that only renders polygons between data points
 export class SparsePlaneGeometry extends THREE.BufferGeometry {
     static readonly pointComponentSize = 3;
 
-    private d: Delaunay<Point2D>;
+    private d: Delaunay<Point3D>;
     private pointBuffer: Float32Array;
 
     constructor(
@@ -15,6 +18,7 @@ export class SparsePlaneGeometry extends THREE.BufferGeometry {
         scaleX: (x: number) => number = identity,
         scaleY: (y: number) => number = identity,
         scaleZ: (z: number) => number = identity,
+
     ) {
         super();
 

@@ -72,7 +72,7 @@ export class BarRenderer extends GraphRenderer<BarData> {
 		return raycaster.intersectObjects(this.bars, true);
 	}
 
-	updateWithData(data: BarData) {
+	update(data: BarData) {
 		if (this.barGroup) {
 			this.scene?.remove(this.barGroup);
 		}

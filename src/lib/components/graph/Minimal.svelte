@@ -1,9 +1,8 @@
 <script lang="ts">
 	import { getContext, onDestroy, onMount } from 'svelte';
-	import type { GraphService } from './types';
 	import { Minimap as MinimapRenderer } from '$lib/rendering/Minimap';
 	import { browser } from '$app/environment';
-	import { getGraphContext, type CameraState } from '../BasicGraph.svelte';
+	import { getGraphContext, type CameraState, type GraphService } from '../BasicGraph.svelte';
 
 	const graphService: GraphService = getGraphContext();
 

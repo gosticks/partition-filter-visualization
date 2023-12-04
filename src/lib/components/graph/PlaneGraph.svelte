@@ -8,7 +8,7 @@
 		type IPlaneData
 	} from '$lib/rendering/PlaneRenderer';
 	import Card from '../Card.svelte';
-	import type { PlaneGraphOptions } from '$lib/store/filterStore/graphs/plane';
+	import type { PlaneGraphModel } from '$lib/store/filterStore/graphs/plane';
 	import { writable, type Unsubscriber } from 'svelte/store';
 	import { dataStore as dbStore } from '$lib/store/dataStore/DataStore';
 	import Button from '../button/Button.svelte';
@@ -25,7 +25,7 @@
 	import { CopyIcon, LayersIcon, LockIcon } from 'svelte-feather-icons';
 	import notificationStore from '$lib/store/notificationStore';
 
-	export let options: PlaneGraphOptions;
+	export let options: PlaneGraphModel;
 
 	const graphService: GraphService = getGraphContext();
 
@@ -57,10 +57,10 @@
 		graphService.registerOnBeforeRender(dataRenderer.onBeforeRender.bind(dataRenderer));
 	};
 
-	const updateWithData = (data?: IPlaneRendererData) => {
+	const update = (data?: IPlaneRendererData) => {
 		if (!data || !dataRenderer) return;
 		dataRenderer.setAxisLabelRenderer(labelForAxis);
-		dataRenderer.updateWithData(data);
+		dataRenderer.update(data, options.renderSettings);
 		layerVisibility = dataRenderer.getLayerVisibility();
 	};
 
@@ -114,7 +114,7 @@
 
 		threeDomContainer.addEventListener('mousemove', onMouseMove);
 
-		let dataUnsub = options.dataStore.subscribe(updateWithData);
+		let dataUnsub = options.dataStore.subscribe(update);
 
 		unsubscriber = () => {
 			dataUnsub();
@@ -142,7 +142,6 @@
 		const range = $dataStore!.ranges[axis];
 
 		if (Axis.Y == axis && range) {
-			console.log({ range, segment });
 			return ((range[1] / numSegments) * segment).toFixed(2);
 		}
 
