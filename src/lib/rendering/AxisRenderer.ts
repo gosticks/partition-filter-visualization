@@ -123,9 +123,6 @@ export class SingleAxis extends THREE.Group {
 		renderer: THREE.WebGLRenderer,
 		scene: THREE.Scene,
 		camera: THREE.Camera,
-		geometry: THREE.BufferGeometry<THREE.NormalBufferAttributes>,
-		material: THREE.Material,
-		group: THREE.Group
 	) => {
 		const cameraDirection = new THREE.Vector3();
 		camera.getWorldDirection(cameraDirection);
@@ -359,12 +356,9 @@ export class AxisRenderer extends THREE.Object3D {
 		renderer: THREE.WebGLRenderer,
 		scene: THREE.Scene,
 		camera: THREE.Camera,
-		geometry: THREE.BufferGeometry<THREE.NormalBufferAttributes>,
-		material: THREE.Material,
-		group: THREE.Group
 	) => {
 		this.mapAxis.forEach((axisObj) =>
-			axisObj.onBeforeRender(renderer, scene, camera, geometry, material, group)
+			axisObj.onBeforeRender(renderer, scene, camera)
 		);
 	};
 

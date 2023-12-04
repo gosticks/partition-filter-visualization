@@ -32,12 +32,11 @@
 	import { get } from 'svelte/store';
 	import notificationStore from '$lib/store/notificationStore';
 	import { getGraphContext, type GraphService } from './BasicGraph.svelte';
+	import { imageFromGlContext } from '$lib/rendering/screenshot';
 
 	const graphService: GraphService = getGraphContext();
 	let optionsStore: GraphOptions['optionsStore'] | undefined;
 	let isFilterBarOpen: boolean = true;
-
-	onMount(async () => {});
 
 	$: if ($filterStore.graphOptions) {
 		optionsStore = $filterStore.graphOptions.optionsStore;
@@ -46,113 +45,37 @@
 	function onTableSelect(evt: TableSelectionEvent) {
 		const { buildInTables, externalTables } = evt.detail;
 		if (buildInTables) {
-			filterStore.selectBuildInTables(
+			filterStore.loadBuildInTables(
 				buildInTables.dataset,
 				buildInTables.paths.map((option) => option.value)
 			);
 		}
 
 		if (externalTables && externalTables.fileList) {
-			filterStore.selectTablesFromFiles(externalTables.fileList);
+			filterStore.loadTablesFromFiles(externalTables.fileList);
 		}
 
 		if (externalTables && externalTables.url) {
-			filterStore.selectTableFromURL(externalTables.url);
+			filterStore.loadTableFromURL(externalTables.url);
 		}
-	}
-
-	function onDatasetSelect(evt: DatasetSelectionEvent) {
-		filterStore.selectDataset(evt.detail);
 	}
 
 	function toggleFilterBar() {
 		isFilterBarOpen = !isFilterBarOpen;
 	}
 
-	function canvasFilledRegionBounds(ctx: WebGL2RenderingContext | WebGLRenderingContext) {
-		const pixels = new Uint8ClampedArray(ctx.drawingBufferWidth * ctx.drawingBufferHeight * 4);
-
-		ctx.readPixels(
-			0,
-			0,
-			ctx.drawingBufferWidth,
-			ctx.drawingBufferHeight,
-			ctx.RGBA,
-			ctx.UNSIGNED_BYTE,
-			pixels
-		);
-
-		let pixelCount = pixels.length;
-		let bound = {
-			top: -1,
-			left: -1,
-			right: -1,
-			bottom: -1
-		};
-		let x = 0;
-		let y = 0;
-		for (let i = 0; i < pixelCount; i += 4) {
-			if (pixels[i + 3] !== 0) {
-				x = (i / 4) % ctx.drawingBufferWidth;
-				y = ~~(i / 4 / ctx.drawingBufferWidth);
-				if (bound.top === -1) {
-					bound.top = y;
-				}
-				if (bound.left === -1) {
-					bound.left = x;
-				} else if (x < bound.left) {
-					bound.left = x;
-				}
-				if (bound.right === -1) {
-					bound.right = x;
-				} else if (bound.right < x) {
-					bound.right = x;
-				}
-				if (bound.bottom === -1) {
-					bound.bottom = y;
-				} else if (bound.bottom < y) {
-					bound.bottom = y;
-				}
-			}
-		}
-
-		return bound;
-	}
-
-	function drawCanvasToCanvas(
-		srcCtx: WebGL2RenderingContext | WebGLRenderingContext,
-		dstCtx: CanvasRenderingContext2D,
-		bound: ReturnType<typeof canvasFilledRegionBounds>
-	) {
-		dstCtx.drawImage(
-			srcCtx.canvas,
-			-bound.left,
-			-(srcCtx.drawingBufferHeight - bound.bottom), // canvas2d is inverted compared to pixels of canvas 3d
-			srcCtx.drawingBufferWidth,
-			srcCtx.drawingBufferHeight
-		);
-	}
-
 	function captureScreenshot(backgroundFill?: string | CanvasGradient | CanvasPattern) {
 		const {renderer} = graphService.getValues();
 		const srcCtx = renderer.getContext()
-		const copyCtx = document.createElement('canvas').getContext('2d');
-		if (!copyCtx) {
+		const imgData = imageFromGlContext(srcCtx, backgroundFill);
+
+		if (!imgData) {
+			notificationStore.error({
+				message: "Failed to capture screenshot",
+				description: "Image data empty"
+			});
 			return;
 		}
-
-		const bound = canvasFilledRegionBounds(srcCtx);
-		let trimHeight = bound.bottom - bound.top,
-			trimWidth = bound.right - bound.left;
-
-		copyCtx.canvas.width = trimWidth;
-		copyCtx.canvas.height = trimHeight;
-		if (backgroundFill) {
-			copyCtx.fillStyle = backgroundFill;
-			copyCtx.fillRect(0, 0, copyCtx.canvas.width, copyCtx.canvas.height);
-		}
-		drawCanvasToCanvas(srcCtx, copyCtx, bound);
-		const imgData = copyCtx.canvas.toDataURL('image/png');
 
 		let link = document.createElement('a');
 		link.href = imgData;
@@ -273,12 +196,11 @@
 							onTableSelect(selection);
 							dialogCtx.close();
 						}}
-						on:selectDataset={onDatasetSelect}
 					/>
 				</Dialog>
 				{#if Object.keys($dataStore.tables).length > 0}
 					<Divider />
-					<h3 class="font-semibold text-lg mb-2">Graph Type</h3>
+					<details open={!$filterStore.graphOptions?.getType()}><summary><h3 class="inline font-semibold text-lg mb-2">Graph Type</h3></summary>
 					{#each Object.values(GraphType) as graphType}
 						<Button
 							color={graphType === $filterStore.graphOptions?.getType()
@@ -292,24 +214,45 @@
 							</div>
 						</Button>
 					{/each}
+					</details>
 					{#if optionsStore && $filterStore.graphOptions}
 						<Divider />
-						<h3 class="font-semibold text-lg">Visualization options</h3>
+						<details open><summary><h3 class="font-semibold inline-block text-lg">Visualization options</h3></summary>
 						<div class="flex flex-col gap-2">
 							<div class="mb-4">
-								{#each Object.entries($filterStore.graphOptions.filterOptions ?? {}) as [key, value]}
-									{#if typeof value !== 'undefined'}
-										<OptionRenderer
-											onValueChange={$filterStore.graphOptions.setFilterOption}
-											option={value}
-											state={$optionsStore}
-											{key}
-										/>
-									{/if}
+								{#each Object.entries($filterStore.graphOptions.filterOptionFields ?? {}) as [key, value]}
+								{#if typeof value !== 'undefined'}
+								<OptionRenderer
+								onValueChange={$filterStore.graphOptions.setFilterOption}
+								option={value}
+								state={$optionsStore}
+								{key}
+								/>
+								{/if}
 								{/each}
 							</div>
 							<Button color={ButtonColor.SECONDARY}>Reset</Button>
 						</div>
+						</details>
+						<Divider />
+						<details ><summary><h3 class="font-semibold inline text-lg">Render options</h3>
+							<div class="flex flex-col gap-2">
+								<div class="mb-4">
+									{#each Object.entries($filterStore.graphOptions.getRenderOptionFields()) as [key, value]}
+									{#if typeof value !== 'undefined'}
+									<OptionRenderer
+									onValueChange={$filterStore.graphOptions.setRenderOption}
+									option={value}
+									state={$optionsStore}
+									{key}
+									/>
+									{/if}
+									{/each}
+								</div>
+								<Button color={ButtonColor.SECONDARY}>Reset</Button>
+							</div>
+						</summary>
+						</details>
 					{/if}
 				{/if}
 			</Card>

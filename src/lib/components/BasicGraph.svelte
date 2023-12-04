@@ -5,9 +5,9 @@
 		renderer: THREE.WebGLRenderer,
 		scene: THREE.Scene,
 		camera: THREE.Camera,
-		geometry: THREE.BufferGeometry<THREE.NormalBufferAttributes>,
-		material: THREE.Material,
-		group: THREE.Group
+		geometry?: THREE.BufferGeometry<THREE.NormalBufferAttributes>,
+		material?: THREE.Material,
+		group?: THREE.Group
 	) => void;
 
 	export type CameraState = {
