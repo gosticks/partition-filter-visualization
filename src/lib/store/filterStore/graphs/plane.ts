@@ -95,6 +95,10 @@ export class PlaneGraphModel extends GraphOptions<
 		// if no default init was passed in attempt to init with some data based defaults
 		if (initialState === defaultInitialState) {
 			this.resetOptions();
+		} else {
+			// trigger re render of UI components
+			// and other events depending on state
+			this._dataStore.update((state) => state);
 		}
 
 		this.applyOptionsIfValid();
@@ -113,13 +117,23 @@ export class PlaneGraphModel extends GraphOptions<
 			return null;
 		}
 		return `${this.getType()}-${state.xColumnName}-${state.yColumnName}-${state.zColumnName}-${
-			state.tileCount
-		}x${state.tileCount}`;
+			state.xTileCount
+		}x${state.zTileCount}`;
 	}
 
 	public setFilterOption = <K extends keyof RequiredOptions>(key: K, value: RequiredOptions[K]) => {
 		this._optionsStore.update((store) => {
 			(store as Partial<RequiredOptions>)[key] = value;
+			if (key === 'lockTileCounts') {
+				store.zTileCount = store.xTileCount;
+			}
+			if (store.lockTileCounts === true) {
+				if (key === 'xTileCount') {
+					store.zTileCount = value as number;
+				} else if (key === 'zTileCount') {
+					store.xTileCount = value as number;
+				}
+			}
 			store.isValid = this.isValid(store);
 			return store;
 		});
@@ -194,8 +208,8 @@ export class PlaneGraphModel extends GraphOptions<
 				type: 'string',
 				label: 'Aggregation',
 				required: true,
-				options: Object.values(DataAggregation),
-				default: DataAggregation.MIN
+				options: Object.values(DataAggregation)
+				// default: DataAggregation.MIN
 			},
 			xColumnName: {
 				type: 'row',
@@ -206,15 +220,15 @@ export class PlaneGraphModel extends GraphOptions<
 						type: 'string',
 						options: numberTableColumns,
 						label: 'X Axis',
-						required: true,
-						default: numberTableColumns[Math.floor(Math.random() * numberTableColumns.length)]
+						required: true
+						// default: numberTableColumns[Math.floor(Math.random() * numberTableColumns.length)]
 					},
 					{
 						type: 'string',
 						options: Object.values(DataScaling),
 						label: 'X Scale',
-						required: true,
-						default: DataScaling.LINEAR
+						required: true
+						// default: DataScaling.LINEAR
 					}
 				]
 			},
@@ -227,15 +241,15 @@ export class PlaneGraphModel extends GraphOptions<
 						type: 'string',
 						options: numberTableColumns,
 						label: 'Y Axis',
-						required: true,
-						default: numberTableColumns[Math.floor(Math.random() * numberTableColumns.length)]
+						required: true
+						// default: numberTableColumns[Math.floor(Math.random() * numberTableColumns.length)]
 					},
 					{
 						type: 'string',
 						options: Object.values(DataScaling),
 						label: 'Y Scale',
-						required: true,
-						default: DataScaling.LINEAR
+						required: true
+						// default: DataScaling.LINEAR
 					}
 				]
 			},
@@ -248,24 +262,37 @@ export class PlaneGraphModel extends GraphOptions<
 						type: 'string',
 						options: numberTableColumns,
 						label: 'Z Axis',
-						required: true,
-						default: numberTableColumns[Math.floor(Math.random() * numberTableColumns.length)]
+						required: true
+						// default: numberTableColumns[Math.floor(Math.random() * numberTableColumns.length)]
 					},
 					{
 						type: 'string',
 						options: Object.values(DataScaling),
 						label: 'Z Scale',
-						required: true,
-						default: DataScaling.LINEAR
+						required: true
+						// default: DataScaling.LINEAR
 					}
 				]
 			},
-			tileCount: {
+			xTileCount: {
 				type: 'number',
 				options: [2, 128],
-				label: 'Tile Count',
-				required: true,
-				default: 24
+				label: 'X Tile Count',
+				required: true
+				// default: 24
+			},
+			zTileCount: {
+				type: 'number',
+				options: [2, 128],
+				label: 'Z Tile Count',
+				required: true
+				// default: 24
+			},
+			lockTileCounts: {
+				type: 'boolean',
+				label: 'Lock tile counts',
+				required: false
+				// default: true
 			}
 		};
 	}
@@ -343,8 +370,8 @@ export class PlaneGraphModel extends GraphOptions<
 					z: zAxisRange
 				},
 				tileRange: {
-					x: state.xTileCount ?? state.tileCount,
-					z: state.zTileCount ?? state.tileCount
+					x: state.xTileCount,
+					z: state.zTileCount
 				}
 			});
 		} catch (e) {
