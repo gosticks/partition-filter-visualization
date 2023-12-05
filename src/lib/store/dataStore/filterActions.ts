@@ -30,9 +30,9 @@ export type ITiledDataOptions = {
 	xColumnName: string;
 	yColumnName: string;
 	zColumnName: string;
-	xTileCount?: number;
-	zTileCount?: number;
-	tileCount: number;
+	xTileCount: number;
+	zTileCount: number;
+	lockTileCounts: boolean;
 	scaleY: DataScaling;
 	scaleX: DataScaling;
 	scaleZ: DataScaling;
@@ -70,17 +70,6 @@ export const dataStoreFilterExtension = (store: BaseStoreType) => {
 			case DataScaling.LOG:
 				return `LOG2(${wrap}${inner}${wrap})`;
 		}
-	};
-
-	const defaultTiledDataOptions: ITiledDataOptions = {
-		xColumnName: 'iterations',
-		yColumnName: 'fpr',
-		zColumnName: 'cpu_time',
-		tileCount: 20,
-		scaleY: DataScaling.LINEAR,
-		scaleX: DataScaling.LINEAR,
-		scaleZ: DataScaling.LINEAR,
-		aggregation: DataAggregation.MIN
 	};
 
 	const getEntry = async (
@@ -141,8 +130,8 @@ export const dataStoreFilterExtension = (store: BaseStoreType) => {
 		zRange?: ValueRange,
 		where?: { columnName: string; value: string }
 	): Promise<ITiledDataRow[]> => {
-		const xTileCount = options.xTileCount ?? options.tileCount;
-		const zTileCount = options.zTileCount ?? options.tileCount;
+		const xTileCount = options.xTileCount;
+		const zTileCount = options.zTileCount;
 
 		// Compute ranges for each axis
 		const [xMin, xMax] =
@@ -201,15 +190,14 @@ export const dataStoreFilterExtension = (store: BaseStoreType) => {
 		where?: { columnName: string; value: string }
 	): Promise<IQueryResult> => {
 		const options = {
-			...defaultTiledDataOptions,
 			..._options
 		};
 
 		try {
 			const rows = await getTiledRows(tableName, options, xRange, yRange, zRange, where);
 			const points = rows.map(row => [row.x, row.z, row.y] as Point3D);
-			const zDim = (options.zTileCount ?? options.tileCount) + 1;
-			const xDim = (options.xTileCount ?? options.tileCount) + 1;
+			const zDim = (options.zTileCount) + 1;
+			const xDim = (options.xTileCount) + 1;
 
 
 			let min = Number.MAX_VALUE;

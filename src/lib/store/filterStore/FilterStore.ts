@@ -1,12 +1,17 @@
 import { get, writable } from 'svelte/store';
 import { dataStore } from '../dataStore/DataStore';
-import { withSingleKeyUrlStorage } from '../urlStorage';
-import { type IFilterStore, GraphOptions, GraphType, type GraphStateConfig } from './types';
+import { urlDecodeObject, withSingleKeyUrlStorage } from '../urlStorage';
+import {
+	type IFilterStore,
+	GraphOptions,
+	GraphType,
+	type GraphStateConfig,
+	type DeepPartial
+} from './types';
 import { PlaneGraphModel } from './graphs/plane';
 import { defaultLogOptions, withLogMiddleware } from '../logMiddleware';
 import notificationStore from '../notificationStore';
 import type { Dataset, DatasetItem } from '../../../dataset/types';
-import { browser } from '$app/environment';
 import {
 	TableSource,
 	type ITableExternalUrl,
@@ -24,17 +29,16 @@ const initialStore: IFilterStore = {
 const baseStore = writable<IFilterStore>(JSON.parse(JSON.stringify(initialStore)));
 
 const _filterStore = () => {
-	// Store renderer temporarily globally and
-	// Set it after database init was completed
-	let urlRestoredGraphOptions: GraphOptions | null = null;
-	// let urlRestoredTableSelection: UrlTableSelection[] = [];
+	let initialUrlConfig: Partial<GraphStateConfig> | undefined = undefined;
+
 	const store = withLogMiddleware(
-		withSingleKeyUrlStorage<IFilterStore>(
-			baseStore,
-			'filter',
-			urlEncodeFilterState,
-			() => initialStore
-		),
+		withSingleKeyUrlStorage<IFilterStore>(baseStore, 'filter', urlEncodeFilterState, (param) => {
+			if (param) {
+				initialUrlConfig = urlDecodeObject(param);
+			}
+			// do not use URL state to set initial store
+			return initialStore;
+		}),
 		'FilterStore',
 		{ ...defaultLogOptions, color: 'green' }
 	);
@@ -56,13 +60,6 @@ const _filterStore = () => {
 			await state.graphOptions.applyOptionsIfValid();
 		}
 	};
-
-	if (browser) {
-		// update filters every time data store changes
-		// dataStore.subscribe((state) => {
-		// 	reloadCurrentGraph();
-		// });
-	}
 
 	const loadBuildInTables = async (dataset: Dataset, tablePaths: DatasetItem[]) => {
 		// Convert filter options to table references
@@ -135,53 +132,85 @@ const _filterStore = () => {
 		}
 	};
 
-	const initWithConfig = async (config: GraphStateConfig) => {
+	const setGraphModel = (
+		type?: GraphType,
+		graphState?: {
+			data?: Record<string, unknown>;
+			render?: Record<string, unknown>;
+		}
+	) => {
+		update((state) => {
+			if (!type) {
+				state.graphOptions = undefined;
+
+				return state;
+			}
+
+			switch (type) {
+				case GraphType.PLANE:
+					state.graphOptions = new PlaneGraphModel(graphState?.data, graphState?.render);
+					// FIXME: hack to trigger URL persistance
+					state.graphOptions.dataStore.subscribe(() => store.update((state) => state));
+			}
+
+			return state;
+		});
+	};
+
+	const reloadWithState = async (
+		config: Partial<GraphStateConfig>,
+		overrides: DeepPartial<GraphStateConfig> = {}
+	) => {
 		const datasets = get(store).preloadedDatasets;
 		console.debug('init from config ', { config, datasets });
-		for (const table of config.selectedTables) {
-			let loadedDatasets: Record<string, DatasetItem[]> = {};
-			for (const ref of table.refs) {
-				switch (ref.source) {
-					case TableSource.BUILD_IN: {
-						const dataset = datasets.find((dataset) => dataset.name == ref.datasetName);
-						if (dataset) {
-							if (!loadedDatasets[dataset.name]) {
-								loadedDatasets[dataset.name] = [];
-							}
 
-							const datasetItem = dataset.items.find((item) => item.name == table.tableName);
-							if (datasetItem) {
-								loadedDatasets[dataset.name] = [...loadedDatasets[dataset.name], datasetItem];
+		if (config.selectedTables) {
+			for (const table of config.selectedTables) {
+				const loadedDatasets: Record<string, DatasetItem[]> = {};
+				for (const ref of table.refs) {
+					switch (ref.source) {
+						case TableSource.BUILD_IN: {
+							const dataset = datasets.find((dataset) => dataset.name == ref.datasetName);
+							if (dataset) {
+								if (!loadedDatasets[dataset.name]) {
+									loadedDatasets[dataset.name] = [];
+								}
+
+								const datasetItem = dataset.items.find((item) => item.name == table.tableName);
+								if (datasetItem) {
+									loadedDatasets[dataset.name] = [...loadedDatasets[dataset.name], datasetItem];
+								}
 							}
+							break;
 						}
-						break;
+						case TableSource.URL:
+							console.warn('restore from URL not supported yet');
+							break;
+						case TableSource.FILE:
+							console.warn('restore from FILE not supported yet');
+							break;
 					}
-					case TableSource.URL:
-						console.warn('restore from URL not supported yet');
-						break;
-					case TableSource.FILE:
-						console.warn('restore from FILE not supported yet');
-						break;
 				}
-			}
 
-			for (const [datasetName, items] of Object.entries(loadedDatasets)) {
-				await loadBuildInTables(datasets.find((dataset) => dataset.name === datasetName)!, items);
+				for (const [datasetName, items] of Object.entries(loadedDatasets)) {
+					await loadBuildInTables(datasets.find((dataset) => dataset.name === datasetName)!, items);
+				}
 			}
 		}
-
 		if (config.graphOption) {
-			switch (config.graphOption.type) {
-				case GraphType.PLANE: {
-					store.update((state) => {
-						state.graphOptions = new PlaneGraphModel(
-							config.graphOption?.data,
-							config.graphOption?.renderer
-						);
-						return state;
-					});
-				}
-			}
+			const combinedData =
+				config.graphOption?.data || overrides.graphOption?.data
+					? { ...(config.graphOption?.data ?? {}), ...(overrides.graphOption?.data ?? {}) }
+					: undefined;
+			const combinedRenderOptions =
+				config.graphOption?.render || overrides.graphOption?.render
+					? {
+							...(config.graphOption?.render ?? {}),
+							...(overrides.graphOption?.render ?? {})
+					  }
+					: undefined;
+
+			setGraphModel(config.graphOption.type, { data: combinedData, render: combinedRenderOptions });
 		}
 	};
 
@@ -228,91 +257,32 @@ const _filterStore = () => {
 		initWithPreloadedDatasets: async (datasets: Dataset[], config?: GraphStateConfig) => {
 			update((store) => {
 				store.preloadedDatasets = datasets;
+				store.config = config;
 				return store;
 			});
 
+			// reset current state
+			await dataStore.resetDatabase();
+			store.update((state) => {
+				state.graphOptions = undefined;
+				return state;
+			});
 			// if we have a config it takes precedence over URL decoding
 			if (config) {
-				await initWithConfig(config);
+				await reloadWithState(config, initialUrlConfig);
+			} else if (initialUrlConfig) {
+				// try to apply state in the config
+				await reloadWithState(initialUrlConfig);
 			}
 			await reloadCurrentGraph();
-			// // restore selected tables not that we have the paths from the server
-			// const restoredSelectedTables: [Dataset, DatasetItem][] = [];
-
-			// // FIXME: cleanup & and handle edge cases
-			// if (selectedGraph) {
-			// 	console.log('using selected Graph', selectedGraph);
-			// 	urlRestoredTableSelection = selectedGraph.selectedTables;
-
-			// 	if (selectedGraph['graphOptions']) {
-			// 		const graphType = selectedGraph.graphOptions.type as GraphType;
-			// 		switch (graphType) {
-			// 			case GraphType.PLANE: {
-			// 				urlRestoredGraphOptions = new PlaneGraphModel(selectedGraph.graphOptions.state);
-			// 			}
-			// 		}
-			// 	}
-			// }
-
-			// urlRestoredTableSelection.forEach((selection) => {
-			// 	switch (selection.source) {
-			// 		case TableSource.BUILD_IN: {
-			// 			const dataset = datasets.find((dataset) => dataset.name == selection.datasetName);
-			// 			if (dataset) {
-			// 				const datasetItem = dataset.items.find((item) => item.name == selection.tableName);
-			// 				if (datasetItem) {
-			// 					console.log(datasetItem);
-			// 					restoredSelectedTables.push([dataset, datasetItem]);
-			// 				}
-			// 			}
-			// 			break;
-			// 		}
-			// 		case TableSource.URL:
-			// 			console.warn('restore from URL not supported yet');
-			// 			break;
-			// 		case TableSource.FILE:
-			// 			console.warn('restore from FILE not supported yet');
-			// 			break;
-			// 	}
-			// });
-			// // remove temporary url values
-			// urlRestoredTableSelection = [];
-			// // load all tables
-			// for (const [dataset, item] of restoredSelectedTables) {
-			// 	await dataStore.loadBuildInTables(dataset, [item]);
-			// }
-
-			// // Attempt reloading selected tables
-			// if (get(dataStore).tables.length) {
-			// 	try {
-			// 		if (urlRestoredGraphOptions && urlRestoredGraphOptions !== null) {
-			// 			update((store) => {
-			// 				store.graphOptions = urlRestoredGraphOptions ?? undefined;
-			// 				return store;
-			// 			});
-			// 			await reloadCurrentGraph();
-			// 		}
-			// 	} catch (e) {
-			// 		console.error('Failed to load selected tables:', e);
-			// 	}
-			// }
-			// // remove temporary url values
-			// urlRestoredGraphOptions = null;
 
 			setIsLoading(false);
 			return;
 		},
 
 		selectGraphType: async (graphType: GraphType) => {
-			switch (graphType) {
-				case GraphType.PLANE: {
-					update((store) => {
-						const state = store.graphOptions?.toStateObject();
-						store.graphOptions = new PlaneGraphModel(state?.data, state?.render);
-						return store;
-					});
-				}
-			}
+			const state = get(store).graphOptions?.toStateObject();
+			setGraphModel(graphType, state);
 		}
 	};
 };
