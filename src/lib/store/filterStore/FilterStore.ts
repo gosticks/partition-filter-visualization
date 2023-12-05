@@ -52,6 +52,9 @@ const _filterStore = () => {
 		});
 	};
 
+	// FIXME: simple rerender hack for now
+	const storeToUrl = () => store.update((state) => state);
+
 	const reloadCurrentGraph = async () => {
 		// reload state with table changes
 		const state = get(store);
@@ -61,7 +64,11 @@ const _filterStore = () => {
 		}
 	};
 
-	const loadBuildInTables = async (dataset: Dataset, tablePaths: DatasetItem[]) => {
+	const loadBuildInTables = async (
+		dataset: Dataset,
+		tablePaths: DatasetItem[],
+		preventUrlUpdate: boolean = false
+	) => {
 		// Convert filter options to table references
 		const tableReferences: ITableBuildIn[] = tablePaths.flatMap((item) => {
 			return item.files.map((file) => ({
@@ -76,16 +83,22 @@ const _filterStore = () => {
 
 		try {
 			await dataStore.loadCsvsFromRefs(tableReferences);
-			return;
 		} catch {
 			notificationStore.error({
 				message: 'Failed to load external tables',
 				description: tablePaths.map((table) => table.name).join(',')
 			});
 		}
+		if (!preventUrlUpdate) {
+			storeToUrl();
+		}
 	};
 
-	const loadTableFromURL = async (url: URL, tableName?: string) => {
+	const loadTableFromURL = async (
+		url: URL,
+		tableName?: string,
+		preventUrlUpdate: boolean = false
+	) => {
 		// Convert filter options to table references
 		const tableReferences: ITableExternalUrl[] = [
 			{
@@ -96,7 +109,6 @@ const _filterStore = () => {
 		];
 		try {
 			await dataStore.loadCsvsFromRefs(tableReferences);
-			return;
 		} catch (err) {
 			notificationStore.error({
 				message: 'Failed to load tables from file',
@@ -105,9 +117,16 @@ const _filterStore = () => {
 				}`
 			});
 		}
+		if (!preventUrlUpdate) {
+			storeToUrl();
+		}
 	};
 
-	const loadTablesFromFiles = async (fileList: FileList, tableName?: string) => {
+	const loadTablesFromFiles = async (
+		fileList: FileList,
+		tableName?: string,
+		preventUrlUpdate: boolean = false
+	) => {
 		// Convert filter options to table references
 		const tableReferences: ITableExternalFile[] = [];
 
@@ -121,7 +140,6 @@ const _filterStore = () => {
 
 		try {
 			await dataStore.loadCsvsFromRefs(tableReferences);
-			return;
 		} catch (err) {
 			notificationStore.error({
 				message: 'Failed to load tables from file',
@@ -129,6 +147,9 @@ const _filterStore = () => {
 					err ?? 'Unknown Error'
 				}`
 			});
+		}
+		if (!preventUrlUpdate) {
+			storeToUrl();
 		}
 	};
 
@@ -150,7 +171,7 @@ const _filterStore = () => {
 				case GraphType.PLANE:
 					state.graphOptions = new PlaneGraphModel(graphState?.data, graphState?.render);
 					// FIXME: hack to trigger URL persistance
-					state.graphOptions.dataStore.subscribe(() => store.update((state) => state));
+					state.graphOptions.dataStore.subscribe(storeToUrl);
 			}
 
 			return state;
@@ -193,7 +214,11 @@ const _filterStore = () => {
 				}
 
 				for (const [datasetName, items] of Object.entries(loadedDatasets)) {
-					await loadBuildInTables(datasets.find((dataset) => dataset.name === datasetName)!, items);
+					await loadBuildInTables(
+						datasets.find((dataset) => dataset.name === datasetName)!,
+						items,
+						true
+					);
 				}
 			}
 		}
