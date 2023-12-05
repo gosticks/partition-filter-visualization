@@ -46,7 +46,6 @@
 	export let optionConstructor: OptionConstructor<R, T> | undefined = undefined;
 
 	const selectDispatch = createEventDispatcher();
-	let listElement: HTMLUListElement;
 
 	$: {
 		selectionLabel = labelForSelection(options.filter((o) => selection.has(o.value)));
@@ -86,6 +85,9 @@
 		if (singular) {
 			selection = new Set<T>([option.value]);
 			selectDispatch('select', { selected: [option], meta });
+
+			isOpen = false;
+
 			return;
 		}
 
@@ -160,6 +162,26 @@
 
 		<div slot="content">
 			<ul>
+				{#if !required}
+					{@const isEmpty = selection.size === 0}
+					<li class="border-spacing-1 border-b dark:border-background-900 last:border-b-0">
+						<button
+							on:click={clearAll}
+							class="p-2 hover:bg-primary-100 dark:hover:bg-secondary-700 w-full text-left flex gap-2 focus:bg-primary-200 focus:dark:bg-secondary-700"
+						>
+							<div class="w-6 pt pb">
+								<div
+									class:border-foreground-500={!isEmpty}
+									class:border-primary-500={isEmpty}
+									class="rounded-full op w-6 h-6 border-2 flex items-center justify-center"
+								>
+									<div hidden={!isEmpty} class="rounded-full w-3 h-3 bg-primary-500" />
+								</div>
+							</div>
+							<span class:font-bold={isEmpty} class:opacity-60={!isEmpty}>No selection</span>
+						</button>
+					</li>
+				{/if}
 				{#each options as option, i}
 					{@const selected = selection.has(option.value)}
 					<!-- svelte-ignore a11y-no-noninteractive-tabindex -->

@@ -10,6 +10,7 @@
 	import Divider from './base/Divider.svelte';
 	import {
 		CameraIcon,
+		CodeIcon,
 		CpuIcon,
 		InfoIcon,
 		LayersIcon,
@@ -65,14 +66,14 @@
 	}
 
 	function captureScreenshot(backgroundFill?: string | CanvasGradient | CanvasPattern) {
-		const {renderer} = graphService.getValues();
-		const srcCtx = renderer.getContext()
+		const { renderer } = graphService.getValues();
+		const srcCtx = renderer.getContext();
 		const imgData = imageFromGlContext(srcCtx, backgroundFill);
 
 		if (!imgData) {
 			notificationStore.error({
-				message: "Failed to capture screenshot",
-				description: "Image data empty"
+				message: 'Failed to capture screenshot',
+				description: 'Image data empty'
 			});
 			return;
 		}
@@ -94,19 +95,19 @@
 		const cameraState = graphService.getCameraState();
 		console.log(JSON.stringify(cameraState));
 
- 		const state = {
+		const state = {
 			...filterStore.toStateObject(),
 			ui: {
 				rotation: {
 					x: cameraState.rotation.x,
 					y: cameraState.rotation.y,
-					z: cameraState.rotation.z,
+					z: cameraState.rotation.z
 				},
 				position: {
 					x: cameraState.position.x,
 					y: cameraState.position.y,
-					z: cameraState.position.z,
-				},
+					z: cameraState.position.z
+				}
 			}
 		};
 
@@ -143,8 +144,7 @@
 		</Button>
 		<Dialog size={DialogSize.large}>
 			<Button slot="trigger" color={ButtonColor.SECONDARY} size={ButtonSize.LG}>
-				<InfoIcon slot="leading" size="20" />
-				SQL Editor
+				<CodeIcon slot="leading" size="20" />
 			</Button>
 			<svelte:fragment slot="title">SQL Query Editor</svelte:fragment>
 			<QueryEditor />
@@ -161,7 +161,7 @@
 	</div>
 	{#if isFilterBarOpen}
 		<div class="w-96" transition:fadeSlide={{ duration: 100 }}>
-			<Card>
+			<Card class="max-h-[70vh] overflow-auto">
 				<div class="flex justify-between items-center">
 					<h3 class="font-semibold text-lg">Loaded table</h3>
 					<Button size={ButtonSize.SM} on:click={filterStore.reset}>
@@ -200,58 +200,62 @@
 				</Dialog>
 				{#if Object.keys($dataStore.tables).length > 0}
 					<Divider />
-					<details open={!$filterStore.graphOptions?.getType()}><summary><h3 class="inline font-semibold text-lg mb-2">Graph Type</h3></summary>
-					{#each Object.values(GraphType) as graphType}
-						<Button
-							color={graphType === $filterStore.graphOptions?.getType()
-								? ButtonColor.PRIMARY
-								: ButtonColor.SECONDARY}
-							on:click={() => filterStore.selectGraphType(graphType)}
-						>
-							<div class="flex gap-2 flex-col items-center">
-								<LayersIcon />
-								<p class="text-sm">{graphType}</p>
-							</div>
-						</Button>
-					{/each}
+					<details open={!$filterStore.graphOptions?.getType()}>
+						<summary><h3 class="inline font-semibold text-lg mb-2">Graph Type</h3></summary>
+						{#each Object.values(GraphType) as graphType}
+							<Button
+								color={graphType === $filterStore.graphOptions?.getType()
+									? ButtonColor.PRIMARY
+									: ButtonColor.SECONDARY}
+								on:click={() => filterStore.selectGraphType(graphType)}
+							>
+								<div class="flex gap-2 flex-col items-center">
+									<LayersIcon />
+									<p class="text-sm">{graphType}</p>
+								</div>
+							</Button>
+						{/each}
 					</details>
 					{#if optionsStore && $filterStore.graphOptions}
 						<Divider />
-						<details open><summary><h3 class="font-semibold inline-block text-lg">Visualization options</h3></summary>
-						<div class="flex flex-col gap-2">
-							<div class="mb-4">
-								{#each Object.entries($filterStore.graphOptions.filterOptionFields ?? {}) as [key, value]}
-								{#if typeof value !== 'undefined'}
-								<OptionRenderer
-								onValueChange={$filterStore.graphOptions.setFilterOption}
-								option={value}
-								state={$optionsStore}
-								{key}
-								/>
-								{/if}
-								{/each}
-							</div>
-							<Button color={ButtonColor.SECONDARY}>Reset</Button>
-						</div>
-						</details>
-						<Divider />
-						<details ><summary><h3 class="font-semibold inline text-lg">Render options</h3>
+						<details open>
+							<summary
+								><h3 class="font-semibold inline-block text-lg">Visualization options</h3></summary
+							>
 							<div class="flex flex-col gap-2">
 								<div class="mb-4">
-									{#each Object.entries($filterStore.graphOptions.getRenderOptionFields()) as [key, value]}
-									{#if typeof value !== 'undefined'}
-									<OptionRenderer
-									onValueChange={$filterStore.graphOptions.setRenderOption}
-									option={value}
-									state={$optionsStore}
-									{key}
-									/>
-									{/if}
+									{#each Object.entries($filterStore.graphOptions.filterOptionFields ?? {}) as [key, value]}
+										{#if typeof value !== 'undefined'}
+											<OptionRenderer
+												onValueChange={$filterStore.graphOptions.setFilterOption}
+												option={value}
+												state={$optionsStore}
+												{key}
+											/>
+										{/if}
 									{/each}
 								</div>
 								<Button color={ButtonColor.SECONDARY}>Reset</Button>
 							</div>
-						</summary>
+						</details>
+						<Divider />
+						<details>
+							<summary><h3 class="font-semibold inline text-lg">Render options</h3></summary>
+							<div class="flex flex-col gap-2">
+								<div class="mb-4">
+									{#each Object.entries($filterStore.graphOptions.getRenderOptionFields()) as [key, value]}
+										{#if typeof value !== 'undefined'}
+											<OptionRenderer
+												onValueChange={$filterStore.graphOptions.setRenderOption}
+												option={value}
+												state={$optionsStore}
+												{key}
+											/>
+										{/if}
+									{/each}
+								</div>
+								<Button color={ButtonColor.SECONDARY}>Reset</Button>
+							</div>
 						</details>
 					{/if}
 				{/if}

@@ -26,7 +26,7 @@
 	export { className as class };
 
 	const preventBodyScroll = (event: Event) => {
-		if (dialogOpen) {
+		if (dialogOpen && event.target === document.body) {
 			event.preventDefault();
 		}
 	};
@@ -65,6 +65,7 @@
 
 {#if dialogOpen}
 	<!-- svelte-ignore a11y-click-events-have-key-events -->
+	<!-- svelte-ignore a11y-no-noninteractive-element-interactions -->
 	<div
 		role="dialog"
 		use:portal
