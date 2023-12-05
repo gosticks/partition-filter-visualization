@@ -12,7 +12,7 @@
 	import FilterSidebar from '$lib/components/FilterSidebar.svelte';
 	import GridBackground from '$lib/components/GridBackground.svelte';
 	import filterStore from '$lib/store/filterStore/FilterStore';
-	import Minimal from '$lib/components/graph/Minimal.svelte';
+	import Minimap from '$lib/components/graph/Minimap.svelte';
 	import PlaneGraph from '$lib/components/graph/PlaneGraph.svelte';
 	import { PlaneGraphModel } from '$lib/store/filterStore/graphs/plane';
 	import { Euler, Vector3 } from 'three';
@@ -63,7 +63,7 @@
 				{#if $filterStore.graphOptions instanceof PlaneGraphModel}
 					<PlaneGraph options={$filterStore.graphOptions} />
 				{/if}
-				<Minimal bind:setCameraState={setCameraState} />
+				<Minimap bind:setCameraState={setCameraState} />
 			{:else}
 			<GridBackground />
 			{/if}
