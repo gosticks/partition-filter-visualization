@@ -37,7 +37,7 @@ const _filterStore = () => {
 				initialUrlConfig = urlDecodeObject(param);
 			}
 			// do not use URL state to set initial store
-			return initialStore;
+			return JSON.parse(JSON.stringify(initialStore));
 		}),
 		'FilterStore',
 		{ ...defaultLogOptions, color: 'green' }
