@@ -1,4 +1,6 @@
 <script lang="ts">
+	import Label from './base/Label.svelte';
+
 	import type { SliderChangeEvent } from './slider/types';
 
 	import Slider from './slider/Slider.svelte';
@@ -42,6 +44,10 @@
 		}
 	};
 
+	const onOptionChanged = (evt: Event) => {
+		onValueChange(key, (evt.currentTarget as HTMLInputElement).checked as T[keyof T]);
+	};
+
 	const sliderDisplay = (value: number) => {
 		switch (key) {
 			case 'size':
@@ -67,7 +73,7 @@
 	{:else if option.type === 'number'}
 		{@const min = Math.min(...option.options)}
 		{@const max = Math.max(...option.options)}
-		{@const initialValue = state?.[key]}
+		{@const initialValue = state?.[key] ?? min}
 		<Slider
 			label={option.label}
 			{initialValue}
@@ -76,6 +82,18 @@
 			displayFunction={sliderDisplay}
 			on:change={onSliderChange}
 		/>
+	{:else if option.type === 'boolean'}
+		<Label>
+			<div class="flex justify-between">
+				<span>{option.label}</span>
+				<input
+					class="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600"
+					type="checkbox"
+					checked={option.default}
+					on:change={onOptionChanged}
+				/>
+			</div>
+		</Label>
 	{:else if option.type === 'row'}
 		<div class="flex justify-stretch gap-2">
 			{#each option.items as item, index}
