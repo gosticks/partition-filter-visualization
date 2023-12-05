@@ -38,19 +38,17 @@
 	var selectedDataset: Dataset | undefined = undefined;
 
 	function onSelectDataset(evt: DropdownSelectionEvent<Dataset>) {
-		const selectedDatasets = $filterStore.preloadedDatasets.filter(
-			(option) => option === evt.detail.selected[0].value
-		);
+		const selectedDatasets =
+			evt.detail.selected.length > 0 &&
+			$filterStore.preloadedDatasets.filter((option) => option === evt.detail.selected[0].value);
 
-		if (selectedDatasets.length === 0) {
+		if (!selectedDatasets || selectedDatasets.length === 0) {
 			dispatch('selectDataset');
 			selectedDataset = undefined;
 		} else {
 			dispatch('selectDataset', selectedDatasets[0]);
 			selectedDataset = selectedDatasets[0];
 		}
-
-
 	}
 
 	function onSelectTable(evt: DropdownSelectionEvent<DatasetItem>) {
