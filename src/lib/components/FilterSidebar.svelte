@@ -37,10 +37,12 @@
 
 	const graphService: GraphService = getGraphContext();
 	let optionsStore: GraphOptions['optionsStore'] | undefined;
+	let renderStore: GraphOptions['renderStore'] | undefined;
 	let isFilterBarOpen: boolean = true;
 
 	$: if ($filterStore.graphOptions) {
 		optionsStore = $filterStore.graphOptions.optionsStore;
+		renderStore = $filterStore.graphOptions.renderStore;
 	}
 
 	function onTableSelect(evt: TableSelectionEvent) {
@@ -248,7 +250,7 @@
 											<OptionRenderer
 												onValueChange={$filterStore.graphOptions.setRenderOption}
 												option={value}
-												state={$optionsStore}
+												state={$renderStore}
 												{key}
 											/>
 										{/if}

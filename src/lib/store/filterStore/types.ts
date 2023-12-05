@@ -1,8 +1,7 @@
-import type { FilterEntry } from '$routes/graph/[slug]/+page.server';
 import type { Readable } from 'svelte/store';
 import type { Dataset } from '../../../dataset/types';
 import type { TableSource } from '../dataStore/types';
-import type { IPlaneRenderOptions, IPlaneRendererData } from '$lib/rendering/PlaneRenderer';
+import type { IPlaneRenderOptions } from '$lib/rendering/PlaneRenderer';
 import type { IPlaneGraphState } from './graphs/plane';
 
 export enum GraphType {
@@ -105,7 +104,13 @@ export abstract class GraphOptions<
 	public abstract setFilterOption(key: K, value: Options[K]): void;
 	public abstract setRenderOption(key: RenderKey, value: RenderOptions[RenderKey]): void;
 
+	// store for currently loaded data
 	public abstract dataStore: Readable<Data | undefined>;
+
+	// store for currently set rendering options
+	public abstract renderStore: Readable<RenderOptions | undefined>;
+
+	// store for currently set filter options
 	public abstract optionsStore: Readable<Options | undefined>;
 
 	public abstract toStateObject(): { data: Options; render: RenderOptions };

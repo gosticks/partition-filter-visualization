@@ -9,7 +9,7 @@ import { dataStore } from '$lib/store/dataStore/DataStore';
 import { get, readonly, writable, type Readable, type Writable } from 'svelte/store';
 import { GraphOptions, GraphType, type GraphFilterOptions } from '../types';
 import { DataAggregation, DataScaling } from '$lib/store/dataStore/types';
-import { colorBrewer, graphColors } from '$lib/rendering/colors';
+import { colorBrewer } from '$lib/rendering/colors';
 import type { ITiledDataOptions, ValueRange } from '$lib/store/dataStore/filterActions';
 import { withLogMiddleware } from '$lib/store/logMiddleware';
 import notificationStore from '$lib/store/notificationStore';
@@ -40,11 +40,8 @@ export class PlaneGraphModel extends GraphOptions<
 	public dataStore: Readable<IPlaneRendererData | undefined>;
 	public optionsStore: Readable<Partial<RequiredOptions>>;
 
-	private _renderOptions: IPlaneRenderOptions;
-
-	public get renderSettings() {
-		return this._renderOptions as Readonly<IPlaneRenderOptions>;
-	}
+	private _renderOptions: Writable<IPlaneRenderOptions>;
+	public renderStore: Readable<IPlaneRenderOptions>;
 
 	private renderOptionFields: GraphFilterOptions<IPlaneRenderOptions> = {
 		showSelection: {
@@ -73,10 +70,11 @@ export class PlaneGraphModel extends GraphOptions<
 		this._dataStore = writable(undefined);
 		this.dataStore = readonly(this._dataStore);
 
-		this._renderOptions = {
+		this._renderOptions = writable({
 			...PlaneRenderer.defaultRenderOptions(),
 			...renderSettings
-		};
+		});
+		this.renderStore = readonly(this._renderOptions);
 
 		// Check if options are initially valid
 		const initialOptions = {
@@ -107,7 +105,7 @@ export class PlaneGraphModel extends GraphOptions<
 	public toStateObject() {
 		return {
 			data: this.getCurrentOptions(),
-			render: this._renderOptions
+			render: get(this._renderOptions)
 		};
 	}
 
@@ -145,7 +143,10 @@ export class PlaneGraphModel extends GraphOptions<
 		key: K,
 		value: IPlaneRenderOptions[K]
 	) => {
-		this._renderOptions[key] = value;
+		this._renderOptions.update((state) => {
+			state[key] = value;
+			return state;
+		});
 		this.applyOptionsIfValid();
 	};
 

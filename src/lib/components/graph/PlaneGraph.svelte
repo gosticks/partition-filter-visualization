@@ -9,7 +9,7 @@
 	} from '$lib/rendering/PlaneRenderer';
 	import Card from '../Card.svelte';
 	import type { PlaneGraphModel } from '$lib/store/filterStore/graphs/plane';
-	import { writable, type Unsubscriber } from 'svelte/store';
+	import { writable, type Unsubscriber, get } from 'svelte/store';
 	import { dataStore as dbStore } from '$lib/store/dataStore/DataStore';
 	import Button from '../button/Button.svelte';
 	import { Axis } from '$lib/rendering/AxisRenderer';
@@ -60,7 +60,7 @@
 	const update = (data?: IPlaneRendererData) => {
 		if (!data || !dataRenderer) return;
 		dataRenderer.setAxisLabelRenderer(labelForAxis);
-		dataRenderer.update(data, options.renderSettings);
+		dataRenderer.update(data, get(options.renderStore));
 		layerVisibility = dataRenderer.getLayerVisibility();
 	};
 
