@@ -18,6 +18,7 @@ import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls';
 import { Easing, Tween } from '@tweenjs/tween.js';
 import { colorBrewer } from './colors';
 import type { CameraState } from '$lib/components/BasicGraph.svelte';
+import { TextTexture } from './textures/TextTexture';
 
 const grayColorList = [
 	'#2B2B2B', // Charcoal Gray
@@ -39,7 +40,7 @@ enum SelectionType {
 }
 export class Minimap {
 	private scene!: Scene;
-	private orientationCube?: Mesh<BoxGeometry, MeshBasicMaterial[]>;
+	private orientationCube?: THREE.Group;
 	private orientationEdges?: THREE.Group;
 	private renderer: THREE.WebGLRenderer;
 	private camera: THREE.Camera;
@@ -60,12 +61,26 @@ export class Minimap {
 	private mouseInside = false;
 	private mouseDownPos = { x: 0, y: 0 };
 	private mouseUpPos = { x: 0, y: 0 };
+
+	private sideNames = ['Z+', 'Z-', 'Y+', 'Y-', 'X+', 'X-'];
 	private controls!: OrbitControls;
 
 	private selection?: {
 		type: SelectionType;
 		index: number;
 	};
+
+	private get selectedMesh(): Mesh<THREE.PlaneGeometry, MeshBasicMaterial> | null {
+		if (!this.selection) {
+			return null;
+		}
+		return (
+			(this.orientationCube?.children.at(this.selection.index) as Mesh<
+				THREE.PlaneGeometry,
+				MeshBasicMaterial
+			>) ?? null
+		);
+	}
 
 	constructor(element: HTMLElement) {
 		const bounds = element.getBoundingClientRect();
@@ -100,7 +115,7 @@ export class Minimap {
 		this.stopped = true;
 	}
 
-	public setCameraState(state:CameraState) {
+	public setCameraState(state: CameraState) {
 		this.camera.position.copy(state.position);
 		this.camera.rotation.copy(state.rotation);
 		this.controls.update();
@@ -171,17 +186,45 @@ export class Minimap {
 	}
 
 	private renderCube() {
-		const cubeGeometry = new BoxGeometry(1, 1, 1);
+		// let sideNames = ['Z+', 'Z-', 'Y+', 'Y-', 'X+', 'X-'];
 
-		const materials = [
-			new MeshBasicMaterial({ color: this.color }),
-			new MeshBasicMaterial({ color: this.color }),
-			new MeshBasicMaterial({ color: this.color }),
-			new MeshBasicMaterial({ color: this.color }),
-			new MeshBasicMaterial({ color: this.color }),
-			new MeshBasicMaterial({ color: this.color })
-		];
-		this.orientationCube = new Mesh(cubeGeometry, materials);
+		const offset = 0.5 + this.bevelSize;
+		const planeDefinitions = [
+			[new Vector3(0, 0, offset), new Vector3(0, 0, 0), this.sideNames[0]],
+			[new Vector3(0, 0, -offset), new Vector3(0, Math.PI, 0), this.sideNames[1]],
+			[new Vector3(0, offset, 0), new Vector3(-Math.PI / 2, 0, 0), this.sideNames[2]],
+			[new Vector3(0, -offset, 0), new Vector3(Math.PI / 2, 0, 0), this.sideNames[3]],
+			[new Vector3(offset, 0, 0), new Vector3(0, -Math.PI / 2, 0), this.sideNames[4]],
+			[new Vector3(-offset, 0, 0), new Vector3(0, Math.PI / 2, 0), this.sideNames[5]]
+		] as [Vector3, Vector3, string][];
+		this.orientationCube?.clear();
+		this.orientationCube?.removeFromParent();
+		this.orientationCube = new THREE.Group();
+		planeDefinitions.forEach(([position, orientation, label]) => {
+			const plane = new THREE.PlaneGeometry(1, 1);
+			const mesh = new Mesh(
+				plane,
+				new MeshBasicMaterial({
+					color: this.color,
+					side: THREE.DoubleSide,
+					map: new TextTexture(label, {
+						color: grayColorList[5],
+						font: 'monospace',
+						width: 128,
+						height: 128,
+						fontSize: 50,
+						backgroundColor: grayColorList[9]
+					})
+				})
+			);
+			mesh.userData = {
+				label: label
+			};
+			mesh.rotation.set(orientation.x, orientation.y, orientation.x);
+			mesh.position.set(position.x, position.y, position.z);
+			this.orientationCube?.add(mesh);
+		});
+
 		this.orientationCube.scale.set(this.cubeSize, this.cubeSize, this.cubeSize);
 		this.scene.add(this.orientationCube);
 	}
@@ -273,14 +316,14 @@ export class Minimap {
 		// this.scene.add(triangleMesh);
 	}
 	private lookAtFaceDirection(cubeFaceIndex: number): THREE.Vector3 | null {
-		console.log('looking at side', cubeFaceIndex);
+		// console.log('looking at side', cubeFaceIndex);
 		let lookDirection: THREE.Vector3 | null = null;
 		switch (cubeFaceIndex) {
 			case 0:
-				lookDirection = new Vector3(1, 0, 0);
+				lookDirection = new Vector3(0, 0, 1);
 				break;
 			case 1:
-				lookDirection = new Vector3(-1, 0, 0);
+				lookDirection = new Vector3(0, 0, -1);
 				break;
 			case 2:
 				lookDirection = new Vector3(0, 1, 0);
@@ -289,10 +332,10 @@ export class Minimap {
 				lookDirection = new Vector3(0, -1, 0);
 				break;
 			case 4:
-				lookDirection = new Vector3(0, 0, 1);
+				lookDirection = new Vector3(1, 0, 0);
 				break;
 			case 5:
-				lookDirection = new Vector3(0, 0, -1);
+				lookDirection = new Vector3(-1, 0, 0);
 				break;
 		}
 
@@ -300,7 +343,6 @@ export class Minimap {
 	}
 
 	private lookAtEdgeDirection(edgeIndex: number) {
-		console.log('looking at edge', edgeIndex);
 		switch (edgeIndex) {
 			case 0:
 				return new Vector3(0, 1, 1);
@@ -315,9 +357,17 @@ export class Minimap {
 			case 5:
 				return new Vector3(0, -1, -1);
 			case 6:
-				return new Vector3(-1, -1);
+				return new Vector3(-1, -1, 0);
 			case 7:
-				return new Vector3(1, -1);
+				return new Vector3(1, -1, 0);
+			case 8:
+				return new Vector3(1, 0, 1);
+			case 9:
+				return new Vector3(1, 0, -1);
+			case 10:
+				return new Vector3(-1, 0, -1);
+			case 11:
+				return new Vector3(-1, 0, 1);
 		}
 
 		return null;
@@ -327,6 +377,8 @@ export class Minimap {
 		if (!this.selection) {
 			return;
 		}
+		const initialDirection = new Vector3(0, 0, 0); // Default camera looking direction
+		initialDirection.applyQuaternion(this.camera.quaternion);
 
 		let lookDirection: Vector3 | null = null;
 
@@ -345,22 +397,30 @@ export class Minimap {
 		if (lookDirection === null) {
 			return;
 		}
-		const initialLookAt = this.camera.position.clone();
-		const cameraTarget = lookDirection.multiplyScalar(300);
+		const initialPosition = this.camera.position.clone();
+		const cameraTargetPosition = lookDirection.multiplyScalar(300);
+		// const cameraTargetOrientation = new THREE.Quaternion().setFromEuler(new THREE.Euler(0, 0.5, 0));
+		// const initialOrientation = this.camera.quaternion.clone();
 
 		// Compute distance between current camera position and target to compute animation duration
-		const distance = initialLookAt.distanceTo(cameraTarget);
-		const duration = Math.min(200, distance * 2);
+		const distance = initialPosition.distanceTo(cameraTargetPosition);
+		const duration = Math.min(Math.max(100, distance * 2), 200);
 
 		// Animate camera
-		new Tween(initialLookAt)
-			.to(cameraTarget, duration) // 2000 milliseconds
-			.easing(Easing.Cubic.In) // Easing type
-			.onUpdate(() => {
-				this.camera.position.set(initialLookAt.x, initialLookAt.y, initialLookAt.z);
-				// Called during the update of the tween. Useful if you need to perform actions during the animation.
+		new Tween(initialPosition)
+			.to(cameraTargetPosition, duration)
+			.easing(Easing.Cubic.In)
+			.onUpdate((value) => {
+				this.camera.position.set(value.x, value.y, value.z);
 			})
 			.start();
+		// new Tween(initialOrientation)
+		// 	.to(cameraTargetOrientation, duration)
+		// 	.easing(Easing.Cubic.In)
+		// 	.onUpdate((value) => {
+		// 		this.camera.quaternion.copy(value);
+		// 	})
+		// 	.start();
 	}
 
 	private handleEdgeSelection(): boolean {
@@ -415,13 +475,15 @@ export class Minimap {
 		if (intersects.length === 0) {
 			return false;
 		}
-
-		const faceIndex = intersects[0].faceIndex;
-		if (faceIndex === undefined) {
+		const faceName = intersects[0].object.userData['label'];
+		if (faceName === undefined) {
 			return false;
 		}
 
-		const cubeFaceIndex = Math.floor(faceIndex / 2);
+		const cubeFaceIndex = this.sideNames.indexOf(faceName);
+		if (cubeFaceIndex === -1) {
+			return false;
+		}
 
 		// If selection matches current element do nothing just mark event as handled
 		if (
@@ -458,9 +520,11 @@ export class Minimap {
 				if (!this.orientationCube) {
 					break;
 				}
-				const material = this.orientationCube.material[this.selection.index];
-				material.color = color;
-				material.needsUpdate = true;
+				const material = this.selectedMesh?.material;
+				if (material) {
+					material.color = color;
+					material.needsUpdate = true;
+				}
 
 				break;
 			}
