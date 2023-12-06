@@ -19,19 +19,7 @@ import { Easing, Tween } from '@tweenjs/tween.js';
 import { colorBrewer } from './colors';
 import type { CameraState } from '$lib/components/BasicGraph.svelte';
 import { TextTexture } from './textures/TextTexture';
-
-const grayColorList = [
-	'#2B2B2B', // Charcoal Gray
-	'#3E3E3E', // Dark Gray
-	'#515151', // Gunmetal Gray
-	'#646464', // Medium Dark Gray
-	'#777777', // True Gray
-	'#8A8A8A', // Medium Gray
-	'#9D9D9D', // Silver Gray
-	'#B0B0B0', // Light Gray
-	'#C3C3C3', // Off White Gray
-	'#D6D6D6' // Very Light Gray
-];
+import type { ThemeColors } from '$lib/store/SettingsStore';
 
 enum SelectionType {
 	side,
@@ -52,9 +40,29 @@ export class Minimap {
 	private cubeSize = 20;
 	private bevelSize = 0.1;
 
-	public selectionColor = new Color(colorBrewer.RdYlBu[4][1]);
-	public color = new Color(grayColorList[9]);
-	public borderColor = new Color(grayColorList[3]);
+	// private _selectionColor = new Color(0xffffee);
+	// private _color = new Color(0xff00ff);
+	// private _labelColor = new Color(0xff00ff);
+	// private _borderColor = new Color(0xff00ff);
+
+	// public set color(color: THREE.ColorRepresentation) {
+	// 	this._color = new THREE.Color(color);
+	// 	this.update();
+	// }
+	// public set labelColor(labelColor: THREE.ColorRepresentation) {
+	// 	this._labelColor = new THREE.Color(labelColor);
+	// 	this.update();
+	// }
+
+	// public set borderColor(borderColor: THREE.ColorRepresentation) {
+	// 	this._borderColor = new THREE.Color(borderColor);
+	// 	this.update();
+	// }
+
+	public set updateColors(themeColors: ThemeColors) {
+		this.themeColors = themeColors;
+		this.update();
+	}
 
 	private mousePosition: THREE.Vector2 = new Vector2(0, 0);
 	private mouseClientPosition: THREE.Vector2 = new Vector2(0, 0);
@@ -82,7 +90,10 @@ export class Minimap {
 		);
 	}
 
-	constructor(element: HTMLElement) {
+	constructor(
+		element: HTMLElement,
+		private themeColors: ThemeColors
+	) {
 		const bounds = element.getBoundingClientRect();
 		this.camera = new OrthographicCamera(
 			bounds.width / -8,
@@ -96,8 +107,7 @@ export class Minimap {
 
 		this.setupEvents(element);
 		this.setupScene();
-		this.renderCube();
-		this.renderCubeEdges();
+		this.update();
 
 		// Setup renderer
 		this.renderer = new WebGLRenderer({ antialias: true, alpha: true });
@@ -113,6 +123,11 @@ export class Minimap {
 
 	destroy() {
 		this.stopped = true;
+	}
+
+	public update() {
+		this.renderCube();
+		this.renderCubeEdges();
 	}
 
 	public setCameraState(state: CameraState) {
@@ -135,7 +150,7 @@ export class Minimap {
 		this.lookAtSelection();
 	}
 
-	setupControls() {
+	private setupControls() {
 		this.controls = new OrbitControls(this.camera, this.renderer.domElement);
 		this.controls.rotateSpeed = 1;
 		this.controls.zoomSpeed = 1;
@@ -176,13 +191,6 @@ export class Minimap {
 
 	private setupScene() {
 		this.scene = new Scene();
-
-		// side lines
-		// TODO: fixme render lines on top of cube
-
-		// Add light to scene
-		// const light = new DirectionalLight(0xffffff, 1);
-		// light.position.set(0, 0, 1);
 	}
 
 	private renderCube() {
@@ -200,20 +208,24 @@ export class Minimap {
 		this.orientationCube?.clear();
 		this.orientationCube?.removeFromParent();
 		this.orientationCube = new THREE.Group();
+
+		const color = new THREE.Color(this.themeColors.surfaceColor);
+		const labelColor = new THREE.Color(this.themeColors.textSecondaryColor);
+
 		planeDefinitions.forEach(([position, orientation, label]) => {
 			const plane = new THREE.PlaneGeometry(1, 1);
 			const mesh = new Mesh(
 				plane,
-				new MeshBasicMaterial({
-					color: this.color,
+				new THREE.MeshBasicMaterial({
 					side: THREE.DoubleSide,
+					transparent: true,
 					map: new TextTexture(label, {
-						color: grayColorList[5],
+						color: labelColor.getStyle(),
 						font: 'monospace',
 						width: 128,
 						height: 128,
 						fontSize: 50,
-						backgroundColor: grayColorList[9]
+						backgroundColor: color.getStyle()
 					})
 				})
 			);
@@ -264,10 +276,22 @@ export class Minimap {
 		];
 
 		const orientationEdges = new THREE.Group();
+		const color = new THREE.Color(this.themeColors.surfaceSecondaryColor);
+		const borderColor = new THREE.Color(this.themeColors.border);
+		const labelColor = new THREE.Color(this.themeColors.textSecondaryColor);
 
 		edgesPositionsRotations.forEach((edgeInfo, index) => {
 			const edgeGeometry = new THREE.ExtrudeGeometry(edgeShape, extrudeSettings);
-			const edgeMaterial = new THREE.MeshBasicMaterial({ color: this.color });
+			const edgeMaterial = new THREE.MeshBasicMaterial({
+				// color: this._color,
+				map: new TextTexture('', {
+					color: labelColor.getStyle(),
+					width: 1,
+					height: 1,
+					fontSize: 1,
+					backgroundColor: color.getStyle()
+				})
+			});
 			const edge = new THREE.Mesh(edgeGeometry, edgeMaterial);
 
 			edge.position.set(...edgeInfo.pos).multiplyScalar(this.cubeSize);
@@ -281,7 +305,7 @@ export class Minimap {
 			const edgeOutline = new THREE.EdgesGeometry(edgeGeometry);
 			const edgeOutlineMesh = new THREE.LineSegments(
 				edgeOutline,
-				new THREE.LineBasicMaterial({ color: this.borderColor })
+				new THREE.LineBasicMaterial({ color: borderColor })
 			);
 			edgeOutlineMesh.position.copy(edge.position);
 			edgeOutlineMesh.scale.copy(edge.scale);
@@ -315,6 +339,193 @@ export class Minimap {
 
 		// this.scene.add(triangleMesh);
 	}
+
+	//
+	// Animation loop setup
+	//
+
+	private startAnimationLoop() {
+		if (this.stopped) {
+			return;
+		}
+
+		if (this.trackedCamera) {
+			this.controls.update();
+
+			// Update raycaster but only if mouse moved
+			this.raycaster.setFromCamera(this.mousePosition, this.camera);
+
+			this.updateSelection();
+			this.renderer.render(this.scene, this.camera);
+
+			// Set target camera to match the one we're tracking
+			this.trackedCamera.position.copy(this.camera.position);
+			this.trackedCamera.quaternion.copy(this.camera.quaternion);
+		}
+
+		requestAnimationFrame(this.startAnimationLoop.bind(this));
+	}
+
+	public setCurrentCamera(camera: THREE.Camera) {
+		this.trackedCamera = camera;
+	}
+
+	//
+	// Selection handling
+	//
+
+	private handleEdgeSelection(): boolean {
+		if (!this.orientationEdges) {
+			return false;
+		}
+		const intersections = this.raycaster.intersectObjects(this.orientationEdges.children);
+		if (intersections.length === 0) {
+			return false;
+		}
+
+		const object = intersections.find((el) => el.object.userData.index !== undefined)
+			?.object as THREE.Mesh;
+		if (!object) {
+			return false;
+		}
+
+		const index = object.userData.index;
+
+		// if selection did not change
+		// return selection handled but do nothing else to prevent further search
+		if (
+			this.selection &&
+			this.selection.type === SelectionType.side &&
+			index === this.selection.index
+		) {
+			return true;
+		}
+
+		this.clearSelection();
+
+		// If we selected some other geometry ignore hit test
+		if (index === undefined) {
+			return false;
+		}
+
+		// Update selection
+		this.selection = {
+			type: SelectionType.edge,
+			index: index
+		};
+
+		return true;
+	}
+
+	private handleSideSelection(): boolean {
+		if (!this.orientationEdges || !this.orientationCube) {
+			return false;
+		}
+
+		const intersects = this.raycaster.intersectObject(this.orientationCube);
+		if (intersects.length === 0) {
+			return false;
+		}
+		const faceName = intersects[0].object.userData['label'];
+		if (faceName === undefined) {
+			return false;
+		}
+
+		const cubeFaceIndex = this.sideNames.indexOf(faceName);
+		if (cubeFaceIndex === -1) {
+			return false;
+		}
+
+		// If selection matches current element do nothing just mark event as handled
+		if (
+			this.selection &&
+			this.selection.type === SelectionType.side &&
+			this.selection.index === cubeFaceIndex
+		) {
+			return true;
+		}
+
+		this.clearSelection();
+
+		this.selection = {
+			type: SelectionType.side,
+			index: cubeFaceIndex
+		};
+
+		return true;
+	}
+
+	private clearSelection() {
+		this.applyColorToSelectedObject(new THREE.Color());
+		this.selection = undefined;
+	}
+
+	private applyColorToSelectedObject(color: THREE.Color) {
+		if (!this.selection) {
+			return;
+		}
+
+		// Find matching element and restore original material
+		switch (this.selection.type) {
+			case SelectionType.side: {
+				if (!this.orientationCube) {
+					break;
+				}
+				const material = this.selectedMesh?.material;
+				if (material) {
+					material.color = color;
+					material.needsUpdate = true;
+				}
+
+				break;
+			}
+			case SelectionType.edge: {
+				if (!this.orientationEdges) {
+					break;
+				}
+
+				const mesh = this.orientationEdges.children.find(
+					(el) => el.userData.index === this.selection?.index
+				) as Mesh<THREE.ExtrudeGeometry, MeshBasicMaterial> | undefined;
+				if (!mesh) {
+					break;
+				}
+				mesh.material.color = color;
+				mesh.material.needsUpdate = true;
+
+				break;
+			}
+			case SelectionType.corner: {
+				console.error('Not implemented yet');
+				break;
+			}
+		}
+	}
+
+	private renderSelection() {
+		const color = new THREE.Color(this.themeColors.selectionColor);
+		this.applyColorToSelectedObject(color);
+	}
+
+	private updateSelection() {
+		if (!this.mouseInside) {
+			this.clearSelection();
+			return;
+		}
+
+		if (this.handleEdgeSelection()) {
+			this.renderSelection();
+			return;
+		}
+
+		if (this.handleSideSelection()) {
+			this.renderSelection();
+			return;
+		}
+
+		this.clearSelection();
+	}
+
 	private lookAtFaceDirection(cubeFaceIndex: number): THREE.Vector3 | null {
 		// console.log('looking at side', cubeFaceIndex);
 		let lookDirection: THREE.Vector3 | null = null;
@@ -421,183 +632,5 @@ export class Minimap {
 		// 		this.camera.quaternion.copy(value);
 		// 	})
 		// 	.start();
-	}
-
-	private handleEdgeSelection(): boolean {
-		if (!this.orientationEdges) {
-			return false;
-		}
-		const intersections = this.raycaster.intersectObjects(this.orientationEdges.children);
-		if (intersections.length === 0) {
-			return false;
-		}
-
-		const object = intersections.find((el) => el.object.userData.index !== undefined)
-			?.object as THREE.Mesh;
-		if (!object) {
-			return false;
-		}
-
-		const index = object.userData.index;
-
-		// if selection did not change
-		// return selection handled but do nothing else to prevent further search
-		if (
-			this.selection &&
-			this.selection.type === SelectionType.side &&
-			index === this.selection.index
-		) {
-			return true;
-		}
-
-		this.clearSelection();
-
-		// If we selected some other geometry ignore hit test
-		if (index === undefined) {
-			return false;
-		}
-
-		// Update selection
-		this.selection = {
-			type: SelectionType.edge,
-			index: index
-		};
-
-		return true;
-	}
-
-	private handleSideSelection(): boolean {
-		if (!this.orientationEdges || !this.orientationCube) {
-			return false;
-		}
-
-		const intersects = this.raycaster.intersectObject(this.orientationCube);
-		if (intersects.length === 0) {
-			return false;
-		}
-		const faceName = intersects[0].object.userData['label'];
-		if (faceName === undefined) {
-			return false;
-		}
-
-		const cubeFaceIndex = this.sideNames.indexOf(faceName);
-		if (cubeFaceIndex === -1) {
-			return false;
-		}
-
-		// If selection matches current element do nothing just mark event as handled
-		if (
-			this.selection &&
-			this.selection.type === SelectionType.side &&
-			this.selection.index === cubeFaceIndex
-		) {
-			return true;
-		}
-
-		this.clearSelection();
-
-		this.selection = {
-			type: SelectionType.side,
-			index: cubeFaceIndex
-		};
-
-		return true;
-	}
-
-	private clearSelection() {
-		this.applyColorToSelectedObject(this.color);
-		this.selection = undefined;
-	}
-
-	private applyColorToSelectedObject(color: THREE.Color) {
-		if (!this.selection) {
-			return;
-		}
-
-		// Find matching element and restore original material
-		switch (this.selection.type) {
-			case SelectionType.side: {
-				if (!this.orientationCube) {
-					break;
-				}
-				const material = this.selectedMesh?.material;
-				if (material) {
-					material.color = color;
-					material.needsUpdate = true;
-				}
-
-				break;
-			}
-			case SelectionType.edge: {
-				if (!this.orientationEdges) {
-					break;
-				}
-
-				const mesh = this.orientationEdges.children.find(
-					(el) => el.userData.index === this.selection?.index
-				) as Mesh<THREE.ExtrudeGeometry, MeshBasicMaterial> | undefined;
-				if (!mesh) {
-					break;
-				}
-
-				mesh.material.color = color;
-				mesh.material.needsUpdate = true;
-
-				break;
-			}
-			case SelectionType.corner: {
-				console.error('Not implemented yet');
-				break;
-			}
-		}
-	}
-
-	private renderSelection() {
-		this.applyColorToSelectedObject(this.selectionColor);
-	}
-
-	private updateSelection() {
-		if (!this.mouseInside) {
-			this.clearSelection();
-			return;
-		}
-
-		if (this.handleEdgeSelection()) {
-			this.renderSelection();
-			return;
-		}
-
-		if (this.handleSideSelection()) {
-			this.renderSelection();
-			return;
-		}
-
-		this.clearSelection();
-	}
-
-	private startAnimationLoop() {
-		if (this.stopped) {
-			return;
-		}
-
-		if (this.trackedCamera) {
-			this.controls.update();
-
-			// Update raycaster but only if mouse moved
-			this.raycaster.setFromCamera(this.mousePosition, this.camera);
-
-			this.updateSelection();
-			this.renderer.render(this.scene, this.camera);
-
-			// Set target camera to match the one we're tracking
-			this.trackedCamera.position.copy(this.camera.position);
-			this.trackedCamera.quaternion.copy(this.camera.quaternion);
-		}
-
-		requestAnimationFrame(this.startAnimationLoop.bind(this));
-	}
-
-	public setCurrentCamera(camera: THREE.Camera) {
-		this.trackedCamera = camera;
 	}
 }
