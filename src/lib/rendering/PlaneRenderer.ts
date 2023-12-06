@@ -1,16 +1,12 @@
 import * as THREE from 'three';
 import { GraphRenderer } from './GraphRenderer';
-import { DataPlaneShapeGeometry } from './geometry/DataPlaneGeometry';
 import { colorBrewer, graphColors } from './colors';
 import { AxisRenderer, type AxisLabelRenderer } from './AxisRenderer';
 import { MeshLine, MeshLineMaterial } from 'three.meshline';
-import { Vector } from 'apache-arrow';
-import { Theme } from '$lib/store/SettingsStore';
 import { SparsePlaneGeometry, type Point3D } from './geometry/SparsePlaneGeometry';
 import { SelectablePointCloud } from './geometry/PointCloudGeometry';
-import { identity } from './geometry/transformers';
 import { DensePlaneGeometry } from './geometry/DensePlaneGeometry';
-
+import EnhancedGridHelper from './geometry/GridGeometry';
 export interface IPlaneData {
 	points: Point3D[];
 	min: number;
@@ -50,35 +46,36 @@ export interface IPlaneRendererData {
 }
 
 export enum PlaneTriangulation {
-	grid = "grid",
-	delaunay = "delaunay"
-};
+	grid = 'grid',
+	delaunay = 'delaunay'
+}
 
 export type IPlaneRenderOptions = {
-	triangulation: PlaneTriangulation,
-	showSelection: boolean,
-}
+	triangulation: PlaneTriangulation;
+	showSelection: boolean;
+	pointCloudColor: THREE.ColorRepresentation;
+	pointCloudSize?: number;
+};
 export interface IPlaneSelection {
 	dataIndex: number;
 	layer: IPlaneData;
 	parent?: IPlaneData;
-	point: [number, number, number]
+	point: [number, number, number];
 }
 
 export class PlaneRenderer extends GraphRenderer<IPlaneRendererData, IPlaneSelection> {
 	public data?: IPlaneRendererData;
 
-	public static defaultRenderOptions():IPlaneRenderOptions {
+	public static defaultRenderOptions(): IPlaneRenderOptions {
 		return {
 			triangulation: PlaneTriangulation.delaunay,
 			showSelection: true,
-		}
+			pointCloudColor: 0x00ffff
+		};
 	}
 
-	private colorPalette: THREE.ColorRepresentation[] = []
+	private colorPalette: THREE.ColorRepresentation[] = [];
 	private grids?: THREE.Group;
-	private dataDepth = 0;
-	private dataWidth = 0;
 	private planeGroup: THREE.Group = new THREE.Group();
 	private get planes() {
 		return this.planeGroup.children as THREE.Group[];
@@ -89,21 +86,6 @@ export class PlaneRenderer extends GraphRenderer<IPlaneRendererData, IPlaneSelec
 	private selectionMeshZ?: THREE.Mesh;
 	private selectionMeshX2?: THREE.Mesh;
 	private selectionMeshZ2?: THREE.Mesh;
-	private min = 0;
-	private max = 0;
-
-	private axisLabelRenderer?: AxisLabelRenderer;
-
-	// factor used for normalizing data into range from 0, 1 along Y axis
-	// 1 / [maximum Y axis value in data]
-	// is NaN if used before data is loaded
-	private get yAxisNormalizationFactor() {
-		if (this.max === 0) {
-			return NaN;
-		}
-
-		return 1 / this.max;
-	}
 
 	private raycaster = new THREE.Raycaster();
 	private axisRenderer?: AxisRenderer;
@@ -128,57 +110,18 @@ export class PlaneRenderer extends GraphRenderer<IPlaneRendererData, IPlaneSelec
 		this.axisLabelRenderer = renderer;
 	}
 
-	setup(renderContainer: HTMLElement, scene: THREE.Scene, camera: THREE.Camera): void {
-		super.setup(renderContainer, scene, camera);
-	}
-
-	onBeforeRender = (
-		renderer: THREE.WebGLRenderer,
+	setup(
+		renderContainer: HTMLElement,
 		scene: THREE.Scene,
 		camera: THREE.Camera,
-	) => {
+		scale: number
+	): void {
+		super.setup(renderContainer, scene, camera, scale);
+	}
+
+	onBeforeRender = (renderer: THREE.WebGLRenderer, scene: THREE.Scene, camera: THREE.Camera) => {
 		// Update axis renderer
 		this.axisRenderer?.onBeforeRender(renderer, scene, camera);
-
-		if (!this.grids) {
-			return;
-		}
-
-		const cameraDirection = new THREE.Vector3();
-		camera.getWorldDirection(cameraDirection);
-		const defaultNormal = new THREE.Vector3(0, 1, 0);
-		const grids = this.grids.children as THREE.GridHelper[];
-		// compute distance to camera and select 3th closest sides
-		const closestGrids = grids
-			.map((grid, idx) => [idx, grid.position.distanceTo(camera.position)])
-			.sort(([, a], [, b]) => a - b);
-
-		const gridsToHide = 3;
-
-		// hide two closest grids
-		for (let i = 0; i < grids.length; i++) {
-			const [idx, distance] = closestGrids[i];
-			const grid = grids[idx];
-			const material = grid.material;
-			let opacity = 0;
-			if (i >= gridsToHide) {
-				const gridNormal = defaultNormal.clone().transformDirection(grid.matrixWorld);
-				const dot = cameraDirection.dot(gridNormal);
-				opacity = Math.max(Math.abs(dot), 0);
-			}
-
-			if (Array.isArray(material)) {
-				material.forEach((mat) => {
-					mat.opacity = opacity;
-					mat.transparent = true;
-					mat.needsUpdate = true;
-				});
-			} else {
-				material.opacity = opacity;
-				material.transparent = true;
-				material.needsUpdate = true;
-			}
-		}
 	};
 
 	private currentSelection?: IPlaneSelection & {
@@ -276,7 +219,6 @@ export class PlaneRenderer extends GraphRenderer<IPlaneRendererData, IPlaneSelec
 		const instanceId = item.instanceId as number;
 		const mesh = item.object as THREE.InstancedMesh;
 
-
 		// if selection did not change return previous selection
 		if (this.currentSelection && this.currentSelection.mesh === mesh) {
 			return this.currentSelection;
@@ -286,13 +228,13 @@ export class PlaneRenderer extends GraphRenderer<IPlaneRendererData, IPlaneSelec
 		// if set layer is a child layer
 		const meshChildIndex = mesh.userData.childIndex;
 		const dataLayer = meshChildIndex
-		? this.data?.layers[meshIndex]?.layers?.[meshChildIndex]
-		: this.data?.layers[meshIndex];
+			? this.data?.layers[meshIndex]?.layers?.[meshChildIndex]
+			: this.data?.layers[meshIndex];
 		if (!dataLayer) {
 			this.currentSelection = undefined;
 			return;
 		}
-		const point = dataLayer.points[instanceId]
+		const point = dataLayer.points[instanceId];
 		this.currentSelection = {
 			layer: dataLayer,
 			mesh,
@@ -300,16 +242,12 @@ export class PlaneRenderer extends GraphRenderer<IPlaneRendererData, IPlaneSelec
 			dataIndex: instanceId,
 			parent: meshChildIndex ? this.data?.layers[meshIndex] : undefined
 		};
-		let matrix = new THREE.Matrix4();
+		const matrix = new THREE.Matrix4();
 		mesh.getMatrixAt(instanceId, matrix);
 		// Update local selection
 		if (this.selectionMesh) {
 			this.selectionMesh.visible = true;
-			this.selectionMesh.position.set(
-				mesh.position.x,
-				mesh.position.y,
-				mesh.position.z,
-			);
+			this.selectionMesh.position.set(mesh.position.x, mesh.position.y, mesh.position.z);
 			this.selectionMesh.applyMatrix4(matrix);
 
 			this.renderSelectionLines(this.currentSelection, this.selectionMesh);
@@ -331,11 +269,19 @@ export class PlaneRenderer extends GraphRenderer<IPlaneRendererData, IPlaneSelec
 		planeData: IPlaneData,
 		index: number,
 		width: number,
-		height: number,
+		depth: number,
+		maxHeight: number,
 		childIndex?: number,
-		color?: THREE.Color,
+		renderPointCloud: boolean = true
 	) {
+		const group = new THREE.Group();
+		group.renderOrder = index * 100 - (childIndex ?? 0);
+
 		const geo = this.planeGeometry(planeData);
+
+		const normFactorX = 1 / width;
+		const normFactorZ = 1 / depth;
+		const normFactorY = 1 / maxHeight;
 
 		const mat = new THREE.MeshLambertMaterial({
 			color: this.colorForPlane(planeData, childIndex ?? index),
@@ -345,14 +291,19 @@ export class PlaneRenderer extends GraphRenderer<IPlaneRendererData, IPlaneSelec
 			side: THREE.DoubleSide
 		});
 		const mesh = new THREE.Mesh(geo, mat);
-		mesh.scale.multiply(new THREE.Vector3(1/width, 1, 1/ height))
+		mesh.scale.multiply(new THREE.Vector3(normFactorX, normFactorY, normFactorZ));
 		// Add metadata to mesh
 		mesh.userData = { index, name: planeData.name, meta: planeData.meta, childIndex };
+		group.add(mesh);
+		if (renderPointCloud) {
+			const pointMesh = this.renderSelectionPoints(planeData.points, this.options.pointCloudColor);
+			if (pointMesh) {
+				pointMesh.userData = { index };
+				group.add(pointMesh);
+			}
+		}
 
-		this.dataDepth = width;
-		this.dataWidth = height;
-
-		return mesh;
+		return group;
 	}
 	setupSelection() {
 		const geo = new THREE.SphereGeometry(0.02);
@@ -367,37 +318,49 @@ export class PlaneRenderer extends GraphRenderer<IPlaneRendererData, IPlaneSelec
 	}
 
 	// Y axis min max over all layers and sublayers
-	get globalYAxisRange():[number, number] {
+	get globalYAxisRange(): [number, number] {
 		if (!this.data) {
-			return [0, 0]
+			return [0, 0];
 		}
 		let min = Infinity;
-		let max = -Infinity
+		let max = -Infinity;
 		for (const l of this.data!.layers) {
-			const [childMin, childMax] = l.layers?.reduce(([min,max], l) => [Math.min(min, l.min), Math.max(max, l.max)], [min,max]) ?? [min, max];
+			const [childMin, childMax] = l.layers?.reduce(
+				([min, max], l) => [Math.min(min, l.min), Math.max(max, l.max)],
+				[min, max]
+			) ?? [min, max];
 			min = Math.min(l.min, childMin);
 			max = Math.max(l.max, childMax);
-
 		}
 
-		return [min, max]
+		return [min, max];
 	}
 
 	renderSelectionPoints(
 		points: Point3D[],
-		color: THREE.ColorRepresentation = 0xeeeeff,
-
-	):SelectablePointCloud | null {
+		color: THREE.ColorRepresentation = 0xeeeeff
+	): SelectablePointCloud | null {
 		if (!this.data) {
-			return null
+			return null;
 		}
+		const [, max] = this.globalYAxisRange;
 		// compute x and z scales since we cannot use
 		// non uniform scaling -> affects circle proportions
-		const xScaler = (x: number) => x / this.data!.tileRange.x
-		const yScaler = (y: number) => y / this.max
-		const zScaler = (z: number) => z / this.data!.tileRange.z
-		const visibleRadius = Math.max(Math.min(this.data.tileRange.x / 4, 0.0002), 0.0001);
-		return new SelectablePointCloud(points, new THREE.Color(color), visibleRadius, 1/this.data.tileRange.x, xScaler,yScaler, zScaler);
+		const xScaler = (x: number) => x / this.data!.tileRange.x;
+		const yScaler = (y: number) => y / max;
+		const zScaler = (z: number) => z / this.data!.tileRange.z;
+		const visibleRadius =
+			this.options.pointCloudSize ??
+			Math.max((Math.min(Math.min(this.data.tileRange.x) / 4), 0.01), 0.001);
+		return new SelectablePointCloud(
+			points,
+			new THREE.Color(color),
+			visibleRadius,
+			1 / this.data.tileRange.x,
+			xScaler,
+			yScaler,
+			zScaler
+		);
 	}
 
 	colorForPlane(planeData: IPlaneData, index: number): THREE.Color {
@@ -418,91 +381,125 @@ export class PlaneRenderer extends GraphRenderer<IPlaneRendererData, IPlaneSelec
 		this.cleanup();
 		this.colorPalette = colorPalette;
 		this.data = data;
-		let [globalMin, globalMax] = this.globalYAxisRange;
-		this.min = globalMin;
-		this.max = globalMax;
+		const [, globalMaxHeight] = this.globalYAxisRange;
 
 		this.planeGroup = new THREE.Group();
 		this.setupSelection();
 
-		const meshes: ReturnType<PlaneRenderer['renderPlane']>[] = new Array(data.layers.length);
-		const childLayers: ReturnType<PlaneRenderer['renderPlane']>[][] = new Array(data.layers.length);
-
 		for (const [index, planeData] of data.layers.entries()) {
-			meshes[index] = this.renderPlane(planeData, index, data.tileRange.x, data.tileRange.z, );
-			childLayers[index] =
-				planeData.layers?.map((childData, childIndex) => {
-					return this.renderPlane(childData, index, data.tileRange.x, data.tileRange.z, childIndex);
-				}) ?? [];
-		}
+			const layerGroup = new THREE.Group();
+			const parentLayerGroup = this.renderPlane(
+				planeData,
+				index,
+				data.tileRange.x,
+				data.tileRange.z,
+				globalMaxHeight,
+				undefined,
+				options.showSelection
+			);
 
-		const dataScaleFactor = 1 / globalMax;
-		let xScaleFactor = 1/data.tileRange.x;
-		let zScaleFactor = 1/data.tileRange.z;
-
-		// // Render dots and scale layers
-		const dotMeshes = meshes.map((planeMesh, index) => {
-			let points = new SelectablePointCloud(data.layers[index].points, new THREE.Color(0xeeeeff), 1 / data.tileRange.x / 4, 1 / data.tileRange.x, (x) => x * xScaleFactor, (y) => y * dataScaleFactor, z => z * zScaleFactor);
-			points.userData = {index}
-			return points;
-		});
-
-		// Combine meshes and dotmeshes to create layer groups
-		for (const [i, mesh] of meshes.entries()) {
-			const group = new THREE.Group();
-
-			const parentLayerGroup = new THREE.Group();
-			// set scaling
-			// - only scale layers
-			mesh.scale.y = dataScaleFactor;
-
-			parentLayerGroup.add(mesh);
-			parentLayerGroup.add(dotMeshes[i]);
-
-			// add reference to hit test dot mesh to simplify structure changes
-			parentLayerGroup.userData['hitMesh'] = dotMeshes[i].children[0];
-
-			group.add(parentLayerGroup);
-
-			// render and scale child layers
+			// render sub-layers
 			const childLayerGroup = new THREE.Group();
-			if (childLayers[i].length !== 0) {
-				// Render selection dots for child layers
-				childLayerGroup.add(
-					...childLayers[i].map((childMesh, subIndex) => {
-						const childGroup = new THREE.Group();
-						// const geo = childMesh.geometry as DataPlaneShapeGeometry;
-						// if (!geo) {
-						// 	throw Error('Plane mesh must be initialized before dot geometry can be created');
-						// }
-						// const dotMesh = this.renderPlaneDots(geo, i, subIndex);
+			if (planeData.layers) {
+				for (const [childIndex, subPlaneData] of planeData.layers.entries()) {
+					const subLayerGroup = this.renderPlane(
+						subPlaneData,
+						index,
+						data.tileRange.x,
+						data.tileRange.z,
+						globalMaxHeight,
+						childIndex,
+						options.showSelection
+					);
+					// hide initially
+					// subLayerGroup.visible = false;
 
-						childMesh.scale.y = dataScaleFactor;
-						childGroup.add(childMesh);
-						// childGroup.add(dotMesh);
-
-						// Hide initially
-						childGroup.visible = false;
-						// dotMesh.children[0].layers.disable(INTERSECTION_CHECK_LAYER);
-
-						// childGroup.userData['hitMesh'] = dotMesh.children[0];
-
-						return childGroup;
-					})
-				);
+					childLayerGroup.add(subLayerGroup);
+				}
 			}
-			group.add(childLayerGroup);
 
-			this.planeGroup.add(group);
+			layerGroup.add(parentLayerGroup);
+			layerGroup.add(childLayerGroup);
+
+			// insert layer construct into parent layer group
+			this.planeGroup.add(layerGroup);
 		}
+
+		// // // Render dots and scale layers
+		// const dotMeshes = meshes.map((planeMesh, index) => {
+		// 	const points = new SelectablePointCloud(
+		// 		data.layers[index].points,
+		// 		new THREE.Color(0xeeeeff),
+
+		// 		1 / data.tileRange.x,
+		// 		(x) => x * xScaleFactor,
+		// 		(y) => y * dataScaleFactor,
+		// 		(z) => z * zScaleFactor
+		// 	);
+		// 	points.userData = { index };
+		// 	return points;
+		// });
+
+		// // Combine meshes and dotmeshes to create layer groups
+		// for (const [i, mesh] of meshes.entries()) {
+		// 	const group = new THREE.Group();
+
+		// 	const parentLayerGroup = new THREE.Group();
+		// 	// set scaling
+		// 	// - only scale layers
+		// 	mesh.scale.y = dataScaleFactor;
+
+		// 	if (options.showSelection) {
+		// 		this.renderSelectionPoints();
+		// 	}
+
+		// 	parentLayerGroup.add(mesh);
+		// 	parentLayerGroup.add(dotMeshes[i]);
+
+		// 	// add reference to hit test dot mesh to simplify structure changes
+		// 	parentLayerGroup.userData['hitMesh'] = dotMeshes[i].children[0];
+
+		// 	group.add(parentLayerGroup);
+
+		// 	// render and scale child layers
+		// 	const childLayerGroup = new THREE.Group();
+		// 	if (childLayers[i].length !== 0) {
+		// 		// Render selection dots for child layers
+		// 		childLayerGroup.add(
+		// 			...childLayers[i].map((childMesh, subIndex) => {
+		// 				const childGroup = new THREE.Group();
+		// 				// const geo = childMesh.geometry as DataPlaneShapeGeometry;
+		// 				// if (!geo) {
+		// 				// 	throw Error('Plane mesh must be initialized before dot geometry can be created');
+		// 				// }
+		// 				// const dotMesh = this.renderPlaneDots(geo, i, subIndex);
+
+		// 				childMesh.scale.y = dataScaleFactor;
+		// 				childGroup.add(childMesh);
+		// 				// childGroup.add(dotMesh);
+
+		// 				// Hide initially
+		// 				childGroup.visible = false;
+		// 				// dotMesh.children[0].layers.disable(INTERSECTION_CHECK_LAYER);
+
+		// 				// childGroup.userData['hitMesh'] = dotMesh.children[0];
+
+		// 				return childGroup;
+		// 			})
+		// 		);
+		// 	}
+		// 	group.add(childLayerGroup);
+
+		// 	this.planeGroup.add(group);
+		// }
 
 		// Move plane group to be centered at 0,0,0
 		this.planeGroup.position.set(-0.5, 0, -0.5);
 
 		this.add(this.planeGroup);
 
-		this.setupGridHelper();
-		this.setupAxisRenderer();
+		// // this.setupGridHelper();
+		// this.setupAxisRenderer();
 		// this.setScale(this.scale);
 	}
 
@@ -591,87 +588,5 @@ export class PlaneRenderer extends GraphRenderer<IPlaneRendererData, IPlaneSelec
 				plane.layers.disable(INTERSECTION_CHECK_LAYER);
 			});
 		});
-	}
-
-	////////////////////////////////
-	// Private helpers
-	/////////////////////////////////
-
-	private setupAxisRenderer() {
-		this.axisRenderer = new AxisRenderer({
-			// labelScale: 10,
-			size: new THREE.Vector3(1, 1, 1),
-			labelScale: 0.075,
-			labelForSegment: this.axisLabelRenderer,
-			x: {
-				labelText: this.data?.labels?.x ?? 'x',
-				segments: this.dataWidth - 1
-			},
-			y: {
-				labelText: this.data?.labels?.y ?? 'y',
-				segments: this.dataWidth - 1
-			},
-			z: {
-				labelText: this.data?.labels?.z ?? 'z',
-				segments: this.dataDepth - 1
-			}
-		});
-
-		// center axis ar (0,0,0)
-		this.axisRenderer.position.set(-0.5, 0, -0.5);
-
-		this.add(this.axisRenderer);
-	}
-
-	private createGrid(baseScale = 1, overlapFactor = 1) {
-		const numWidthTiles = this.dataWidth - 1;
-		const numDepthTiles = this.dataDepth - 1;
-		const isWidthSmaller = numWidthTiles < numDepthTiles;
-		const largerSide = isWidthSmaller ? numDepthTiles : numWidthTiles;
-
-		const gridHelper = new THREE.GridHelper(
-			baseScale * overlapFactor,
-			largerSide * overlapFactor,
-			0x888888,
-			0x888888
-		);
-
-		// FIXME: random missalignment with some X/Z proportions
-		// Scale other axis to match
-		if (isWidthSmaller) {
-			gridHelper.scale.x = numDepthTiles / numWidthTiles;
-		} else {
-			gridHelper.scale.z = numWidthTiles / numDepthTiles;
-		}
-
-		return gridHelper;
-	}
-
-	private setupGridHelper() {
-		if (this.grids) {
-			this.grids.clear();
-		} else {
-			this.grids = new THREE.Group();
-		}
-
-		// Draw a grid for each side
-		const orientations = [
-			[new THREE.Vector3(0, 1, 0), new THREE.Vector3(0, 1, 0)],
-			[new THREE.Vector3(0, 0, 0), new THREE.Vector3(0, 0, 0)],
-			[new THREE.Vector3(1, 0, 0), new THREE.Vector3(0, 0.5, -0.5)],
-			[new THREE.Vector3(0, 0, 1), new THREE.Vector3(-0.5, 0.5, 0)],
-			[new THREE.Vector3(-1, 0, 0), new THREE.Vector3(0, 0.5, 0.5)],
-			[new THREE.Vector3(0, 0, 1), new THREE.Vector3(0.5, 0.5, 0)]
-		];
-
-		for (const [orientation, offset] of orientations) {
-			const grid = this.createGrid();
-
-			grid.setRotationFromAxisAngle(orientation, Math.PI / 2);
-			grid.position.set(offset.x, offset.y, offset.z);
-			this.grids.add(grid);
-		}
-
-		this.add(this.grids);
 	}
 }

@@ -85,7 +85,7 @@
 		// Initialize Three.js scene, camera, and renderer
 		scene = new THREE.Scene();
 
-		scene.add(new THREE.AmbientLight(0xffffff, 0.5));
+		scene.add(new THREE.AmbientLight(0xffffff, 1));
 
 		const cameraField = Math.max(containerElement.clientWidth, containerElement.clientHeight) * 2;
 
@@ -103,9 +103,9 @@
 		camera.position.y = 2000;
 
 		// Add directional light pointing from camera
-		const light = new THREE.DirectionalLight(0xffffff, 1);
+		const light = new THREE.DirectionalLight(0xffffff, 3);
 		// const light = new PointLight(0xffffff, 1, 1000);
-		light.position.set(0, 500, 500);
+		light.position.set(0, 1000, 1000);
 		light.lookAt(0, 0, 0);
 		camera.add(light);
 

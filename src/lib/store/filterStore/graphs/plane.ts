@@ -46,9 +46,21 @@ export class PlaneGraphModel extends GraphOptions<
 	private renderOptionFields: GraphFilterOptions<IPlaneRenderOptions> = {
 		showSelection: {
 			type: 'boolean',
-			label: 'Data points',
+			label: 'Render value dots',
 			default: true,
 			required: true
+		},
+		pointCloudColor: {
+			type: 'color',
+			label: 'Value point color',
+			default: '#ffeede'
+		},
+		pointCloudSize: {
+			type: 'number?',
+			label: 'Point cloud size',
+			toggleLabel: 'Custom point size',
+			options: [0.001, 0.03],
+			step: 0.001
 		},
 		triangulation: {
 			type: 'string',

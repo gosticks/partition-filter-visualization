@@ -24,11 +24,12 @@
 	import { draggable } from '$lib/actions/draggable';
 	import { CopyIcon, LayersIcon, LockIcon } from 'svelte-feather-icons';
 	import notificationStore from '$lib/store/notificationStore';
+	import Grid from './Grid.svelte';
 
 	export let options: PlaneGraphModel;
 
 	const graphService: GraphService = getGraphContext();
-
+	export let graphScale: number;
 	let threeDomContainer: HTMLElement;
 	let dataStore = options.dataStore;
 	let dataRenderer: PlaneRenderer = new PlaneRenderer();
@@ -47,7 +48,7 @@
 	const bootstrap = () => {
 		const { camera: graphCamera, scene, domElement } = graphService.getValues();
 		threeDomContainer = domElement;
-		dataRenderer?.setup(domElement, scene, graphCamera);
+		dataRenderer?.setup(domElement, scene, graphCamera, graphScale);
 
 		// Listen to mouse move events on the domElement
 
@@ -103,7 +104,7 @@
 			}
 			selectionInfoPromise = findRowData(
 				selection.parent ? selection.parent.name : selection.layer.name,
-				 selection.dataIndex,
+				selection.dataIndex
 			);
 		}
 	};
@@ -192,7 +193,48 @@
 	};
 </script>
 
-<div class="absolute bottom-0 left-2">
+<div class="absolute flex flex-col items-start bottom-0 left-2">
+	{#if $dataStore?.layers}
+		<Card noPad>
+			<details>
+				<summary class="px-4 pt-2 mb-2">
+					<div class="inline-block min-w-56 font-bold">
+						<h2>Layers</h2>
+					</div>
+				</summary>
+				<div class="max-h-96 px-4 py-2 border-b dark:border-background-800 border-t overflow-auto">
+					{#if $dataStore}
+						<LayerGroup
+							selection={selection?.layer}
+							on:select={onLayerSelected}
+							{layerVisibility}
+							layers={$dataStore.layers}
+						/>
+					{/if}
+				</div>
+				<div class="px-4 pb-2">
+					<Button
+						size={ButtonSize.SM}
+						color={ButtonColor.SECONDARY}
+						class="mt-2"
+						disabled={layerVisibility.every(
+							([l, children]) => l === true && children.every((l) => l === true)
+						)}
+						on:click={showAllLayers}>Show all</Button
+					>
+					<Button
+						size={ButtonSize.SM}
+						color={ButtonColor.SECONDARY}
+						class="mt-2"
+						disabled={layerVisibility.every(
+							([l, children]) => l !== true && children.every((l) => l !== true)
+						)}
+						on:click={hideAllLayers}>Hide all</Button
+					>
+				</div>
+			</details>
+		</Card>
+	{/if}
 	<Card noPad class="py-2 px-4"><SliceGraph bind:slice={xSlice} {options} {layerVisibility} /></Card
 	>
 	<Card noPad class="py-2 px-4"
@@ -201,39 +243,8 @@
 </div>
 
 <div class="plane-graph-ui legend absolute isolate left-2 top-16 w-[250px]">
-	{#if $dataStore?.layers}
-		<Card title="Layers" noPad>
-			<div class="max-h-96 px-4 py-2 border-b dark:border-background-800 border-t overflow-auto">
-				{#if $dataStore}
-					<LayerGroup
-						selection={selection?.layer}
-						on:select={onLayerSelected}
-						{layerVisibility}
-						layers={$dataStore.layers}
-					/>
-				{/if}
-			</div>
-			<div class="px-4 pb-2">
-				<Button
-					size={ButtonSize.SM}
-					color={ButtonColor.SECONDARY}
-					class="mt-2"
-					disabled={layerVisibility.every(
-						([l, children]) => l === true && children.every((l) => l === true)
-					)}
-					on:click={showAllLayers}>Show all</Button
-				>
-				<Button
-					size={ButtonSize.SM}
-					color={ButtonColor.SECONDARY}
-					class="mt-2"
-					disabled={layerVisibility.every(
-						([l, children]) => l !== true && children.every((l) => l !== true)
-					)}
-					on:click={hideAllLayers}>Hide all</Button
-				>
-			</div>
-		</Card>
+	{#if $dataStore}
+		<Grid xDivisions={$dataStore.tileRange.x} zDivisions={$dataStore.tileRange.z} scale={0.6} />
 	{/if}
 	{#if selection && $dataStore}
 		<div

@@ -8,7 +8,12 @@ export abstract class GraphRenderer<T = unknown, InstanceMetaInfo = any> extends
 
 	abstract destroy(): void;
 
-	setup(renderContainer: HTMLElement, scene: THREE.Scene, camera: THREE.Camera) {
+	setup(
+		renderContainer: HTMLElement,
+		scene: THREE.Scene,
+		camera: THREE.Camera,
+		scale: number = 0.6
+	) {
 		this.scene = scene;
 		this.camera = camera;
 		this.renderContainer = renderContainer;
@@ -16,7 +21,7 @@ export abstract class GraphRenderer<T = unknown, InstanceMetaInfo = any> extends
 		// Set initial size
 		const bounds = renderContainer.getBoundingClientRect();
 		// NOTE: apply reasonable scaling for graph may differ per graph implementation
-		const size = Math.min(bounds.width, bounds.height) * 0.6;
+		const size = Math.min(bounds.width, bounds.height) * scale;
 		this.scale.set(size, size, size);
 		// Center in screen
 		this.position.y = -0.5 * size;

@@ -59,14 +59,28 @@ export type SimpleGraphFilterOption = (
 	  }
 	| {
 			type: 'number';
-			options: number[];
+			options: [number, number];
+			step?: number;
 			label: string;
+			default?: number;
+	  }
+	| {
+			type: 'number?';
+			options: [number, number];
+			label: string;
+			toggleLabel: string;
+			step?: number;
 			default?: number;
 	  }
 	| {
 			type: 'boolean';
 			label: string;
 			default?: boolean;
+	  }
+	| {
+			type: 'color';
+			label: string;
+			default?: string;
 	  }
 ) & {
 	required?: boolean;

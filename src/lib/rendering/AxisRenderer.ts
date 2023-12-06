@@ -95,11 +95,15 @@ export class SingleAxis extends THREE.Group {
 	private axis: Axis;
 
 	axisMesh?: THREE.Mesh;
-	label?: THREE.Sprite;
+	label?: THREE.Object3D;
 	segmentLines: THREE.Group = new THREE.Group();
 	segmentLabels: THREE.Group = new THREE.Group();
 
-	constructor(axis: Axis, options: AxisOptions) {
+	// edges are indices in clockwise direction starting
+	// Axis=x -> back, bottom
+	// Axis=y -> left, back (when looking at face X/Y)
+
+	constructor(axis: Axis, edge: number, options: AxisOptions) {
 		super();
 		this.axis = axis;
 		this.options = options;
@@ -119,11 +123,7 @@ export class SingleAxis extends THREE.Group {
 		this.renderAxisSegments();
 	}
 
-	onBeforeRender = (
-		renderer: THREE.WebGLRenderer,
-		scene: THREE.Scene,
-		camera: THREE.Camera,
-	) => {
+	onBeforeRender = (renderer: THREE.WebGLRenderer, scene: THREE.Scene, camera: THREE.Camera) => {
 		const cameraDirection = new THREE.Vector3();
 		camera.getWorldDirection(cameraDirection);
 		const defaultNormal = this.direction;
@@ -136,23 +136,21 @@ export class SingleAxis extends THREE.Group {
 			(child) => ((child as THREE.Sprite).material.opacity = opacity)
 		);
 		if (this.label) {
-			this.label.material.opacity = opacity;
-			if (this.axis == Axis.X) {
-				// TODO: adjust sprite rotation based on camera angle to maintain relative angle towards center
-			}
+			// this.label.material.opacity = opacity;
+			// if (this.axis == Axis.X) {
+			// 	// TODO: adjust sprite rotation based on camera angle to maintain relative angle towards center
+			// }
 			// console.log({
 			// 	xy: Math.abs(Math.atan2(cameraDirection.x, cameraDirection.y) / (Math.PI * 2)),
 			// 	yz: Math.abs(Math.atan2(cameraDirection.y, cameraDirection.z) / (Math.PI * 2)),
 			// 	xz: Math.abs(Math.atan2(cameraDirection.x, cameraDirection.z) / (Math.PI * 2))
 			// });
 			// this.label!.material.rotation = -Math.atan2(cameraDirection.x, cameraDirection.z);
-
 			// v3.project(camera);
 			// v3.x *= camera.aspect;
 			// v2.x *= camera.aspect;
 			// v2.sub(v3);
 			// v2.sub(new THREE.Vector2(v3.x, v3.y));
-
 			// this.label!.material.rotation = v2.angle();
 		}
 
@@ -180,13 +178,13 @@ export class SingleAxis extends THREE.Group {
 		this.axisMesh = line;
 		this.add(line);
 		const labelText = `${this.options.labelText} [${this.axis}]`;
-		const spriteMaterial = new THREE.SpriteMaterial({
+		const spriteMaterial = new THREE.MeshBasicMaterial({
 			transparent: true,
 			depthWrite: false,
 			map: new TextTexture(labelText, this.options.textOptions)
 		});
-
-		const label = new THREE.Sprite(spriteMaterial);
+		const labelMesh = new THREE.PlaneGeometry(1, 0.75);
+		const label = new THREE.Mesh(labelMesh, spriteMaterial);
 		const labelScale = this.options.labelScale ?? SingleAxis.defaultLabelSize;
 		const labelOffset = this.direction.clone().multiplyScalar(0.5);
 
@@ -200,7 +198,7 @@ export class SingleAxis extends THREE.Group {
 		if (this.axis === Axis.Y) {
 			label.position.x = -0.1 - textWidth * 0.015;
 			label.position.z = -0.1 - textWidth * 0.015;
-			label.material.rotation = Math.PI / 2;
+			// label.material.rotation = Math.PI / 2;
 		}
 
 		label.scale.set(labelScale * textWidth, labelScale, labelScale);
@@ -327,15 +325,33 @@ export class SingleAxis extends THREE.Group {
 }
 export class AxisRenderer extends THREE.Object3D {
 	private options: AxisRendererOptions;
-	private mapAxis = new Map<Axis, SingleAxis>();
+	private mapAxis = new Map<Axis, [SingleAxis]>();
 
 	constructor(options: Partial<AxisRendererOptions> = {}) {
 		super();
 
 		const initialOptions: AxisRendererOptions = {
-			...defaultAxisRendererOptions
+			...defaultAxisRendererOptions,
+			...options
 		};
 
+		this.options = initialOptions;
+
+		this.update(this.options);
+	}
+
+	onBeforeRender = (renderer: THREE.WebGLRenderer, scene: THREE.Scene, camera: THREE.Camera) => {
+		this.mapAxis.forEach((axisGroup) =>
+			axisGroup.forEach((axis) => axis.onBeforeRender(renderer, scene, camera))
+		);
+	};
+
+	update(_options: Partial<AxisLabelRenderer>) {
+		this.clear();
+		const options: AxisRendererOptions = {
+			...this.options,
+			..._options
+		};
 		for (const axis of [Axis.X, Axis.Y, Axis.Z]) {
 			const axisOptions: AxisOptions = {
 				...defaultAxisRendererOptions[axis],
@@ -343,24 +359,30 @@ export class AxisRenderer extends THREE.Object3D {
 				labelScale: options.labelScale ?? defaultAxisRendererOptions.labelScale,
 				...(options[axis] ?? {})
 			};
-			initialOptions[axis] = axisOptions;
+			this.updateAxis(axis, axisOptions);
+			// options[axis] = axisOptions;
 
-			const singleAxis = new SingleAxis(axis, axisOptions);
-			this.mapAxis.set(axis, singleAxis);
-			this.add(singleAxis);
+			// const singleAxis = new SingleAxis(axis, axisOptions);
+			// this.mapAxis.set(axis, singleAxis);
+			// this.add(singleAxis);
 		}
-		this.options = initialOptions;
+		this.options = options;
 	}
 
-	onBeforeRender = (
-		renderer: THREE.WebGLRenderer,
-		scene: THREE.Scene,
-		camera: THREE.Camera,
-	) => {
-		this.mapAxis.forEach((axisObj) =>
-			axisObj.onBeforeRender(renderer, scene, camera)
-		);
-	};
+	updateAxis(axis: Axis, options: Partial<AxisOptions>) {
+		this.options[axis] = {
+			...this.options[axis],
+			labelForSegment: options.labelForSegment ?? defaultAxisRendererOptions.labelForSegment,
+			labelScale: options.labelScale ?? defaultAxisRendererOptions.labelScale,
+			...options
+		};
+		if (this.mapAxis.has(axis)) {
+			this.mapAxis.get(axis)?.forEach((axis) => axis.removeFromParent());
+		}
+		const singleAxis = new SingleAxis(axis, 0, this.options[axis]);
+		this.mapAxis.set(axis, [singleAxis]);
+		this.add(singleAxis);
+	}
 
 	setup(): void {
 		this.clear();
