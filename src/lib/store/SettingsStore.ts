@@ -1,7 +1,6 @@
 import { get, writable } from 'svelte/store';
 import { withLogMiddleware } from './logMiddleware';
 import { browser } from '$app/environment';
-import { colorBrewer, graphColors } from '$lib/rendering/colors';
 
 export enum Theme {
 	Light = 'light',

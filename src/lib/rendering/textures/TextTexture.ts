@@ -5,7 +5,7 @@ export interface TextTextureOptions {
 	font: string;
 	fontSize: number;
 	fontLineHeight: number;
-	rotation: number;
+	rotation?: number;
 	width?: number;
 	height?: number;
 	backgroundColor?: string;

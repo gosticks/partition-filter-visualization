@@ -16,7 +16,7 @@ export class SparsePlaneGeometry extends THREE.BufferGeometry {
 		scaleX: (x: number) => number = identity,
 		scaleY: (y: number) => number = identity,
 		scaleZ: (z: number) => number = identity,
-		addsBoundPointsToDelaunay = true // if enabled bounding points are added to the delaunay triangulation. In most cases this removes strange rendering when gaps between points are large
+		addsBoundPointsToDelaunay = false // if enabled bounding points are added to the delaunay triangulation. In most cases this removes strange rendering when gaps between points are large
 	) {
 		super();
 

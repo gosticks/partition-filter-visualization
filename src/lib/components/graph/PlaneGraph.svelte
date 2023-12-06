@@ -60,7 +60,6 @@
 
 	const update = (data?: IPlaneRendererData) => {
 		if (!data || !dataRenderer) return;
-		dataRenderer.setAxisLabelRenderer(labelForAxis);
 		dataRenderer.update(data, get(options.renderStore));
 		layerVisibility = dataRenderer.getLayerVisibility();
 	};

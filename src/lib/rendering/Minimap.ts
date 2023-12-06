@@ -1,5 +1,4 @@
 import {
-	BoxGeometry,
 	Mesh,
 	MeshBasicMaterial,
 	OrthographicCamera,
@@ -7,16 +6,12 @@ import {
 	Scene,
 	Vector2,
 	WebGLRenderer,
-	Color,
-	Vector3,
-	DirectionalLight
+	Vector3
 } from 'three';
-import { AxisRenderer } from './AxisRenderer';
 import * as THREE from 'three';
 
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls';
 import { Easing, Tween } from '@tweenjs/tween.js';
-import { colorBrewer } from './colors';
 import type { CameraState } from '$lib/components/BasicGraph.svelte';
 import { TextTexture } from './textures/TextTexture';
 import type { ThemeColors } from '$lib/store/SettingsStore';
@@ -39,25 +34,6 @@ export class Minimap {
 
 	private cubeSize = 20;
 	private bevelSize = 0.1;
-
-	// private _selectionColor = new Color(0xffffee);
-	// private _color = new Color(0xff00ff);
-	// private _labelColor = new Color(0xff00ff);
-	// private _borderColor = new Color(0xff00ff);
-
-	// public set color(color: THREE.ColorRepresentation) {
-	// 	this._color = new THREE.Color(color);
-	// 	this.update();
-	// }
-	// public set labelColor(labelColor: THREE.ColorRepresentation) {
-	// 	this._labelColor = new THREE.Color(labelColor);
-	// 	this.update();
-	// }
-
-	// public set borderColor(borderColor: THREE.ColorRepresentation) {
-	// 	this._borderColor = new THREE.Color(borderColor);
-	// 	this.update();
-	// }
 
 	public set updateColors(themeColors: ThemeColors) {
 		this.themeColors = themeColors;

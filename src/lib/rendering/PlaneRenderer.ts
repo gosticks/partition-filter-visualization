@@ -1,12 +1,10 @@
 import * as THREE from 'three';
 import { GraphRenderer } from './GraphRenderer';
 import { colorBrewer, graphColors } from './colors';
-import { AxisRenderer, type AxisLabelRenderer } from './AxisRenderer';
 import { MeshLine, MeshLineMaterial } from 'three.meshline';
 import { SparsePlaneGeometry, type Point3D } from './geometry/SparsePlaneGeometry';
 import { SelectablePointCloud } from './geometry/PointCloudGeometry';
 import { DensePlaneGeometry } from './geometry/DensePlaneGeometry';
-import EnhancedGridHelper from './geometry/GridGeometry';
 export interface IPlaneData {
 	points: Point3D[];
 	min: number;
@@ -75,7 +73,6 @@ export class PlaneRenderer extends GraphRenderer<IPlaneRendererData, IPlaneSelec
 	}
 
 	private colorPalette: THREE.ColorRepresentation[] = [];
-	private grids?: THREE.Group;
 	private planeGroup: THREE.Group = new THREE.Group();
 	private get planes() {
 		return this.planeGroup.children as THREE.Group[];
@@ -88,7 +85,6 @@ export class PlaneRenderer extends GraphRenderer<IPlaneRendererData, IPlaneSelec
 	private selectionMeshZ2?: THREE.Mesh;
 
 	private raycaster = new THREE.Raycaster();
-	private axisRenderer?: AxisRenderer;
 
 	constructor(private options: IPlaneRenderOptions = PlaneRenderer.defaultRenderOptions()) {
 		super();
@@ -106,10 +102,6 @@ export class PlaneRenderer extends GraphRenderer<IPlaneRendererData, IPlaneSelec
 		this.scene?.remove(this);
 	}
 
-	setAxisLabelRenderer(renderer?: AxisLabelRenderer): void {
-		this.axisLabelRenderer = renderer;
-	}
-
 	setup(
 		renderContainer: HTMLElement,
 		scene: THREE.Scene,
@@ -119,9 +111,8 @@ export class PlaneRenderer extends GraphRenderer<IPlaneRendererData, IPlaneSelec
 		super.setup(renderContainer, scene, camera, scale);
 	}
 
-	onBeforeRender = (renderer: THREE.WebGLRenderer, scene: THREE.Scene, camera: THREE.Camera) => {
+	onBeforeRender = () => {
 		// Update axis renderer
-		this.axisRenderer?.onBeforeRender(renderer, scene, camera);
 	};
 
 	private currentSelection?: IPlaneSelection & {
@@ -424,93 +415,14 @@ export class PlaneRenderer extends GraphRenderer<IPlaneRendererData, IPlaneSelec
 			// insert layer construct into parent layer group
 			this.planeGroup.add(layerGroup);
 		}
-
-		// // // Render dots and scale layers
-		// const dotMeshes = meshes.map((planeMesh, index) => {
-		// 	const points = new SelectablePointCloud(
-		// 		data.layers[index].points,
-		// 		new THREE.Color(0xeeeeff),
-
-		// 		1 / data.tileRange.x,
-		// 		(x) => x * xScaleFactor,
-		// 		(y) => y * dataScaleFactor,
-		// 		(z) => z * zScaleFactor
-		// 	);
-		// 	points.userData = { index };
-		// 	return points;
-		// });
-
-		// // Combine meshes and dotmeshes to create layer groups
-		// for (const [i, mesh] of meshes.entries()) {
-		// 	const group = new THREE.Group();
-
-		// 	const parentLayerGroup = new THREE.Group();
-		// 	// set scaling
-		// 	// - only scale layers
-		// 	mesh.scale.y = dataScaleFactor;
-
-		// 	if (options.showSelection) {
-		// 		this.renderSelectionPoints();
-		// 	}
-
-		// 	parentLayerGroup.add(mesh);
-		// 	parentLayerGroup.add(dotMeshes[i]);
-
-		// 	// add reference to hit test dot mesh to simplify structure changes
-		// 	parentLayerGroup.userData['hitMesh'] = dotMeshes[i].children[0];
-
-		// 	group.add(parentLayerGroup);
-
-		// 	// render and scale child layers
-		// 	const childLayerGroup = new THREE.Group();
-		// 	if (childLayers[i].length !== 0) {
-		// 		// Render selection dots for child layers
-		// 		childLayerGroup.add(
-		// 			...childLayers[i].map((childMesh, subIndex) => {
-		// 				const childGroup = new THREE.Group();
-		// 				// const geo = childMesh.geometry as DataPlaneShapeGeometry;
-		// 				// if (!geo) {
-		// 				// 	throw Error('Plane mesh must be initialized before dot geometry can be created');
-		// 				// }
-		// 				// const dotMesh = this.renderPlaneDots(geo, i, subIndex);
-
-		// 				childMesh.scale.y = dataScaleFactor;
-		// 				childGroup.add(childMesh);
-		// 				// childGroup.add(dotMesh);
-
-		// 				// Hide initially
-		// 				childGroup.visible = false;
-		// 				// dotMesh.children[0].layers.disable(INTERSECTION_CHECK_LAYER);
-
-		// 				// childGroup.userData['hitMesh'] = dotMesh.children[0];
-
-		// 				return childGroup;
-		// 			})
-		// 		);
-		// 	}
-		// 	group.add(childLayerGroup);
-
-		// 	this.planeGroup.add(group);
-		// }
-
 		// Move plane group to be centered at 0,0,0
 		this.planeGroup.position.set(-0.5, 0, -0.5);
 
 		this.add(this.planeGroup);
-
-		// // this.setupGridHelper();
-		// this.setupAxisRenderer();
-		// this.setScale(this.scale);
 	}
 
 	cleanup(): void {
-		// Remove axis renderer
-		if (this.axisRenderer) {
-			this.axisRenderer.destroy();
-			this.axisRenderer = undefined;
-		}
 		this.planeGroup.clear();
-		this.grids?.clear();
 		this.clear();
 	}
 
