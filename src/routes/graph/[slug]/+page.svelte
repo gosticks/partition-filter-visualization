@@ -3,7 +3,10 @@
 
 <script lang="ts">
 	import type { PageServerData } from './$types';
-	import BasicGraph, { type CameraState, type GraphService } from '$lib/components/BasicGraph.svelte';
+	import BasicGraph, {
+		type CameraState,
+		type GraphService
+	} from '$lib/components/BasicGraph.svelte';
 	import LoadingOverlay from '$lib/components/LoadingOverlay.svelte';
 	import { dataStore } from '$lib/store/dataStore/DataStore';
 	import { browser } from '$app/environment';
@@ -17,13 +20,12 @@
 	import { PlaneGraphModel } from '$lib/store/filterStore/graphs/plane';
 	import { Euler, Vector3 } from 'three';
 	import type { GraphStateConfig } from '$lib/store/filterStore/types';
+	import Grid from '$lib/components/graph/Grid.svelte';
 
 	export let data: PageServerData;
 	let setCameraState: (state: CameraState) => void;
 	// Accessing the slug parameter
 	$: slug = $page.params.slug;
-
-
 
 	onMount(async () => {
 		if (!browser) return;
@@ -39,16 +41,16 @@
 
 		if (selectedGraph?.ui) {
 			if (selectedGraph.ui.position && selectedGraph.ui.rotation) {
-				setCameraState({position:
-					new Vector3(
+				setCameraState({
+					position: new Vector3(
 						selectedGraph.ui.position.x,
 						selectedGraph.ui.position.y,
-						selectedGraph.ui.position.z,
+						selectedGraph.ui.position.z
 					),
 					rotation: new Euler(
 						selectedGraph.ui.rotation.x,
 						selectedGraph.ui.rotation.y,
-						selectedGraph.ui.rotation.z,
+						selectedGraph.ui.rotation.z
 					)
 				});
 			}
@@ -58,20 +60,19 @@
 
 <div class="h-screen w-full relative">
 	<BasicGraph>
-	<svelte:fragment slot="inner">
+		<svelte:fragment slot="inner">
 			{#if $filterStore.graphOptions}
 				{#if $filterStore.graphOptions instanceof PlaneGraphModel}
-					<PlaneGraph options={$filterStore.graphOptions} />
+					<PlaneGraph options={$filterStore.graphOptions} graphScale={0.6} />
 				{/if}
-				<Minimap bind:setCameraState={setCameraState} />
+				<Minimap bind:setCameraState />
 			{:else}
-			<GridBackground />
+				<GridBackground />
 			{/if}
-
-	</svelte:fragment>
+		</svelte:fragment>
 		<FilterSidebar />
 	</BasicGraph>
 	{#if $filterStore.isLoading || $dataStore.isLoading}
-	<LoadingOverlay isLoading={true} />
+		<LoadingOverlay isLoading={true} />
 	{/if}
 </div>
