@@ -88,7 +88,6 @@
 	import { onDestroy, onMount } from 'svelte';
 	import { browser } from '$app/environment';
 	import { getGraphContext, type GraphService, type GraphUnsubscribe } from '../BasicGraph.svelte';
-	import AxisRenderer from './AxisRenderer.svelte';
 
 	export let scale = 1;
 	export let xDivisions: number = 10;
@@ -127,5 +126,3 @@
 		renderer.removeFromParent();
 	});
 </script>
-
-<AxisRenderer {xDivisions} {zDivisions} {yDivisions} {scale} />

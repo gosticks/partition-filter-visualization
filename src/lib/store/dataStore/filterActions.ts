@@ -1,4 +1,4 @@
-import type {  Point3D } from '$lib/rendering/geometry/SparsePlaneGeometry';
+import type { Point3D } from '$lib/rendering/geometry/SparsePlaneGeometry';
 import type { BaseStoreType } from './DataStore';
 import { DataAggregation, DataScaling, type FilterOptions, type IDataStore } from './types';
 
@@ -10,7 +10,7 @@ export interface ITiledDataRow {
 	rawX: number;
 	rawY: number;
 	rawZ: number;
-	name: string;
+	id: number;
 }
 
 export type IQueryResult = {
@@ -20,7 +20,7 @@ export type IQueryResult = {
 	max: number;
 	tiles: [number, number];
 	queryResult?: ITiledDataRow[];
-}
+};
 
 export type MinValue = number;
 export type MaxValue = number;
@@ -97,29 +97,36 @@ export const dataStoreFilterExtension = (store: BaseStoreType) => {
 		columnName: string,
 		scale: DataScaling
 	): Promise<ValueRange> => {
-		const query = `SELECT MIN(${getSqlScaleWrapper(
+		const baseQuery = `SELECT MIN(${getSqlScaleWrapper(
 			scale,
 			columnName,
 			'"'
 		)}) AS min, MAX(${getSqlScaleWrapper(scale, columnName, '"')}) AS max FROM "${tableName}"
-		WHERE ${
-			scale === DataScaling.LOG
-				? `"${columnName}" >= 0 and "${columnName}" != 'NaN'`
-				: `"${columnName}" != 'NaN'`
-		}
-		`;
+		${scale === DataScaling.LOG ? `WHERE "${columnName}" >= 0` : ``}`;
+		const combinedQuery =
+			baseQuery + `${scale === DataScaling.LOG ? ` and` : `where`} "${columnName}" != 'NaN'`;
 
-		const resp = await store.executeQuery(query);
+		let resp = await store.executeQuery(combinedQuery);
 		if (!resp) {
 			throw new Error('Failed to get min/max');
 		}
 
-		const rows = resp.toArray();
-		if (rows.length !== 1) {
-			throw new Error('Invalid number of rows');
+		let rows = resp.toArray();
+
+		// If we have no results this might be that the value is of type Int64 which does not pass the NaN test
+		if (rows.length !== 1 || rows[0].min === null || rows[0].max === null) {
+			resp = await store.executeQuery(baseQuery);
+			if (!resp) {
+				throw new Error('Failed to get min/max');
+			}
+			rows = resp.toArray();
+			if (rows.length !== 1) {
+				throw new Error('Invalid number of rows');
+			}
 		}
 
-		return [rows[0].min, rows[0].max];
+		// FIXME: fails with BigInt
+		return [Number(rows[0].min), Number(rows[0].max)];
 	};
 
 	const getTiledRows = async (
@@ -148,18 +155,19 @@ export const dataStoreFilterExtension = (store: BaseStoreType) => {
 		const yColValue = getSqlScaleWrapper(options.scaleY, options.yColumnName, '"');
 
 		const queryV2 = `
-		SELECT x, y, z, name, "${options.xColumnName}" as rawX, "${options.yColumnName}" as rawY, "${
-			options.xColumnName
-		}" as rawX
+		SELECT x, y, z, a.id, "${options.xColumnName}" as rawX, "${options.yColumnName}" as rawY, "${
+			options.zColumnName
+		}" as rawZ
 		FROM "${tableName}" a
 		RIGHT JOIN (
 			SELECT 	FLOOR((${xColValue} - ${xMin}) / ${xBucketSize}) AS x,
 					FLOOR((${zColValue} - ${zMin}) / ${zBucketSize}) AS z,
-					${options.aggregation}(${yColValue}) AS y
+					${options.aggregation}(${yColValue}) AS y,
+					min(id) as id
 			FROM "${tableName}"
 			GROUP BY x, z
-		) b ON a."${options.yColumnName}" = b.y
-		WHERE "${options.yColumnName}" != 'NaN' and x != 'NaN' and z != 'NaN'
+		) b ON a.id = b.id
+
 		${where ? `and "${where.columnName}" = '${where.value}'` : ''}
 		${options.scaleY === DataScaling.LOG ? `and "${options.yColumnName}" >= 0` : ''}
 		ORDER BY x ASC, z ASC ${where ? `, "${where.columnName}"` : ''}
@@ -168,18 +176,24 @@ export const dataStoreFilterExtension = (store: BaseStoreType) => {
 		try {
 			const resp = await store.executeQuery(queryV2);
 
-
 			if (!resp) {
 				// TODO: fix/handle this
 				return [];
 			}
 			// TODO: move deduplication to DB for now simply do this in place
-			return resp.toArray().filter((val, index, arr) => index === 0 ? true : val["x"] != arr[index-1]["x"] || val["z"] != arr[index-1]["z"] )
+			return resp
+				.toArray()
+				.filter((val, index, arr) =>
+					index === 0 ? true : val['x'] != arr[index - 1]['x'] || val['z'] != arr[index - 1]['z']
+				);
 		} catch (e) {
 			console.error(e);
 			return [];
 		}
 	};
+
+	// const bigIntMax = (...args: bigint[]) => args.reduce((m, e) => (e > m ? e : m));
+	// const bigIntMin = (...args: bigint[]) => args.reduce((m, e) => (e < m ? e : m));
 
 	const getTiledData = async (
 		tableName: string,
@@ -194,23 +208,57 @@ export const dataStoreFilterExtension = (store: BaseStoreType) => {
 		};
 
 		try {
-			const rows = await getTiledRows(tableName, options, xRange, yRange, zRange, where);
-			const points = rows.map(row => [row.x, row.z, row.y] as Point3D);
-			const zDim = (options.zTileCount) + 1;
-			const xDim = (options.xTileCount) + 1;
+			let rows = await getTiledRows(tableName, options, xRange, yRange, zRange, where);
 
+			// drop invalid rows
+			// needs to be done here since DB has issues with NaN and BigInt
+			rows = rows.filter(
+				(r) => !(Number.isNaN(r.x) || Number.isNaN(r.y) || Number.isNaN(r.z) || r.x < 0 || r.z < 0)
+			);
+			const points = rows.map((row) => [Number(row.x), Number(row.z), Number(row.y)] as Point3D); // wrap values in containers to handle BigInt data
+			const zDim = options.zTileCount + 1;
+			const xDim = options.xTileCount + 1;
 
 			let min = Number.MAX_VALUE;
 			let max = Number.MIN_VALUE;
 
-			rows.forEach((r, i) => {
-				if (r.x < 0 || r.z < 0 || Number.isNaN(r.y)) {
-					return;
-				}
-				min = Math.min(min, r.y);
-				max = Math.max(max, r.y);
+			points.forEach(([x, z, y]) => {
+				// use ternary to support big int
+				min = min > y ? y : min;
+				max = max < y ? y : max;
 			});
 
+			// const rows = await getTiledRows(tableName, options, xRange, yRange, zRange, where);
+			// const points = rows.map((row) => [row.x, row.z, row.y] as Point3D);
+			// const zDim = options.zTileCount! + 1;
+			// const xDim = options.xTileCount! + 1;
+
+			// const valueType = typeof rows[0].y;
+			// console.log(valueType);
+
+			// const isBigInit = valueType === 'bigint';
+
+			// let min: number | bigint = Number.MAX_VALUE;
+			// let max: number | bigint = Number.MIN_VALUE;
+
+			// if (isBigInit) {
+			// 	min = BigInt(min);
+			// 	max = BigInt(max);
+			// }
+
+			// rows.forEach((r) => {
+			// 	if (r.x < 0 || r.z < 0 || Number.isNaN(r.y)) {
+			// 		return;
+			// 	}
+
+			// 	if (isBigInit) {
+			// 		min = bigIntMin(min as bigint, r.y as unknown as bigint);
+			// 		max = bigIntMax(min as bigint, r.y as unknown as bigint);
+			// 	} else {
+			// 		min = Math.min(min as number, r.y);
+			// 		max = Math.max(max as number, r.y);
+			// 	}
+			// });
 
 			return {
 				points,
@@ -225,7 +273,7 @@ export const dataStoreFilterExtension = (store: BaseStoreType) => {
 				points: [],
 				min: 0,
 				max: 0,
-				tiles: [0, 0],
+				tiles: [0, 0]
 			};
 		}
 	};

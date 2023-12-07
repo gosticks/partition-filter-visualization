@@ -31,6 +31,8 @@
 	import DropdownSelect, { type DropdownSelectionEvent } from '../DropdownSelect.svelte';
 	import BasicGraph from '../BasicGraph.svelte';
 	import { DataScaling } from '$lib/store/dataStore/types';
+	import type { Point3D } from '$lib/rendering/geometry/SparsePlaneGeometry';
+	import { scaleDecoder } from '$lib/util';
 
 	export let options: PlaneGraphModel;
 	export let layerVisibility: LayerVisibilityList;
@@ -42,10 +44,11 @@
 	export let xAxisOffset = 30;
 	export let yAxisOffset = 20;
 	export let slice = 0;
-	export let selected: number | undefined = undefined;
 
 	let data: IGraph2dData | undefined;
 	let dataStore = options.dataStore;
+	let graphOptionStore = options.optionsStore;
+
 	let visibleLayers: (IPlaneData | IPlaneChildData)[] = [];
 
 	let isSelectingSlice = false;
@@ -71,27 +74,39 @@
 		});
 	}
 
-	function mapData(points: number[][], sliceIndex: number, axis: Axis): number[][] {
-		console.log(points);
+	const axisValueDecoder = (axis: Axis) => {
 		switch (axis) {
 			case Axis.X:
-				return points[sliceIndex].map((y: number, idx) => [idx, y]);
+				return scaleDecoder($graphOptionStore.scaleX ?? DataScaling.LINEAR);
 			case Axis.Y:
-				throw Error('Y slice rendering not supported');
+				return scaleDecoder($graphOptionStore.scaleY ?? DataScaling.LINEAR);
 			case Axis.Z:
-				const res = points.map((ys, idx) => [idx, ys[sliceIndex]]);
-				return res;
+				return scaleDecoder($graphOptionStore.scaleZ ?? DataScaling.LINEAR);
 		}
-	}
+	};
 
-	function mapRowData(rows: ITiledDataRow[], sliceIndex: number, axis: Axis): number[][] {
+	function mapRowData(
+		data: IPlaneData | IPlaneChildData,
+		sliceIndex: number,
+		axis: Axis
+	): number[][] {
 		switch (axis) {
-			case Axis.X:
-				return rows.filter((row) => row.z === sliceIndex).map((row) => [row.rawX, row.y]);
+			case Axis.X: {
+				return (
+					data.meta?.rows
+						.filter((row, i) => data.points[i][0] === sliceIndex)
+						.map((row) => [row.rawZ, row.rawY]) ?? []
+				);
+			}
 			case Axis.Y:
 				throw Error('Y slice rendering not supported');
-			case Axis.Z:
-				return rows.filter((row) => row.x === sliceIndex).map((row) => [row.rawZ, row.y]);
+			case Axis.Z: {
+				return (
+					data.meta?.rows
+						.filter((row, i) => data.points[i][1] === sliceIndex)
+						.map((row) => [row.rawX, row.rawY]) ?? []
+				);
+			}
 		}
 	}
 
@@ -105,9 +120,7 @@
 		const data = layers.map((layer) => ({
 			name: layer.name,
 			color: layer.color,
-			data: layer.meta?.rows
-				? mapRowData(layer.meta.rows as ITiledDataRow[], sliceIndex, axis)
-				: mapData(layer.points as number[][], sliceIndex, axis)
+			data: mapRowData(layer, sliceIndex, axis)
 		}));
 
 		if (!data || data.length === 0) {
@@ -118,14 +131,12 @@
 			return;
 		}
 
-		console.log($dataStore.ranges);
-
 		switch (axis) {
 			case Axis.X:
 				return {
-					xRange: $dataStore.ranges.x,
+					xRange: $dataStore.ranges.z,
 					yRange: $dataStore.ranges.y,
-					xAxisLabel: $dataStore.labels.x,
+					xAxisLabel: $dataStore.labels.z,
 					yAxisLabel: $dataStore.labels.y,
 					points: data
 				};
@@ -133,9 +144,9 @@
 				throw new Error('Y axis not supported');
 			case Axis.Z:
 				return {
-					xRange: $dataStore.ranges.z,
+					xRange: $dataStore.ranges.x,
 					yRange: $dataStore.ranges.y,
-					xAxisLabel: $dataStore.labels.z,
+					xAxisLabel: $dataStore.labels.x,
 					yAxisLabel: $dataStore.labels.y,
 					points: data
 				};
@@ -209,7 +220,7 @@
 				</Dialog>
 			{/if}
 
-			<DropdownSelect
+			<!-- <DropdownSelect
 				values={Object.values(DataScaling)}
 				singular
 				expand={false}
@@ -223,7 +234,7 @@
 						id: index
 					};
 				}}
-			/>
+			/> -->
 			<Dropdown placement={PortalPlacement.TOP}>
 				<svelte:fragment slot="trigger">
 					{@const dropCtx = getDropdownCtx()}

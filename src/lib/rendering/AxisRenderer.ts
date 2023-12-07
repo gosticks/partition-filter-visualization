@@ -17,7 +17,7 @@ export type AxisLabelRenderer = (
 export interface AxisOptions {
 	lineWidth: number;
 	lineColor: THREE.ColorRepresentation;
-	textOptions: TextTextureOptions;
+	textOptions?: Partial<TextTextureOptions>;
 	labelText: string;
 	segments?: number;
 	labelScale?: number;
@@ -38,17 +38,6 @@ export class SingleAxis extends THREE.Group {
 	private static defaultLabelSize = 0.001;
 	private static fontAspectRation = 3 / 4;
 
-	public direction: THREE.Vector3;
-
-	get fontAspectRation() {
-		return SingleAxis.fontAspectRation;
-	}
-
-	axisMesh?: THREE.Mesh;
-	label?: THREE.Sprite;
-	segmentLines: THREE.Group = new THREE.Group();
-	segmentLabels: THREE.Group = new THREE.Group();
-
 	static directionForAxis(axis: Axis) {
 		switch (axis) {
 			case Axis.X:
@@ -60,6 +49,17 @@ export class SingleAxis extends THREE.Group {
 				return new THREE.Vector3(0, 0, 1);
 		}
 	}
+
+	public direction: THREE.Vector3;
+
+	get fontAspectRation() {
+		return SingleAxis.fontAspectRation;
+	}
+
+	axisMesh?: THREE.Mesh;
+	label?: THREE.Sprite;
+	segmentLines: THREE.Group = new THREE.Group();
+	segmentLabels: THREE.Group = new THREE.Group();
 
 	// edges are indices in clockwise direction starting
 	// Axis=x -> back, bottom
@@ -112,15 +112,14 @@ export class SingleAxis extends THREE.Group {
 				map: new TextTexture(text, {
 					rotation: this.options.segmentLabelRotation,
 					...this.options.textOptions,
-					fontSize: this.options.textOptions.fontSize * 0.5
+					fontSize: (this.options.textOptions?.fontSize ?? SingleAxis.defaultSegmentSize) * 1
 				})
 			})
 		);
 
 		const labelOffset = this.direction.clone().multiplyScalar(segmentIndex / numSegments);
 		const labelScale = this.options.labelScale ?? SingleAxis.defaultSegmentSize;
-		const sizeScale = Math.min(16 / numSegments, 0.5);
-
+		const sizeScale = Math.min(16 / numSegments, 0.4);
 		label.position.copy(this.segmentLabelOffset).add(labelOffset);
 
 		label.scale.set(labelScale * textWidth, labelScale, labelScale).multiplyScalar(sizeScale);
@@ -143,29 +142,30 @@ export class SingleAxis extends THREE.Group {
 			this.segmentLabelOffset.z < 0 ? -1 : this.segmentLabelOffset.z > 0 ? 1 : 0
 		).multiplyScalar(segmentLineLength);
 
-		const geometry = new THREE.BufferGeometry().setFromPoints([
-			new THREE.Vector3(0, 0, 0),
-			// Get 90 deg angle to direction vector
-			segmentLineDirection
-		]);
-
-		const meshLine = new MeshLine();
-		meshLine.setGeometry(geometry);
 		const segmentStep = 1 / this.options.segments;
 		for (let i = 0; i <= this.options.segments; i++) {
+			// Render segment
+			const segmentLabelText = this.labelFormatter(i);
+
+			const geometry = new THREE.BufferGeometry().setFromPoints([
+				new THREE.Vector3(0, 0, 0),
+				// Get 90 deg angle to direction vector
+				segmentLineDirection.clone().multiplyScalar(segmentLabelText !== null ? 1.5 : 1)
+			]);
+
+			const meshLine = new MeshLine();
+			meshLine.setGeometry(geometry);
+
 			// Render segments
 			const material = new MeshLineMaterial({
 				color: this.options.lineColor,
-				lineWidth: this.options.lineWidth
+				lineWidth: this.options.lineWidth * (segmentLabelText !== null ? 1 : 0.5)
 			});
 
 			const segmentLine = new THREE.Mesh(meshLine.geometry, material);
 			const pos = this.direction.clone().multiplyScalar(segmentStep * i);
 			segmentLine.position.set(pos.x, pos.y, pos.z);
 			this.segmentLines.add(segmentLine);
-
-			// Render segment
-			const segmentLabelText = this.labelFormatter(i);
 
 			// if label renderer returns undefined
 			if (segmentLabelText === null) {
@@ -184,7 +184,7 @@ export class SingleAxis extends THREE.Group {
 			this.label.removeFromParent();
 		}
 
-		const labelText = `${this.options.labelText} [${this.axis}]`;
+		const labelText = this.options.labelText;
 		const spriteMaterial = new THREE.SpriteMaterial({
 			transparent: true,
 			depthWrite: false,

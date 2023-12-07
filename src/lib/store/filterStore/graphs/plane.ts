@@ -3,7 +3,8 @@ import {
 	type IPlaneChildData,
 	type IPlaneRenderOptions,
 	type IPlaneRendererData,
-	PlaneTriangulation
+	PlaneTriangulation,
+	DataDisplayType
 } from '$lib/rendering/PlaneRenderer';
 import { dataStore } from '$lib/store/dataStore/DataStore';
 import { get, readonly, writable, type Readable, type Writable } from 'svelte/store';
@@ -44,6 +45,24 @@ export class PlaneGraphModel extends GraphOptions<
 	public renderStore: Readable<IPlaneRenderOptions>;
 
 	private renderOptionFields: GraphFilterOptions<IPlaneRenderOptions> = {
+		xAxisDataType: {
+			type: 'string',
+			label: 'X Axis type',
+			default: DataDisplayType.number,
+			options: Object.values(DataDisplayType)
+		},
+		yAxisDataType: {
+			type: 'string',
+			label: 'X Axis type',
+			default: DataDisplayType.number,
+			options: Object.values(DataDisplayType)
+		},
+		zAxisDataType: {
+			type: 'string',
+			label: 'X Axis type',
+			default: DataDisplayType.number,
+			options: Object.values(DataDisplayType)
+		},
 		showSelection: {
 			type: 'boolean',
 			label: 'Render value dots',
@@ -289,14 +308,14 @@ export class PlaneGraphModel extends GraphOptions<
 			},
 			xTileCount: {
 				type: 'number',
-				options: [2, 128],
+				options: [2, 512],
 				label: 'X Tile Count',
 				required: true
 				// default: 24
 			},
 			zTileCount: {
 				type: 'number',
-				options: [2, 128],
+				options: [2, 512],
 				label: 'Z Tile Count',
 				required: true
 				// default: 24
@@ -329,13 +348,12 @@ export class PlaneGraphModel extends GraphOptions<
 		if (ranges === null) {
 			return;
 		}
-
 		const [xAxisRange, yAxisRange, zAxisRange] = ranges;
 
 		// Get available tables
 		const data = get(dataStore);
 		const tables = Object.keys(data.tables);
-		const hasGroupBy = state.groupBy !== null;
+		const hasGroupBy = state.groupBy !== null && state.groupBy !== undefined;
 
 		// Get all layers
 		try {
@@ -393,6 +411,30 @@ export class PlaneGraphModel extends GraphOptions<
 		}
 	}
 
+	public setColorForLayer(color: string, layerIndex: number, subLayerIndex?: number) {
+		let parentName = '';
+		let subLayerName = '';
+
+		this._dataStore.update((state) => {
+			let l = state?.layers[layerIndex];
+			parentName = l?.nam;
+			if (subLayerIndex !== undefined) {
+				l = l?.layers?.at(subLayerIndex);
+				subLayerName = `-${l?.name}`;
+			}
+			if (!l) {
+				return state;
+			}
+
+			l.color = color;
+		});
+
+		this._renderOptions.update((state) => {
+			state[`color-${parentName}-${subLayerName}`] = color;
+			return state;
+		});
+	}
+
 	private async getGlobalRange(
 		columnName: string,
 		scaling: DataScaling
@@ -419,7 +461,6 @@ export class PlaneGraphModel extends GraphOptions<
 		if (state.isValid !== true) {
 			return null;
 		}
-
 		// Get all layers
 		try {
 			const xAxisRange = await this.getGlobalRange(state.xColumnName, state.scaleX);
@@ -484,7 +525,7 @@ export class PlaneGraphModel extends GraphOptions<
 				name: values[index] as string,
 				color: colorBrewer.Set2[8][index % colorBrewer.Set2[8].length],
 				meta: {
-					rows: value.queryResult
+					rows: value.queryResult ?? []
 				}
 			}));
 		} catch (err) {

@@ -1,6 +1,6 @@
 import { Object3D, Vector2 } from 'three';
 
-export abstract class GraphRenderer<T = unknown, InstanceMetaInfo = any> extends Object3D {
+export abstract class GraphRenderer<T = unknown, InstanceMetaInfo = unknown> extends Object3D {
 	public scene: THREE.Scene | undefined = undefined;
 	public camera: THREE.Camera | undefined = undefined;
 	// public size: THREE.Vector3 = new Vector3(1, 1, 1);
@@ -32,7 +32,7 @@ export abstract class GraphRenderer<T = unknown, InstanceMetaInfo = any> extends
 	 * Used to update rendering based on data changes
 	 * @param data
 	 */
-	abstract update(data: T, options: any, colorPalette?: THREE.ColorRepresentation[]): void;
+	abstract update(data: T, options: unknown, colorPalette?: THREE.ColorRepresentation[]): void;
 
-	abstract getInfoAtPoint(glPoint: Vector2): InstanceMetaInfo | undefined;
+	abstract selectionAtPoint(glPoint: Vector2): InstanceMetaInfo | undefined;
 }

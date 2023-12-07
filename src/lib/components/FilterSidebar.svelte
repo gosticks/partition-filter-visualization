@@ -221,42 +221,34 @@
 					{#if optionsStore && $filterStore.graphOptions}
 						<Divider />
 						<details open>
-							<summary
-								><h3 class="font-semibold inline-block text-lg">Visualization options</h3></summary
-							>
+							<summary><h3 class="font-semibold inline-block text-lg">Data Query</h3></summary>
 							<div class="flex flex-col gap-2">
-								<div class="mb-4">
-									{#each Object.entries($filterStore.graphOptions.filterOptionFields ?? {}) as [key, value]}
-										{#if typeof value !== 'undefined'}
-											<OptionRenderer
-												onValueChange={$filterStore.graphOptions.setFilterOption}
-												option={value}
-												state={$optionsStore}
-												{key}
-											/>
-										{/if}
-									{/each}
-								</div>
-								<Button color={ButtonColor.SECONDARY}>Reset</Button>
+								{#each Object.entries($filterStore.graphOptions.filterOptionFields ?? {}) as [key, value]}
+									{#if typeof value !== 'undefined'}
+										<OptionRenderer
+											onValueChange={$filterStore.graphOptions.setFilterOption}
+											option={value}
+											state={$optionsStore}
+											{key}
+										/>
+									{/if}
+								{/each}
 							</div>
 						</details>
 						<Divider />
 						<details>
-							<summary><h3 class="font-semibold inline text-lg">Render options</h3></summary>
-							<div class="flex flex-col gap-2">
-								<div class="mb-4">
-									{#each Object.entries($filterStore.graphOptions.getRenderOptionFields()) as [key, value]}
-										{#if typeof value !== 'undefined'}
-											<OptionRenderer
-												onValueChange={$filterStore.graphOptions.setRenderOption}
-												option={value}
-												state={$renderStore}
-												{key}
-											/>
-										{/if}
-									{/each}
-								</div>
-								<Button color={ButtonColor.SECONDARY}>Reset</Button>
+							<summary><h3 class="font-semibold inline text-lg">Display options</h3></summary>
+							<div class="flex flex-col gap">
+								{#each Object.entries($filterStore.graphOptions.getRenderOptionFields()) as [key, value]}
+									{#if typeof value !== 'undefined'}
+										<OptionRenderer
+											onValueChange={$filterStore.graphOptions.setRenderOption}
+											option={value}
+											state={$renderStore}
+											{key}
+										/>
+									{/if}
+								{/each}
 							</div>
 						</details>
 					{/if}

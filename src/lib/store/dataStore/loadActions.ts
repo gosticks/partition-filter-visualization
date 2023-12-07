@@ -1,11 +1,7 @@
 import { get, type Writable } from 'svelte/store';
 import type { BaseStoreType } from './DataStore';
-import type { IDataStore, ILoadedTable, ITableBuildIn,  TableSchema } from './types';
-import {
-	TableSource,
-	type ITableReference,
-	type ITableRefList,
-} from './types';
+import type { IDataStore, ILoadedTable, ITableBuildIn, TableSchema } from './types';
+import { TableSource, type ITableReference, type ITableRefList } from './types';
 import notificationStore from '../notificationStore';
 
 // Store extension containing actions to load data, transform & drop data
@@ -93,7 +89,7 @@ export const dataStoreLoadExtension = (store: BaseStoreType, dataStore: Writable
 		const conn = await store.getConnection();
 
 		if (!conn) {
-			throw new Error("no database connection")
+			throw new Error('no database connection');
 		}
 
 		if (shouldSetLoading) {
@@ -139,7 +135,7 @@ export const dataStoreLoadExtension = (store: BaseStoreType, dataStore: Writable
 			if (shouldUpdateTableList) {
 				// Update or replace table entry
 				dataStore.update((store) => {
-					store.tables[ref.tableName] = loadedTableInfo
+					store.tables[ref.tableName] = loadedTableInfo;
 					return store;
 				});
 			}
@@ -160,11 +156,29 @@ export const dataStoreLoadExtension = (store: BaseStoreType, dataStore: Writable
 		}
 	};
 
+	const addIdsToTable = async (tableName: string) => {
+		const tempName = `${tableName}-temp`;
+		const rename = `ALTER TABLE "${tableName}" RENAME TO "${tempName}";`;
+		await store.executeQuery(rename);
+
+		const addIdQuery = `
+			CREATE TABLE "${tableName}" AS
+			SELECT
+				ROW_NUMBER() OVER () AS id, *
+			FROM "${tempName}";
+
+			DROP TABLE "${tempName}";
+		`;
+
+		await store.executeQuery(addIdQuery);
+	};
+
 	const postProcessTable = async (
 		tableName: string,
 		refs: ITableRefList
 	): Promise<ILoadedTable | undefined> => {
 		console.debug('Post process', { tableName, refs });
+		await addIdsToTable(tableName);
 		if (refs.length === 0) {
 			return;
 		}
@@ -175,8 +189,8 @@ export const dataStoreLoadExtension = (store: BaseStoreType, dataStore: Writable
 				case TableSource.BUILD_IN: {
 					// FIXME: handle table parsing
 					// switch (refs[0].dataset.name) {
-						// case 'experiments':
-							await rewriteExperimentsEntries(tableName);
+					// case 'experiments':
+					await rewriteExperimentsEntries(tableName);
 					// }
 				}
 			}
@@ -237,7 +251,6 @@ export const dataStoreLoadExtension = (store: BaseStoreType, dataStore: Writable
 		}, {} as TableSchema);
 	};
 
-
 	/**
 	 * Loads all CSVs for the selected filters entries
 	 * @param selected
@@ -252,14 +265,17 @@ export const dataStoreLoadExtension = (store: BaseStoreType, dataStore: Writable
 			console.debug('Loading table references:', refs);
 
 			// Group tables by name for later processing
-			const grouped = refs.reduce((acc, ref) => {
-				if (!acc[ref.tableName]) {
-					acc[ref.tableName] = [];
-				}
-				// type
-				acc[ref.tableName].push(ref as any);
-				return acc;
-			}, {} as Record<string, ITableRefList>);
+			const grouped = refs.reduce(
+				(acc, ref) => {
+					if (!acc[ref.tableName]) {
+						acc[ref.tableName] = [];
+					}
+					// type
+					acc[ref.tableName].push(ref as any);
+					return acc;
+				},
+				{} as Record<string, ITableRefList>
+			);
 
 			console.debug('Grouped table references:', grouped);
 

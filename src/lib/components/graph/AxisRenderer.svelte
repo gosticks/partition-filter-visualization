@@ -3,12 +3,20 @@
 	import { browser } from '$app/environment';
 	import { getGraphContext, type GraphService, type GraphUnsubscribe } from '../BasicGraph.svelte';
 	import { AxesRenderer } from '$lib/rendering/AxesRenderer';
-	import { Axis } from '$lib/rendering/AxisRenderer';
+	import { Axis, type AxisLabelRenderer } from '$lib/rendering/AxisRenderer';
 
 	export let scale = 1;
 	export let xDivisions: number = 10;
 	export let yDivisions: number = 10;
 	export let zDivisions: number = 10;
+	export let xLabel: string = 'x';
+	export let yLabel: string = 'y';
+	export let zLabel: string = 'z';
+
+	export let xSegmentLabeler: AxisLabelRenderer | undefined = undefined;
+	export let zSegmentLabeler: AxisLabelRenderer | undefined = undefined;
+	export let ySegmentLabeler: AxisLabelRenderer | undefined = undefined;
+
 	const graphService: GraphService = getGraphContext();
 
 	const renderer = new AxesRenderer();
@@ -32,10 +40,33 @@
 				return zDivisions;
 		}
 	};
+	const segmentLabelerForAxis = (axis: Axis) => {
+		switch (axis) {
+			case Axis.X:
+				return xSegmentLabeler;
+			case Axis.Y:
+				return ySegmentLabeler;
+			case Axis.Z:
+				return zSegmentLabeler;
+		}
+	};
+
+	const labelForAxis = (axis: Axis) => {
+		switch (axis) {
+			case Axis.X:
+				return xLabel;
+			case Axis.Y:
+				return yLabel;
+			case Axis.Z:
+				return zLabel;
+		}
+	};
 
 	const updateAxis = (axis: Axis) => {
 		renderer.updateAxis(axis, {
-			segments: valueForAxis(axis)
+			segments: valueForAxis(axis),
+			labelText: labelForAxis(axis),
+			labelForSegment: segmentLabelerForAxis(axis)
 		});
 	};
 
@@ -50,9 +81,9 @@
 
 		scene.add(renderer);
 	});
-	$: xDivisions, updateAxis(Axis.X);
-	$: yDivisions, updateAxis(Axis.Y);
-	$: zDivisions, updateAxis(Axis.Z);
+	$: xDivisions, xLabel, xSegmentLabeler, updateAxis(Axis.X);
+	$: yDivisions, yLabel, ySegmentLabeler, updateAxis(Axis.Y);
+	$: zDivisions, zLabel, zSegmentLabeler, updateAxis(Axis.Z);
 
 	onDestroy(() => {
 		renderUnsubscriber?.();

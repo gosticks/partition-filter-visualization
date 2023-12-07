@@ -27,6 +27,7 @@ export class SparsePlaneGeometry extends THREE.BufferGeometry {
 		this.pointBuffer = new Float32Array(
 			(values.length + (addsBoundPointsToDelaunay ? 4 : 0)) * SparsePlaneGeometry.pointComponentSize
 		);
+
 		values.forEach(([x, z, y], idx) => {
 			if (addsBoundPointsToDelaunay) {
 				if (x < minX) {
@@ -43,7 +44,7 @@ export class SparsePlaneGeometry extends THREE.BufferGeometry {
 				}
 			}
 			this.pointBuffer[idx * SparsePlaneGeometry.pointComponentSize] = scaleX(x);
-			this.pointBuffer[idx * SparsePlaneGeometry.pointComponentSize + 1] = scaleY(y);
+			this.pointBuffer[idx * SparsePlaneGeometry.pointComponentSize + 1] = scaleY(Number(y));
 			this.pointBuffer[idx * SparsePlaneGeometry.pointComponentSize + 2] = scaleZ(z);
 		});
 		if (addsBoundPointsToDelaunay) {

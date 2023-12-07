@@ -1,22 +1,16 @@
-<script lang="ts">
-	import { getContext, onDestroy, onMount } from 'svelte';
+<script lang="ts" context="module">
 	import * as THREE from 'three';
-	import { browser } from '$app/environment';
-	import { Axis } from '$lib/rendering/AxisRenderer';
-	import { colorBrewer } from '$lib/rendering/colors';
-	import { getGraphContext, type GraphService } from '../BasicGraph.svelte';
-
 	class SliceSelectionRenderer extends THREE.Group {
 		private meshes = new Map<Axis, THREE.Mesh<THREE.PlaneGeometry, THREE.MeshBasicMaterial>>();
 		private colors: Record<Axis, THREE.ColorRepresentation> = {
-			[Axis.X]: colorBrewer.Oranges[3][0],
+			[Axis.X]: colorBrewer.Oranges[3][2],
 			[Axis.Y]: colorBrewer.Oranges[3][1],
-			[Axis.Z]: colorBrewer.Oranges[3][2]
+			[Axis.Z]: colorBrewer.Oranges[3][0]
 		};
 		private movementDirection: Record<Axis, THREE.Vector3> = {
-			[Axis.X]: new THREE.Vector3(0, 0, 1),
+			[Axis.X]: new THREE.Vector3(1, 0, 0),
 			[Axis.Y]: new THREE.Vector3(0, 1, 0),
-			[Axis.Z]: new THREE.Vector3(1, 0, 0)
+			[Axis.Z]: new THREE.Vector3(0, 0, 1)
 		};
 
 		constructor() {
@@ -42,12 +36,12 @@
 
 			switch (axis) {
 				case Axis.X:
+					mesh.rotateOnAxis(new THREE.Vector3(0, 1, 0), Math.PI / 2);
 					break;
 				case Axis.Y:
 					mesh.rotateOnAxis(new THREE.Vector3(1, 0, 0), Math.PI / 2);
 					break;
 				case Axis.Z:
-					mesh.rotateOnAxis(new THREE.Vector3(0, 1, 0), Math.PI / 2);
 					break;
 			}
 
@@ -70,10 +64,19 @@
 			}
 		}
 	}
+</script>
 
-	export let scale = 1;
+<script lang="ts">
+	import { getContext, onDestroy, onMount } from 'svelte';
+
+	import { browser } from '$app/environment';
+	import { Axis } from '$lib/rendering/AxisRenderer';
+	import { colorBrewer } from '$lib/rendering/colors';
+	import { getGraphContext, type GraphService } from '../BasicGraph.svelte';
 
 	const graphService: GraphService = getGraphContext();
+
+	export let scale = 1;
 
 	// normalized value between 0 and 1 indicating where to render x slice
 	export let x: number | undefined = undefined;
@@ -81,10 +84,6 @@
 	export let y: number | undefined = undefined;
 	// normalized value between 0 and 1 indicating where to render y slice
 	export let z: number | undefined = undefined;
-
-	export let opacity = 0.5;
-	let xColor: THREE.ColorRepresentation = 0xff0000;
-	let yColor: THREE.ColorRepresentation = 0xff0000;
 
 	let sliceRenderer = new SliceSelectionRenderer();
 

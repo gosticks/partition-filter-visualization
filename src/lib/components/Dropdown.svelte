@@ -18,7 +18,7 @@
 	import { PortalPlacement, relativePortal } from '$lib/actions/portal';
 	import clickOutside, { type ActionClickOutsideOptions } from '$lib/actions/clickOutside';
 	import { fadeSlide } from '$lib/transitions/fadeSlide';
-	import { getContext, setContext } from 'svelte';
+	import { getContext, setContext, type ComponentType } from 'svelte';
 
 	export let placement: PortalPlacement = PortalPlacement.BOTTOM;
 	export let isOpen: boolean = false;
@@ -66,7 +66,7 @@
 	{#if $$slots.trigger}
 		<slot name="trigger" />
 	{:else}
-		<div class="mb-2">
+		<div>
 			<Button
 				{...$$restProps}
 				class="flex items-center justify-between gap-2 {buttonClass}"

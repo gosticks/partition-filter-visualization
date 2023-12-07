@@ -60,17 +60,17 @@
 			case ButtonVariant.LINK:
 				switch (color) {
 					case ButtonColor.PRIMARY:
-						return 'text-primary-600 hover:text-primary-700 dark:text-primary-100 dark:hover:text-primary-300 border-0';
+						return 'text-primary-600 shadow-none hover:text-primary-700 dark:text-primary-100 dark:hover:text-primary-300 border-0';
 					case ButtonColor.SECONDARY:
-						return 'text-secondary-600 hover:text-secondary-700 dark:text-secondary-100 dark:hover:text-secondary-300 border-0';
+						return 'text-secondary-600 shadow-none hover:text-secondary-700 dark:text-secondary-100 dark:hover:text-secondary-300 border-0';
 					case ButtonColor.INVERTED:
 						return 'text-background-200 hover:text-background-300 dark:text-background-200 dark:hover:text-background-500 border-0';
 					case ButtonColor.SUCCESS:
-						return 'text-green-700 hover:text-green-800 dark:hover:text-green-100 dark:text-green-200';
+						return 'text-green-700 shadow-none hover:text-green-800 dark:hover:text-green-100 dark:text-green-200';
 					case ButtonColor.INFO:
-						return 'text-blue-700 hover:text-blue-800 dark:hover:text-blue-100 dark:text-blue-200';
+						return 'text-blue-700 shadow-none hover:text-blue-800 dark:hover:text-blue-100 dark:text-blue-200';
 					case ButtonColor.ERROR:
-						return 'text-red-700 hover:text-red-800 dark:hover:text-red-100 dark:text-red-200';
+						return 'text-red-700 shadow-none hover:text-red-800 dark:hover:text-red-100 dark:text-red-200';
 				}
 		}
 	}
@@ -83,7 +83,7 @@
 	class:gap-2={hasLeadingSlot || hasTrailingSlot}
 	class:justify-center={!hasLeadingSlot && !hasTrailingSlot}
 	class:justify-between={hasLeadingSlot || hasTrailingSlot}
-	class="inline-flex items-center {colorClasses} {sizeClasses}  font-medium focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 {className ??
+	class="inline-flex items-center {sizeClasses}  {colorClasses}  font-medium focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 {className ??
 		''}"
 >
 	<slot name="leading" />

@@ -17,7 +17,8 @@ const initialStore: IDataStore = {
 
 const _baseStore = () => {
 	console.log('Initializing data store');
-	const store = withLogMiddleware(writable<IDataStore>(initialStore), 'DataStore');
+	// const store = withLogMiddleware(writable<IDataStore>(initialStore), 'DataStore');
+	const store = writable<IDataStore>(initialStore);
 
 	const { set, update, subscribe } = store;
 

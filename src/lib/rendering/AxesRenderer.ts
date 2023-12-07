@@ -37,7 +37,8 @@ export const defaultAxisRendererOptions: AxisRendererOptions = {
 			...defaultAxisLabelOptions
 		},
 		labelText: 'X',
-		segments: 10
+		segments: 10,
+		segmentSize: 0.5
 	},
 	y: {
 		...defaultAxisOptions,
@@ -59,6 +60,19 @@ export const defaultAxisRendererOptions: AxisRendererOptions = {
 export class AxesRenderer extends THREE.Object3D {
 	private options: AxisRendererOptions;
 	private mapAxis = new Map<Axis, SingleAxis[]>();
+	private axesSets: Record<Axis, THREE.Vector3[]> = {
+		[Axis.X]: [new THREE.Vector3(0, 0, 0), new THREE.Vector3(0, 0, 1)],
+		[Axis.Y]: [
+			new THREE.Vector3(1, 0, 0),
+			new THREE.Vector3(0, 0, 0),
+			new THREE.Vector3(1, 0, 1),
+			new THREE.Vector3(0, 0, 1)
+		],
+		[Axis.Z]: [new THREE.Vector3(0, 0, 0), new THREE.Vector3(1, 0, 0)]
+	};
+
+	private labelOffset: THREE.Vector2 = new THREE.Vector2(0.2, 0.2);
+	private sectionLabelOffset: THREE.Vector2 = new THREE.Vector2(0.05, 0.05);
 
 	constructor(options: Partial<AxisRendererOptions> = {}) {
 		super();
@@ -105,42 +119,31 @@ export class AxesRenderer extends THREE.Object3D {
 		});
 	};
 
+	private optionsForAxis(axis: Axis): AxisOptions {
+		return {
+			...defaultAxisRendererOptions[axis],
+			labelForSegment: this.options.labelForSegment ?? defaultAxisRendererOptions.labelForSegment,
+			labelScale: this.options.labelScale ?? defaultAxisRendererOptions.labelScale,
+			...(this.options[axis] ?? {})
+		};
+	}
+
 	update(_options: Partial<AxisLabelRenderer>) {
 		this.clear();
 		const options: AxisRendererOptions = {
 			...this.options,
 			..._options
 		};
+		this.options = options;
 		for (const axis of [Axis.X, Axis.Y, Axis.Z]) {
-			const axisOptions: AxisOptions = {
-				...defaultAxisRendererOptions[axis],
-				labelForSegment: options.labelForSegment ?? defaultAxisRendererOptions.labelForSegment,
-				labelScale: options.labelScale ?? defaultAxisRendererOptions.labelScale,
-				...(options[axis] ?? {})
-			};
-			this.updateAxis(axis, axisOptions);
+			this.updateAxis(axis, this.optionsForAxis(axis));
 			// options[axis] = axisOptions;
 
 			// const singleAxis = new SingleAxis(axis, axisOptions);
 			// this.mapAxis.set(axis, singleAxis);
 			// this.add(singleAxis);
 		}
-		this.options = options;
 	}
-
-	private axesSets: Record<Axis, THREE.Vector3[]> = {
-		[Axis.X]: [new THREE.Vector3(0, 0, 0), new THREE.Vector3(0, 0, 1)],
-		[Axis.Y]: [
-			new THREE.Vector3(1, 0, 0),
-			new THREE.Vector3(0, 0, 0),
-			new THREE.Vector3(1, 0, 1),
-			new THREE.Vector3(0, 0, 1)
-		],
-		[Axis.Z]: [new THREE.Vector3(0, 0, 0), new THREE.Vector3(1, 0, 0)]
-	};
-
-	private labelOffset: THREE.Vector2 = new THREE.Vector2(0.2, 0.2);
-	private sectionLabelOffset: THREE.Vector2 = new THREE.Vector2(0.05, 0.05);
 
 	private getLabelOffset(axis: Axis, labelOffset: THREE.Vector2, edgeIndex: number): THREE.Vector3 {
 		switch (axis) {
@@ -152,9 +155,9 @@ export class AxesRenderer extends THREE.Object3D {
 				);
 			case Axis.Y:
 				return new THREE.Vector3(
-					labelOffset.x * Math.pow(-1, edgeIndex) * 0.8,
+					labelOffset.x * Math.pow(-1, edgeIndex) * 1,
 					0,
-					labelOffset.y * (edgeIndex < 2 ? -1 : 1) * 0.8
+					labelOffset.y * (edgeIndex < 2 ? -1 : 1) * 1
 				);
 			case Axis.Z:
 				return new THREE.Vector3(
@@ -168,12 +171,6 @@ export class AxesRenderer extends THREE.Object3D {
 	updateAxis(axis: Axis, options: Partial<AxisOptions>) {
 		this.options[axis] = {
 			...this.options[axis],
-			labelForSegment: (axis, segment) => {
-				if (segment % 2 == 0) {
-					return null;
-				}
-				return `${segment}`;
-			}, //options.labelForSegment ?? defaultAxisRendererOptions.labelForSegment,
 			labelScale: options.labelScale ?? defaultAxisRendererOptions.labelScale,
 			...options
 		};
@@ -187,10 +184,11 @@ export class AxesRenderer extends THREE.Object3D {
 				const singleAxis = new SingleAxis(
 					axis,
 					this.getLabelOffset(axis, this.labelOffset, edgeIdx),
-					this.getLabelOffset(axis, this.sectionLabelOffset, edgeIdx),
+					this.getLabelOffset(axis, this.sectionLabelOffset, edgeIdx).multiplyScalar(
+						axis === Axis.Y ? 1.5 : 1
+					),
 					{
 						...this.options[axis],
-						labelText: `${axis}-${edgeIdx}`,
 						labelRotation: (this.options[axis].labelRotation ?? 0) * (2 * edgeIdx + 1)
 					}
 				);

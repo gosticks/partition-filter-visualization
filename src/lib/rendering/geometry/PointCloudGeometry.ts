@@ -7,40 +7,30 @@ export class SelectablePointCloud extends THREE.Group {
 	private boxMesh?: THREE.InstancedMesh;
 	private dotMesh?: THREE.InstancedMesh;
 
-	public get userData() {
-		return this.boxMesh?.userData;
-	}
-
-	public set userData(userData: any) {
-		if (this.boxMesh) {
-			this.boxMesh!.userData = userData;
-		}
-	}
-
 	constructor(
 		values: Point3D[],
 		color: THREE.Color,
 		radius: number,
 		hitBoxWidth: number,
+		public index: number,
+		public childIndex?: number,
 		public scaleX: (x: number) => number = identity,
 		public scaleY: (y: number) => number = identity,
-		public scaleZ: (z: number) => number = identity,
-		userData: object = {}
+		public scaleZ: (z: number) => number = identity
 	) {
 		super();
 
 		const sphere = new THREE.SphereGeometry(radius);
 		const sphereMaterial = new THREE.MeshPhongMaterial({
 			color: color,
-			depthWrite: false,
 			transparent: true,
 			opacity: 0.4
 		});
 
 		const hitBox = new THREE.BoxGeometry(hitBoxWidth, hitBoxWidth, hitBoxWidth);
-		const hitBoxMaterial = new THREE.MeshBasicMaterial({
-			color: color,
-			transparent: true
+		const hitBoxMaterial = new THREE.MeshPhongMaterial({
+			color: color
+			// transparent: true
 		});
 
 		const dotMesh = new THREE.InstancedMesh(sphere, sphereMaterial, values.length);
@@ -48,20 +38,36 @@ export class SelectablePointCloud extends THREE.Group {
 		const matrix = new THREE.Matrix4();
 
 		for (const [i, [x, z, y]] of values.entries()) {
-			matrix.setPosition(scaleX(x), scaleY(y), scaleZ(z));
+			matrix.setPosition(scaleX(x), scaleY(Number(y)), scaleZ(z));
 
 			// boxMesh.setColorAt(i, transparent)
 			dotMesh.setMatrixAt(i, matrix);
 			boxMesh.setMatrixAt(i, matrix);
 		}
 
-		boxMesh.visible = false;
+		// boxMesh.visible = false;
 		boxMesh.layers.set(INTERSECTION_CHECK_LAYER);
-		boxMesh.userData = userData;
-
+		this.layers.set(INTERSECTION_CHECK_LAYER);
 		this.add(boxMesh, dotMesh);
 
 		this.boxMesh = boxMesh;
 		this.dotMesh = dotMesh;
+	}
+
+	public globalPositionOfInstance(instanceId: number): THREE.Vector3 {
+		const pos = this.position.clone();
+		const mat = new THREE.Matrix4();
+		this.dotMesh!.getMatrixAt(instanceId, mat)!;
+		return this.localToWorld(pos.applyMatrix4(mat));
+	}
+
+	public setHitTest(enabled: boolean) {
+		if (enabled) {
+			this.boxMesh?.layers.set(INTERSECTION_CHECK_LAYER);
+			this.layers.set(INTERSECTION_CHECK_LAYER);
+		} else {
+			this.boxMesh?.layers.disable(INTERSECTION_CHECK_LAYER);
+			this.layers.disable(INTERSECTION_CHECK_LAYER);
+		}
 	}
 }

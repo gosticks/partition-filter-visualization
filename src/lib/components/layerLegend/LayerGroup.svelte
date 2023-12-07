@@ -6,6 +6,14 @@
 		parentLayer?: A;
 	}
 
+	export interface LayerColorSelectionEvent<A = object, B = object> {
+		layer: A | B;
+		index: number;
+		subIndex?: number;
+		parentLayer?: A;
+		color?: string;
+	}
+
 	interface BasicLayer {
 		name: string;
 		color?: string;
@@ -18,6 +26,8 @@
 </script>
 
 <script lang="ts">
+	import type { DropdownSelectionEvent } from '../DropdownSelect.svelte';
+
 	import LayerItem from './LayerItem.svelte';
 
 	import { createEventDispatcher } from 'svelte';
@@ -27,6 +37,7 @@
 
 	interface $$Events {
 		select: CustomEvent<LayerSelectionEvent<ParentLayer, ChildLayer>>;
+		color: CustomEvent<LayerColorSelectionEvent<ParentLayer, ChildLayer>>;
 	}
 
 	export var layerVisibility: LayerVisibilityList;
@@ -34,6 +45,16 @@
 	export var selection: ParentLayer | ChildLayer | undefined = undefined;
 
 	const changeDispatch = createEventDispatcher();
+
+	const onColorSelection =
+		(index: number, layer: ChildLayer | ParentLayer, subLayer?: number) =>
+		(evt: DropdownSelectionEvent<string>) => {
+			changeDispatch('color', {
+				index,
+				layer,
+				color: evt.detail.selected.at(0)?.value
+			});
+		};
 </script>
 
 <ul>
@@ -44,6 +65,7 @@
 			{visible}
 			selected={layer === selection}
 			name={layer.name}
+			on:select={onColorSelection(index, layer)}
 			color={layer.color}
 			on:click={() =>
 				changeDispatch('select', {

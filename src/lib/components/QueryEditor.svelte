@@ -6,6 +6,12 @@
 	import Button from './button/Button.svelte';
 	import { dataStore } from '$lib/store/dataStore/DataStore';
 	import { ButtonColor } from './button/type';
+	import DropdownSelect, {
+		type DropdownSelectionEvent,
+		type OptionConstructor
+	} from './DropdownSelect.svelte';
+	import type { DbQueryHistoryItem } from '$lib/store/dataStore/types';
+	import Tag from './base/Tag.svelte';
 
 	let currentQuery: ReturnType<typeof dataStore.executeQuery> | undefined = undefined;
 
@@ -43,18 +49,54 @@
 		editor.layout();
 		editor.setValue(initialQuery);
 	}
+
+	const historyOptionConstructor: OptionConstructor<DbQueryHistoryItem, DbQueryHistoryItem> = (
+		value,
+		index,
+		meta
+	) => {
+		return {
+			label: value.query,
+			value: value,
+			id: index
+		};
+	};
+
+	const onHistoryItemSelected = (item: DropdownSelectionEvent<DbQueryHistoryItem>) => {
+		if (item.detail.selected.length === 0) {
+			return;
+		}
+		editor.setValue(item.detail.selected[0].value.query);
+	};
 </script>
 
 <div>
-	<div class="grid grid-cols-8 max-h-full">
+	<div class="grid grid-cols-6 max-h-full">
 		<div class="col-span-3">
-			<h3 class="font-semibold text-lg mb-3">Query</h3>
+			<div>
+				<h3 class="font-semibold text-lg mb-3">Query</h3>
+				<p class="flex gap-2 mb-2">
+					Tables:
+					{#each Object.values($dataStore.tables) as table}
+						<Tag>{table.name}</Tag>
+					{/each}
+				</p>
+			</div>
 			<div class="border border-background-100 dark:border-background-800">
 				<CodeEditor bind:editor class="h-[60vh] w-full" />
+				<DropdownSelect
+					label="Query History"
+					expand
+					singular
+					values={$dataStore.previousQueries}
+					optionConstructor={historyOptionConstructor}
+					on:select={onHistoryItemSelected}
+				/>
 			</div>
 		</div>
 		<div class="col-span-3">
 			<h3 class="font-semibold text-lg mb-3">Output</h3>
+
 			<div
 				class="h-[60vh] overflow-auto border-t border-b border-r border-background-100 dark:border-background-800"
 				style="font-family: monospace;"
@@ -67,7 +109,10 @@
 									<tr>
 										<th class="px-4 py-2">ID</th>
 										{#each data.schema.fields as field}
-											<th class="px-4 py-2">{field.name}</th>
+											{@const row = data.get(0)}
+											<th class="px-4 py-2"
+												>{field.name} [{typeof row?.[field.name]}] [{field.type}]</th
+											>
 										{/each}
 									</tr>
 								</thead>
@@ -97,32 +142,6 @@
 						<div class="text-red-500">Error: {error.message}</div>
 					{/await}
 				{/if}
-			</div>
-		</div>
-		<div class="col-span-2">
-			<h3 class="font-semibold text-lg mb-3">History</h3>
-			<div class="h-[60vh] overflow-scroll">
-				{#each $dataStore.previousQueries as entry}
-					<!-- svelte-ignore a11y-click-events-have-key-events -->
-					<div
-						class="relative border-background-100 dark:border-background-800 border-b select-none cursor-pointer first:border-t py-2 px-2 hover:text-background-900 text-background-500 hover:bg-background-100 dark:hover:bg-background-600"
-						style="font-family: monospace;"
-						on:click={() => {
-							editor.setValue(entry.query);
-						}}
-					>
-						<p class="line-clamp-2 overflow-ellipsis">
-							{entry.query}
-						</p>
-						<div
-							class="absolute right-2 bottom-2 text-sm bg-cyan-500 text-cyan-200 px-2 rounded-lg"
-							class:bg-red-600={!entry.success}
-							class:text-red-100={!entry.success}
-						>
-							{entry.executionTime.toLocaleString()}ms
-						</div>
-					</div>
-				{/each}
 			</div>
 		</div>
 	</div>

@@ -15,7 +15,6 @@ export enum DataAggregation {
 	SUM = 'sum'
 }
 
-
 export enum TableSource {
 	BUILD_IN,
 	URL,
@@ -58,6 +57,12 @@ export interface ILoadedTable {
 	filterOptions: FilterOptions;
 }
 
+export type DbQueryHistoryItem = {
+	query: string;
+	success: boolean;
+	executionTime: number;
+};
+
 export interface IDataStore {
 	db: AsyncDuckDB | null;
 	isLoading: boolean;
@@ -68,5 +73,5 @@ export interface IDataStore {
 	combinedSchema: TableSchema;
 
 	// FIXME: hide behind debug flag
-	previousQueries: { query: string; success: boolean; executionTime: number }[];
+	previousQueries: DbQueryHistoryItem[];
 }

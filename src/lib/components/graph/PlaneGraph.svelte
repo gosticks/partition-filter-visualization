@@ -1,5 +1,6 @@
 <script lang="ts">
-	import { getContext, onDestroy, onMount } from 'svelte';
+	import DbDataTooltip from '../DbDataTooltip.svelte';
+	import { onDestroy, onMount } from 'svelte';
 	import { browser } from '$app/environment';
 	import {
 		PlaneRenderer,
@@ -9,39 +10,44 @@
 	} from '$lib/rendering/PlaneRenderer';
 	import Card from '../Card.svelte';
 	import type { PlaneGraphModel } from '$lib/store/filterStore/graphs/plane';
-	import { writable, type Unsubscriber, get } from 'svelte/store';
-	import { dataStore as dbStore } from '$lib/store/dataStore/DataStore';
+	import { type Unsubscriber, get, writable } from 'svelte/store';
 	import Button from '../button/Button.svelte';
-	import { Axis } from '$lib/rendering/AxisRenderer';
-	import { ButtonColor, ButtonSize, ButtonVariant } from '../button/type';
-	import { Vector2, Vector3 } from 'three';
-	import { fade } from 'svelte/transition';
-	import LayerGroup, { type LayerSelectionEvent } from '../layerLegend/LayerGroup.svelte';
+	import { Axis, type AxisLabelRenderer } from '$lib/rendering/AxisRenderer';
+	import { ButtonColor, ButtonSize } from '../button/type';
+	import { Vector2 } from 'three';
+	import LayerGroup, {
+		type LayerColorSelectionEvent,
+		type LayerSelectionEvent
+	} from '../layerLegend/LayerGroup.svelte';
 	import { getGraphContext, type GraphService } from '../BasicGraph.svelte';
 	import SliceGraph from './SliceGraph.svelte';
-	import type { ITiledDataRow } from '$lib/store/dataStore/filterActions';
-	import { positionPortal } from '$lib/actions/portal';
-	import { draggable } from '$lib/actions/draggable';
-	import { CopyIcon, LayersIcon, LockIcon } from 'svelte-feather-icons';
-	import notificationStore from '$lib/store/notificationStore';
+	import { LayersIcon, LockIcon } from 'svelte-feather-icons';
+
 	import Grid from './Grid.svelte';
+	import AxisRenderer from './AxisRenderer.svelte';
+	import { DataScaling } from '$lib/store/dataStore/types';
+	import { labelSkipFactor, scaleDecoder } from '$lib/util';
+	import Selection3D from './Selection3D.svelte';
 
 	export let options: PlaneGraphModel;
 
 	const graphService: GraphService = getGraphContext();
 	export let graphScale: number;
 	let threeDomContainer: HTMLElement;
+
 	let dataStore = options.dataStore;
+	let graphOptionStore = options.optionsStore;
+
 	let dataRenderer: PlaneRenderer = new PlaneRenderer();
 	let unsubscriber: Unsubscriber | undefined;
 	let layerVisibility: [boolean, boolean[]][] = [];
 
-	let isSelectionLocked = writable(false);
-
+	let isSelectionDisplayLocked = writable(false);
 	let selection: IPlaneSelection | undefined;
+
 	let mousePosition: Vector2 = new Vector2();
 	let mouseClientPosition: THREE.Vector2 = new Vector2(0, 0);
-	let selectionInfoPromise: Promise<Record<string, any> | undefined> | undefined;
+
 	let xSlice: number = 0;
 	let ySlice: number = 0;
 
@@ -64,12 +70,8 @@
 		layerVisibility = dataRenderer.getLayerVisibility();
 	};
 
-	const findRowData = async (tableName: string, row: ITiledDataRow) => {
-		return await dbStore.getEntry(tableName, 'name', `'${row.name}'`);
-	};
-
 	const onMouseMove = (event: MouseEvent) => {
-		if ($isSelectionLocked) {
+		if ($isSelectionDisplayLocked) {
 			return;
 		}
 
@@ -80,7 +82,7 @@
 		mousePosition.x = (mouseClientPosition.x / bounds.width) * 2 - 1;
 		mousePosition.y = -(mouseClientPosition.y / bounds.height) * 2 + 1.0;
 
-		const newSelection = dataRenderer?.getInfoAtPoint(mousePosition);
+		const newSelection = dataRenderer?.selectionAtPoint(mousePosition);
 
 		if (!newSelection) {
 			selection = newSelection;
@@ -96,16 +98,6 @@
 			return;
 		}
 		selection = newSelection;
-
-		if (selection.layer.meta) {
-			if (selectionInfoPromise) {
-				selectionInfoPromise;
-			}
-			selectionInfoPromise = findRowData(
-				selection.parent ? selection.parent.name : selection.layer.name,
-				selection.dataIndex
-			);
-		}
 	};
 
 	onMount(() => {
@@ -127,43 +119,6 @@
 		unsubscriber?.();
 	});
 
-	function formatPowerOfTen(num: number) {
-		if (num === 0) return '0';
-		let exponent = Math.floor(Math.log10(Math.abs(num)));
-		return `10^${exponent}`;
-	}
-
-	const labelForAxis = (axis: Axis, segment: number, numSegments: number) => {
-		const store = dataStore;
-		if (!store) {
-			return;
-		}
-
-		const range = $dataStore!.ranges[axis];
-
-		if (Axis.Y == axis && range) {
-			return ((range[1] / numSegments) * segment).toFixed(2);
-		}
-
-		const tileRange = $dataStore!.tileRange[axis as keyof IPlaneRendererData['tileRange']];
-		if (!range || !tileRange) {
-			return segment.toFixed(4);
-		}
-		const [min, max] = range;
-
-		// Skip every second value
-		if (segment % 2 === 0) {
-			return null;
-		}
-		const value = (segment / tileRange) * max;
-
-		if (Math.abs(value) < 0.01 || Math.abs(value) > 1000) {
-			return formatPowerOfTen(value);
-		}
-
-		return value.toFixed(3).toString();
-	};
-
 	const onLayerSelected = (evt: CustomEvent<LayerSelectionEvent<IPlaneData, any>>) => {
 		if (evt.detail.subIndex !== undefined) {
 			dataRenderer.toggleSublayerVisibility(evt.detail.index, evt.detail.subIndex);
@@ -171,6 +126,12 @@
 			dataRenderer.toggleLayerVisibility(evt.detail.index);
 		}
 		layerVisibility = dataRenderer.getLayerVisibility();
+	};
+
+	const onColorSelected = (evt: CustomEvent<LayerColorSelectionEvent<IPlaneData, any>>) => {
+		if (evt.detail.color) {
+			options.setColorForLayer(evt.detail.color, evt.detail.layer, evt.detail.subIndex);
+		}
 	};
 
 	const showAllLayers = () => {
@@ -183,13 +144,65 @@
 		layerVisibility = dataRenderer.getLayerVisibility();
 	};
 
-	const copyValue = (value: string) => {
-		navigator.clipboard.writeText(value);
-		notificationStore.info({
-			message: 'Value copied to clipboard',
-			dismissDuration: 1000
-		});
+	const axisValueDecoder = (axis: Axis) => {
+		switch (axis) {
+			case Axis.X:
+				return scaleDecoder($graphOptionStore.scaleX ?? DataScaling.LINEAR);
+			case Axis.Y:
+				return scaleDecoder($graphOptionStore.scaleY ?? DataScaling.LINEAR);
+			case Axis.Z:
+				return scaleDecoder($graphOptionStore.scaleZ ?? DataScaling.LINEAR);
+		}
 	};
+
+	const selectionValueForAxis = (axis: Axis) => {
+		switch (axis) {
+			case Axis.X:
+				return () => selection?.layer.meta?.rows[selection.dataIndex].rawX ?? '-';
+			case Axis.Y:
+				return () => selection?.layer.meta?.rows[selection.dataIndex].rawY ?? '-';
+			case Axis.Z:
+				return () => selection?.layer.meta?.rows[selection.dataIndex].rawZ ?? '-';
+		}
+	};
+
+	const labelRenderer = (axis: Axis) => {
+		if (!$dataStore) {
+			return undefined;
+		}
+
+		let range = [0, 1];
+		let valueDecoder = axisValueDecoder(axis);
+		switch (axis) {
+			case Axis.X:
+				range = $dataStore.ranges.x;
+				break;
+			case Axis.Y:
+				range = $dataStore.ranges.y;
+				break;
+			case Axis.Z:
+				range = $dataStore.ranges.z;
+				break;
+		}
+
+		const formatter: AxisLabelRenderer = (axis, segment, total) => {
+			if (segment % labelSkipFactor(total)) {
+				return null;
+			}
+
+			return `${valueDecoder(range[0] + ((range[1] - range[0]) / total) * segment).toPrecision(2)}`;
+		};
+
+		return formatter;
+	};
+
+	let xLabelRenderer = labelRenderer(Axis.X);
+	let zLabelRenderer = labelRenderer(Axis.Z);
+	let yLabelRenderer = labelRenderer(Axis.Y);
+
+	$: $dataStore, $graphOptionStore, (xLabelRenderer = labelRenderer(Axis.X));
+	$: $dataStore, $graphOptionStore, (yLabelRenderer = labelRenderer(Axis.Y));
+	$: $dataStore, $graphOptionStore, (zLabelRenderer = labelRenderer(Axis.Z));
 </script>
 
 <div class="absolute flex flex-col items-start bottom-0 left-2">
@@ -206,6 +219,7 @@
 						<LayerGroup
 							selection={selection?.layer}
 							on:select={onLayerSelected}
+							on:color={onColorSelected}
 							{layerVisibility}
 							layers={$dataStore.layers}
 						/>
@@ -244,110 +258,67 @@
 <div class="plane-graph-ui legend absolute isolate left-2 top-16 w-[250px]">
 	{#if $dataStore}
 		<Grid xDivisions={$dataStore.tileRange.x} zDivisions={$dataStore.tileRange.z} scale={0.6} />
+
+		<AxisRenderer
+			xDivisions={$dataStore.tileRange.x}
+			zDivisions={$dataStore.tileRange.z}
+			xLabel={$dataStore.labels.x}
+			yLabel={$dataStore.labels.y}
+			zLabel={$dataStore.labels.z}
+			xSegmentLabeler={xLabelRenderer}
+			ySegmentLabeler={yLabelRenderer}
+			zSegmentLabeler={zLabelRenderer}
+			scale={0.6}
+		/>
 	{/if}
+	<Selection3D {selection} scale={0.6} />
 	{#if selection && $dataStore}
-		<div
-			use:draggable={{ enabled: isSelectionLocked }}
-			use:positionPortal={mouseClientPosition}
-			transition:fade={{ duration: 75 }}
-			class="absolute rounded-lg border backdrop-blur-md border-slate-900 bg-slate-700/80 text-slate-100"
-			class:shadow-lg={$isSelectionLocked}
-			class:border-blue-500={$isSelectionLocked}
-			class:border-2={$isSelectionLocked}
-			style="font-family: monospace;"
+		<DbDataTooltip
+			absolutePosition={mouseClientPosition}
+			tableName={selection.layer.name}
+			dbEntryId={selection.dbEntryId}
+			isLocked={$isSelectionDisplayLocked}
 		>
-			<div class="px-3 pt-2">
-				<div class="flex pb-2 justify-between items-center whitespace-nowrap gap-2 flex-nowrap">
-					<div>
-						<div
-							class="flex-shrink-0 rounded-full border border-slate-800"
-							style={`background-color: ${selection.layer.color}; width: 12px; height:12px; display: inline-block;`}
-						/>
-						<span class="font-bold">{selection.layer.name}</span>
-					</div>
-					<div>
-						<Button
-							size={ButtonSize.SM}
-							color={ButtonColor.INVERTED}
-							on:click={() => {
-								if (selection) {
-									xSlice = selection.x;
-									ySlice = selection.z;
-								}
-							}}><LayersIcon slot="leading" size="10" />Show</Button
-						>
-						<Button
-							size={ButtonSize.SM}
-							color={!$isSelectionLocked ? ButtonColor.INVERTED : ButtonColor.SECONDARY}
-							on:click={() => ($isSelectionLocked = !$isSelectionLocked)}
-							><LockIcon slot="leading" size="10" />x:{selection.x} z:{selection.z}</Button
-						>
-					</div>
+			<div class="flex pb-2 justify-between items-center whitespace-nowrap gap-2 flex-nowrap">
+				<div>
+					<div
+						class="flex-shrink-0 rounded-full border border-slate-800"
+						style={`background-color: ${selection.layer.color}; width: 12px; height:12px; display: inline-block;`}
+					/>
+					<span class="font-bold">{selection.layer.name}</span>
 				</div>
-				<div class="flex justify-between gap-2">
-					<span>[x]{$dataStore.labels.x}:</span>
-					<span>{selection.point[0]}</span>
-				</div>
-				<div class="flex justify-between gap-2">
-					<span>[y]{$dataStore.labels.y}:</span>
-					<span>{selection.point[2]}</span>
-				</div>
-				<div class="flex justify-between gap-2">
-					<span>[z]{$dataStore.labels.z}:</span>
-					<span>{selection.point[1]}</span>
+				<div>
+					<Button
+						size={ButtonSize.SM}
+						color={ButtonColor.INVERTED}
+						on:click={() => {
+							if (selection) {
+								xSlice = selection.point[0];
+								ySlice = selection.point[2];
+							}
+						}}><LayersIcon slot="leading" size="10" />Show</Button
+					>
+					<Button
+						size={ButtonSize.SM}
+						color={!$isSelectionDisplayLocked ? ButtonColor.INVERTED : ButtonColor.SECONDARY}
+						on:click={() => ($isSelectionDisplayLocked = !$isSelectionDisplayLocked)}
+						><LockIcon slot="leading" size="10" />x:{selection.point[0]} z:{selection
+							.point[1]}</Button
+					>
 				</div>
 			</div>
-			{#if selectionInfoPromise}
-				<hr class="border-slate-700 m-2" />
-				<div class="px-3 pb-2 tooltip-content overflow-auto max-h-96 max-w-sm">
-					{#await selectionInfoPromise}
-						Loading info...
-					{:then result}
-						{#if result}
-							{#each Object.entries(result) as [key, value]}
-								<div class="flex gap-2 justify-between">
-									<div>
-										<Button
-											variant={ButtonVariant.LINK}
-											on:click={() => copyValue(value)}
-											size={ButtonSize.SM}><b class="mr-2">{key}</b><CopyIcon size="12" /></Button
-										>
-									</div>
-
-									<span>{value}</span>
-								</div>
-							{/each}
-						{:else}
-							Result empty
-						{/if}
-					{:catch err}
-						Failed to load info {err}
-					{/await}
-				</div>
-			{/if}
-		</div>
+			<div class="flex justify-between gap-2">
+				<span>[x]{$dataStore.labels.x}:</span>
+				<span>{selectionValueForAxis(Axis.X)()}</span>
+			</div>
+			<div class="flex justify-between gap-2">
+				<span>[y]{$dataStore.labels.y}:</span>
+				<span>{selectionValueForAxis(Axis.Y)()}</span>
+			</div>
+			<div class="flex justify-between gap-2">
+				<span>[z]{$dataStore.labels.z}:</span>
+				<span>{selectionValueForAxis(Axis.Z)()}</span>
+			</div>
+		</DbDataTooltip>
 	{/if}
 </div>
-
-<style lang="scss">
-	.tooltip-content {
-		// Reset scroll bar styles
-		&::-webkit-scrollbar {
-			width: 0.4em;
-		}
-
-		&::-webkit-scrollbar-track {
-			@apply dark:bg-slate-900 bg-slate-300;
-			opacity: 0.01;
-		}
-
-		&::-webkit-scrollbar-thumb {
-			@apply bg-slate-300 dark:bg-slate-600;
-			border-radius: 20px;
-		}
-
-		&::-webkit-scrollbar-corner {
-			opacity: 0.01;
-		}
-	}
-</style>

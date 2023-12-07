@@ -6,9 +6,7 @@
 	import SettingsStore, { Theme } from '$lib/store/SettingsStore';
 
 	const graphService: GraphService = getGraphContext();
-
 	let minimalRenderer: MinimapRenderer | undefined;
-
 	let renderTargetEl: HTMLDivElement;
 
 	$: $SettingsStore, updateColor();

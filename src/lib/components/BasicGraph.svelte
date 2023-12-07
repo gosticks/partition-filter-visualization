@@ -11,7 +11,8 @@
 	) => void;
 
 	export type CameraState = {
-		position: THREE.Vector3; rotation: THREE.Euler;
+		position: THREE.Vector3;
+		rotation: THREE.Euler;
 	};
 
 	// let displatFilter: ;
@@ -25,7 +26,7 @@
 		registerOnBeforeRender: (callback: GraphRenderLoopCallback) => GraphUnsubscribe;
 		registerOnAfterRender: (callback: GraphRenderLoopCallback) => GraphUnsubscribe;
 		getScreenshot: () => string;
-		getCameraState: () => (CameraState);
+		getCameraState: () => CameraState;
 		setCameraState: (state: CameraState) => void;
 	};
 
@@ -46,7 +47,7 @@
 	import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer';
 	import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass';
 	import { OutlinePass } from 'three/examples/jsm/postprocessing/OutlinePass';
-	import Stats from './graph/Stats.svelte';
+	// import Stats from './graph/Stats.svelte';
 
 	let containerElement: HTMLDivElement;
 
@@ -222,13 +223,12 @@
 
 	const getScreenshot = () => renderer.domElement.toDataURL('image/png');
 
-	const getCameraState = () => ({rotation: camera.rotation, position: camera.position})
+	const getCameraState = () => ({ rotation: camera.rotation, position: camera.position });
 	export const setCameraState = (state: CameraState) => {
-			camera.rotation.copy(state.rotation);
-			camera.position.copy(state.position);
-			controls.update();
-		}
-
+		camera.rotation.copy(state.rotation);
+		camera.position.copy(state.position);
+		controls.update();
+	};
 
 	export const getValues = () => {
 		return {
@@ -237,7 +237,7 @@
 			renderer,
 			domElement: containerElement
 		};
-	}
+	};
 
 	export const getContextValues = () => ({
 		getValues: getValues,
@@ -249,7 +249,6 @@
 	});
 
 	setGraphContext(getContextValues());
-
 
 	onDestroy(() => {
 		if (!browser) {
@@ -282,15 +281,15 @@
 	}
 </script>
 
-	<div class="relative w-screen h-screen">
-		<div bind:this={containerElement} class="w-full h-full overflow-hidden isolate" />
-		<!-- Render children only after setup complete -->
-		{#if isSetupComplete}
+<div class="relative w-screen h-screen">
+	<div bind:this={containerElement} class="w-full h-full overflow-hidden isolate" />
+	<!-- Render children only after setup complete -->
+	{#if isSetupComplete}
 		<slot name="inner" />
-		<Stats />
-		{/if}
-	</div>
-	<slot />
+		<!-- <Stats /> -->
+	{/if}
+</div>
+<slot />
 
 <style lang="scss">
 	.bar-chart-container {
