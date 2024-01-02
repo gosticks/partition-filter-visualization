@@ -1,5 +1,4 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
 	import settingsStore, { Theme } from '$lib/store/SettingsStore';
 
 	let className: string | undefined = '';

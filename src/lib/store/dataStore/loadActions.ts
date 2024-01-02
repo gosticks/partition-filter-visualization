@@ -29,6 +29,8 @@ export const dataStoreLoadExtension = (store: BaseStoreType, dataStore: Writable
 	ALTER TABLE "${tableName}" ADD COLUMN n_elements_build INTEGER;
 	ALTER TABLE "${tableName}" ADD COLUMN n_elements_lookup INTEGER;
 	ALTER TABLE "${tableName}" ADD COLUMN shared_elements FLOAT;
+	ALTER TABLE "${tableName}" ADD COLUMN construction_throughput FLOAT;
+	ALTER TABLE "${tableName}" ADD COLUMN lookup_throughput FLOAT;
 
 	WITH SplitValues AS (
 		SELECT
@@ -58,6 +60,10 @@ export const dataStoreLoadExtension = (store: BaseStoreType, dataStore: Writable
 	shared_elements = sv.shared_elements
 	FROM SplitValues AS sv
 	WHERE t.name = sv.name;
+
+	UPDATE "${tableName}"
+	SET "construction_throughput" = (n_elements_build * 1000.0) / real_time
+	WHERE real_time IS NOT NULL AND real_time != 0;
 
 	UPDATE "${tableName}" as t
 		SET fpr = 'NaN'
@@ -185,12 +191,13 @@ export const dataStoreLoadExtension = (store: BaseStoreType, dataStore: Writable
 		// get list type
 		const refType = refs[0].source;
 		try {
+			await rewriteExperimentsEntries(tableName);
 			switch (refType) {
 				case TableSource.BUILD_IN: {
 					// FIXME: handle table parsing
 					// switch (refs[0].dataset.name) {
 					// case 'experiments':
-					await rewriteExperimentsEntries(tableName);
+					// await rewriteExperimentsEntries(tableName);
 					// }
 				}
 			}

@@ -165,10 +165,10 @@ export const dataStoreFilterExtension = (store: BaseStoreType) => {
 					${options.aggregation}(${yColValue}) AS y,
 					min(id) as id
 			FROM "${tableName}"
+			${where ? `WHERE "${where.columnName}" = '${where.value}'` : ''}
 			GROUP BY x, z
 		) b ON a.id = b.id
 
-		${where ? `and "${where.columnName}" = '${where.value}'` : ''}
 		${options.scaleY === DataScaling.LOG ? `and "${options.yColumnName}" >= 0` : ''}
 		ORDER BY x ASC, z ASC ${where ? `, "${where.columnName}"` : ''}
 		`;

@@ -1,11 +1,18 @@
-import * as THREE from 'three';
+import {
+	Color,
+	DoubleSide,
+	ShaderMaterial,
+	UniformsUtils,
+	type ShaderMaterialParameters,
+	UniformsLib
+} from 'three';
 
 // Define your colors
-const color1 = new THREE.Color('#F0F624');
-const color2 = new THREE.Color('#C5407D');
-const color3 = new THREE.Color('#15078A');
+const color1 = new Color('#F0F624');
+const color2 = new Color('#C5407D');
+const color3 = new Color('#15078A');
 
-export class DataPlaneShapeMaterial extends THREE.ShaderMaterial {
+export class DataPlaneShapeMaterial extends ShaderMaterial {
 	static vertexShader = `
 	varying float y;
 	varying vec3 vNormal;
@@ -77,9 +84,9 @@ export class DataPlaneShapeMaterial extends THREE.ShaderMaterial {
 	}
 
 	constructor(
-		colorA: THREE.Color = color2,
-		colorB: THREE.Color = color3,
-		options: Omit<THREE.ShaderMaterialParameters, 'lights'> = {}
+		colorA: Color = color2,
+		colorB: Color = color3,
+		options: Omit<ShaderMaterialParameters, 'lights'> = {}
 	) {
 		super({
 			...options,
@@ -87,10 +94,10 @@ export class DataPlaneShapeMaterial extends THREE.ShaderMaterial {
 			fragmentShader: DataPlaneShapeMaterial.fragmentShader,
 			// lights: true,
 			// wireframe: true,
-			side: THREE.DoubleSide,
-			uniforms: THREE.UniformsUtils.merge([
-				THREE.UniformsLib['common'],
-				THREE.UniformsLib['lights'],
+			side: DoubleSide,
+			uniforms: UniformsUtils.merge([
+				UniformsLib['common'],
+				UniformsLib['lights'],
 
 				{
 					colorA: { value: colorA },
@@ -101,8 +108,8 @@ export class DataPlaneShapeMaterial extends THREE.ShaderMaterial {
 		});
 		// super.onBeforeCompile = function (shader) {
 		// 	// Add custom uniforms if needed
-		// 	shader.uniforms.customColor1 = { value: new THREE.Color(0xff0000) }; // Red
-		// 	shader.uniforms.customColor2 = { value: new THREE.Color(0x0000ff) }; // Blue
+		// 	shader.uniforms.customColor1 = { value: new Color(0xff0000) }; // Red
+		// 	shader.uniforms.customColor2 = { value: new Color(0x0000ff) }; // Blue
 
 		// 	// Replace gl_FragColor with your own color logic
 		// 	shader.fragmentShader = shader.fragmentShader.replace(

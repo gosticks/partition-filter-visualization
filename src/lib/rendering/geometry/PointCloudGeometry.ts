@@ -29,7 +29,8 @@ export class SelectablePointCloud extends THREE.Group {
 
 		const hitBox = new THREE.BoxGeometry(hitBoxWidth, hitBoxWidth, hitBoxWidth);
 		const hitBoxMaterial = new THREE.MeshPhongMaterial({
-			color: color
+			color: color,
+			opacity: 0.5
 			// transparent: true
 		});
 
@@ -45,7 +46,7 @@ export class SelectablePointCloud extends THREE.Group {
 			boxMesh.setMatrixAt(i, matrix);
 		}
 
-		// boxMesh.visible = false;
+		boxMesh.visible = true;
 		boxMesh.layers.set(INTERSECTION_CHECK_LAYER);
 		this.layers.set(INTERSECTION_CHECK_LAYER);
 		this.add(boxMesh, dotMesh);

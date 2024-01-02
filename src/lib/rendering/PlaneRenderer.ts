@@ -1,10 +1,33 @@
-import * as THREE from 'three';
 import { GraphRenderer } from './GraphRenderer';
 import { graphColors } from './colors';
 import { SparsePlaneGeometry, type Point3D } from './geometry/SparsePlaneGeometry';
 import { SelectablePointCloud } from './geometry/PointCloudGeometry';
 import { DensePlaneGeometry } from './geometry/DensePlaneGeometry';
 import type { ITiledDataRow } from '$lib/store/dataStore/filterActions';
+import {
+	Mesh,
+	MeshBasicMaterial,
+	OrthographicCamera,
+	Raycaster,
+	Scene,
+	Vector2,
+	WebGLRenderer,
+	Vector3,
+	EdgesGeometry,
+	LineSegments,
+	LineBasicMaterial,
+	Color,
+	ExtrudeGeometry,
+	Camera,
+	Group,
+	PlaneGeometry,
+	Shape,
+	type ColorRepresentation,
+	DoubleSide,
+	MeshLambertMaterial,
+	MeshDepthMaterial,
+	MeshStandardMaterial
+} from 'three';
 export interface IPlaneData {
 	points: Point3D[];
 	min: number;
@@ -64,7 +87,7 @@ export type IPlaneRenderOptions = {
 	zAxisDataType?: DataDisplayType;
 	triangulation: PlaneTriangulation;
 	showSelection: boolean;
-	pointCloudColor: THREE.ColorRepresentation;
+	pointCloudColor: ColorRepresentation;
 	pointCloudSize?: number;
 } & Record<string, string>;
 export interface IPlaneSelection {
@@ -73,7 +96,7 @@ export interface IPlaneSelection {
 	parent?: IPlaneData;
 	dbEntryId: number;
 	point: [number, number, number];
-	position: THREE.Vector3; // reference (for performance) to position of currently hovered point, must be cloned if altered
+	position: Vector3; // reference (for performance) to position of currently hovered point, must be cloned if altered
 }
 
 export class PlaneRenderer extends GraphRenderer<IPlaneRendererData, IPlaneSelection> {
@@ -85,13 +108,13 @@ export class PlaneRenderer extends GraphRenderer<IPlaneRendererData, IPlaneSelec
 		};
 	}
 
-	private colorPalette: THREE.ColorRepresentation[] = [];
-	private planeGroup: THREE.Group = new THREE.Group();
+	private colorPalette: ColorRepresentation[] = [];
+	private planeGroup: Group = new Group();
 	private data?: IPlaneRendererData;
-	private raycaster = new THREE.Raycaster();
+	private raycaster = new Raycaster();
 
 	private get planes() {
-		return this.planeGroup.children as THREE.Group[];
+		return this.planeGroup.children as Group[];
 	}
 
 	// Y axis min max over all layers and sublayers
@@ -128,12 +151,7 @@ export class PlaneRenderer extends GraphRenderer<IPlaneRendererData, IPlaneSelec
 		this.clear();
 	}
 
-	setup(
-		renderContainer: HTMLElement,
-		scene: THREE.Scene,
-		camera: THREE.Camera,
-		scale: number
-	): void {
+	setup(renderContainer: HTMLElement, scene: Scene, camera: Camera, scale: number): void {
 		super.setup(renderContainer, scene, camera, scale);
 	}
 
@@ -145,7 +163,7 @@ export class PlaneRenderer extends GraphRenderer<IPlaneRendererData, IPlaneSelec
 		console.log('Resizing plane renderer');
 	}
 
-	selectionAtPoint(glPoint: THREE.Vector2): IPlaneSelection | undefined {
+	selectionAtPoint(glPoint: Vector2): IPlaneSelection | undefined {
 		if (!this.camera || !this.data) {
 			return undefined;
 		}
@@ -188,7 +206,7 @@ export class PlaneRenderer extends GraphRenderer<IPlaneRendererData, IPlaneSelec
 	update(
 		data: IPlaneRendererData,
 		options: IPlaneRenderOptions,
-		colorPalette: THREE.ColorRepresentation[] = graphColors
+		colorPalette: ColorRepresentation[] = graphColors
 	) {
 		this.options = options;
 		// Validate data
@@ -202,10 +220,10 @@ export class PlaneRenderer extends GraphRenderer<IPlaneRendererData, IPlaneSelec
 
 		const yAxisMaxRange = this.data!.ranges.y[1];
 
-		this.planeGroup = new THREE.Group();
+		this.planeGroup = new Group();
 
 		for (const [index, planeData] of data.layers.entries()) {
-			const layerGroup = new THREE.Group();
+			const layerGroup = new Group();
 			const parentLayerGroup = this.renderPlane(
 				planeData,
 				index,
@@ -217,7 +235,7 @@ export class PlaneRenderer extends GraphRenderer<IPlaneRendererData, IPlaneSelec
 			);
 
 			// render sub-layers
-			const childLayerGroup = new THREE.Group();
+			const childLayerGroup = new Group();
 			if (planeData.layers) {
 				for (const [childIndex, subPlaneData] of planeData.layers.entries()) {
 					const subLayerGroup = this.renderPlane(
@@ -260,9 +278,9 @@ export class PlaneRenderer extends GraphRenderer<IPlaneRendererData, IPlaneSelec
 		depth: number,
 		maxHeight: number,
 		childIndex?: number,
-		renderPointCloud: boolean = true
+		renderPointCloud: boolean = false
 	) {
-		const group = new THREE.Group();
+		const group = new Group();
 		group.renderOrder = index * 100 - (childIndex ?? 0);
 
 		const geo = this.planeGeometry(planeData);
@@ -271,15 +289,16 @@ export class PlaneRenderer extends GraphRenderer<IPlaneRendererData, IPlaneSelec
 		const normFactorZ = 1 / depth;
 		const normFactorY = 1 / maxHeight;
 
-		const mat = new THREE.MeshLambertMaterial({
+		const mat = new MeshStandardMaterial({
 			color: this.colorForPlane(planeData, childIndex ?? index),
 			depthWrite: true,
+			// wireframe: true,
 			// clipIntersection: true,
 			// clipShadows: true,
-			side: THREE.DoubleSide
+			side: DoubleSide
 		});
-		const mesh = new THREE.Mesh(geo, mat);
-		mesh.scale.multiply(new THREE.Vector3(normFactorX, normFactorY, normFactorZ));
+		const mesh = new Mesh(geo, mat);
+		mesh.scale.multiply(new Vector3(normFactorX, normFactorY, normFactorZ));
 		// Add metadata to mesh
 		mesh.userData = { index, name: planeData.name, meta: planeData.meta, childIndex };
 		group.add(mesh);
@@ -302,7 +321,7 @@ export class PlaneRenderer extends GraphRenderer<IPlaneRendererData, IPlaneSelec
 
 	private renderSelectionPoints(
 		points: Point3D[],
-		color: THREE.ColorRepresentation = 0xeeeeff,
+		color: ColorRepresentation = 0xeeeeff,
 		yAxisRange: number,
 		layerIndex: number,
 		childLayerIndex?: number
@@ -320,9 +339,9 @@ export class PlaneRenderer extends GraphRenderer<IPlaneRendererData, IPlaneSelec
 			Math.max((Math.min(Math.min(this.data.tileRange.x) / 4), 0.01), 0.001);
 		return new SelectablePointCloud(
 			points,
-			new THREE.Color(color),
+			new Color(color),
 			visibleRadius,
-			1 / this.data.tileRange.x,
+			1 / this.data.tileRange.x / 4,
 			layerIndex,
 			childLayerIndex,
 			xScaler,
@@ -335,7 +354,7 @@ export class PlaneRenderer extends GraphRenderer<IPlaneRendererData, IPlaneSelec
 	// PlaneRenderer specific methods
 	/////////////////////////////////
 
-	private setLayerHitTest(enabled: boolean, layer: THREE.Object3D) {
+	private setLayerHitTest(enabled: boolean, layer: Object3D) {
 		const hitMesh = layer.userData['hitMesh'] as unknown as SelectablePointCloud;
 		if (!hitMesh || !(hitMesh instanceof SelectablePointCloud)) {
 			return;
@@ -399,7 +418,7 @@ export class PlaneRenderer extends GraphRenderer<IPlaneRendererData, IPlaneSelec
 		});
 	}
 
-	colorForPlane(planeData: IPlaneData, index: number): THREE.Color {
-		return new THREE.Color(planeData.color ?? this.colorPalette[index % this.colorPalette.length]);
+	colorForPlane(planeData: IPlaneData, index: number): Color {
+		return new Color(planeData.color ?? this.colorPalette[index % this.colorPalette.length]);
 	}
 }

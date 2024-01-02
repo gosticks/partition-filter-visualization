@@ -1,8 +1,7 @@
-import * as THREE from 'three';
-
+import { BufferAttribute, BufferGeometry, Uint32BufferAttribute } from 'three';
 
 type Data = number[][];
-export class DataPlaneShapeGeometry extends THREE.BufferGeometry {
+export class DataPlaneShapeGeometry extends BufferGeometry {
 	static readonly pointComponentSize = 3;
 
 	private normalizedData: Data;
@@ -373,9 +372,9 @@ export class DataPlaneShapeGeometry extends THREE.BufferGeometry {
 		}
 		this.setAttribute(
 			'position',
-			new THREE.BufferAttribute(vertices, DataPlaneShapeGeometry.pointComponentSize)
+			new BufferAttribute(vertices, DataPlaneShapeGeometry.pointComponentSize)
 		);
-		this.setIndex(new THREE.Uint32BufferAttribute(indices, 1));
+		this.setIndex(new Uint32BufferAttribute(indices, 1));
 		this.computeVertexNormals();
 	}
 }

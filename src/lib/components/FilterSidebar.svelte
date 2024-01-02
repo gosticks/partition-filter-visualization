@@ -12,12 +12,14 @@
 		CameraIcon,
 		CodeIcon,
 		CpuIcon,
+		DatabaseIcon,
 		InfoIcon,
 		LayersIcon,
 		MehIcon,
 		MoonIcon,
 		PlusIcon,
 		RefreshCcwIcon,
+		SaveIcon,
 		SettingsIcon,
 		SunIcon,
 		XIcon
@@ -128,6 +130,17 @@
 				<CameraIcon size="20" />
 			</div>
 		</Button>
+
+		<Button on:click={copyConfigValue} color={ButtonColor.SECONDARY} size={ButtonSize.LG}>
+			<SaveIcon slot="leading" size="20" />
+		</Button>
+		<Dialog size={DialogSize.large}>
+			<Button slot="trigger" color={ButtonColor.SECONDARY} size={ButtonSize.LG}>
+				<DatabaseIcon slot="leading" size="20" />
+			</Button>
+			<svelte:fragment slot="title">SQL Query Editor</svelte:fragment>
+			<QueryEditor />
+		</Dialog>
 		<Button
 			size={ButtonSize.LG}
 			color={ButtonColor.SECONDARY}
@@ -141,16 +154,6 @@
 				{/if}
 			</div>
 		</Button>
-		<Button on:click={copyConfigValue} color={ButtonColor.SECONDARY} size={ButtonSize.LG}>
-			<CpuIcon slot="leading" size="20" />
-		</Button>
-		<Dialog size={DialogSize.large}>
-			<Button slot="trigger" color={ButtonColor.SECONDARY} size={ButtonSize.LG}>
-				<CodeIcon slot="leading" size="20" />
-			</Button>
-			<svelte:fragment slot="title">SQL Query Editor</svelte:fragment>
-			<QueryEditor />
-		</Dialog>
 		<Button
 			size={ButtonSize.LG}
 			color={isFilterBarOpen ? ButtonColor.PRIMARY : ButtonColor.SECONDARY}

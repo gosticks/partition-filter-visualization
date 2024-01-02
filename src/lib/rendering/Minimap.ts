@@ -6,11 +6,20 @@ import {
 	Scene,
 	Vector2,
 	WebGLRenderer,
-	Vector3
+	Vector3,
+	EdgesGeometry,
+	LineSegments,
+	LineBasicMaterial,
+	Color,
+	ExtrudeGeometry,
+	Camera,
+	Group,
+	PlaneGeometry,
+	Shape,
+	DoubleSide
 } from 'three';
-import * as THREE from 'three';
 
-import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { Easing, Tween } from '@tweenjs/tween.js';
 import type { CameraState } from '$lib/components/BasicGraph.svelte';
 import { TextTexture } from './textures/TextTexture';
@@ -23,11 +32,11 @@ enum SelectionType {
 }
 export class Minimap {
 	private scene!: Scene;
-	private orientationCube?: THREE.Group;
-	private orientationEdges?: THREE.Group;
-	private renderer: THREE.WebGLRenderer;
-	private camera: THREE.Camera;
-	private trackedCamera: THREE.Camera | undefined = undefined;
+	private orientationCube?: Group;
+	private orientationEdges?: Group;
+	private renderer: WebGLRenderer;
+	private camera: Camera;
+	private trackedCamera: Camera | undefined = undefined;
 
 	private raycaster = new Raycaster();
 	private stopped = false;
@@ -40,8 +49,8 @@ export class Minimap {
 		this.update();
 	}
 
-	private mousePosition: THREE.Vector2 = new Vector2(0, 0);
-	private mouseClientPosition: THREE.Vector2 = new Vector2(0, 0);
+	private mousePosition: Vector2 = new Vector2(0, 0);
+	private mouseClientPosition: Vector2 = new Vector2(0, 0);
 	private mouseInside = false;
 	private mouseDownPos = { x: 0, y: 0 };
 	private mouseUpPos = { x: 0, y: 0 };
@@ -54,13 +63,13 @@ export class Minimap {
 		index: number;
 	};
 
-	private get selectedMesh(): Mesh<THREE.PlaneGeometry, MeshBasicMaterial> | null {
+	private get selectedMesh(): Mesh<PlaneGeometry, MeshBasicMaterial> | null {
 		if (!this.selection) {
 			return null;
 		}
 		return (
 			(this.orientationCube?.children.at(this.selection.index) as Mesh<
-				THREE.PlaneGeometry,
+				PlaneGeometry,
 				MeshBasicMaterial
 			>) ?? null
 		);
@@ -183,17 +192,17 @@ export class Minimap {
 		] as [Vector3, Vector3, string][];
 		this.orientationCube?.clear();
 		this.orientationCube?.removeFromParent();
-		this.orientationCube = new THREE.Group();
+		this.orientationCube = new Group();
 
-		const color = new THREE.Color(this.themeColors.surfaceColor);
-		const labelColor = new THREE.Color(this.themeColors.textSecondaryColor);
+		const color = new Color(this.themeColors.surfaceColor);
+		const labelColor = new Color(this.themeColors.textSecondaryColor);
 
 		planeDefinitions.forEach(([position, orientation, label]) => {
-			const plane = new THREE.PlaneGeometry(1, 1);
+			const plane = new PlaneGeometry(1, 1);
 			const mesh = new Mesh(
 				plane,
-				new THREE.MeshBasicMaterial({
-					side: THREE.DoubleSide,
+				new MeshBasicMaterial({
+					side: DoubleSide,
 					transparent: true,
 					map: new TextTexture(label, {
 						color: labelColor.getStyle(),
@@ -219,7 +228,7 @@ export class Minimap {
 
 	private renderCubeEdges() {
 		// Create beveled edge for one edge (as an example)
-		const edgeShape = new THREE.Shape();
+		const edgeShape = new Shape();
 		edgeShape.moveTo(0, 0);
 		edgeShape.lineTo(this.bevelSize, 0);
 		edgeShape.lineTo(0.0, this.bevelSize);
@@ -251,14 +260,14 @@ export class Minimap {
 			{ pos: [-0.5, -0.5, 0.5], rot: [-Math.PI / 2, 0, Math.PI] } // Front top edge
 		];
 
-		const orientationEdges = new THREE.Group();
-		const color = new THREE.Color(this.themeColors.surfaceSecondaryColor);
-		const borderColor = new THREE.Color(this.themeColors.border);
-		const labelColor = new THREE.Color(this.themeColors.textSecondaryColor);
+		const orientationEdges = new Group();
+		const color = new Color(this.themeColors.surfaceSecondaryColor);
+		const borderColor = new Color(this.themeColors.border);
+		const labelColor = new Color(this.themeColors.textSecondaryColor);
 
 		edgesPositionsRotations.forEach((edgeInfo, index) => {
-			const edgeGeometry = new THREE.ExtrudeGeometry(edgeShape, extrudeSettings);
-			const edgeMaterial = new THREE.MeshBasicMaterial({
+			const edgeGeometry = new ExtrudeGeometry(edgeShape, extrudeSettings);
+			const edgeMaterial = new MeshBasicMaterial({
 				// color: this._color,
 				map: new TextTexture('', {
 					color: labelColor.getStyle(),
@@ -268,7 +277,7 @@ export class Minimap {
 					backgroundColor: color.getStyle()
 				})
 			});
-			const edge = new THREE.Mesh(edgeGeometry, edgeMaterial);
+			const edge = new Mesh(edgeGeometry, edgeMaterial);
 
 			edge.position.set(...edgeInfo.pos).multiplyScalar(this.cubeSize);
 			edge.scale.multiplyScalar(this.cubeSize);
@@ -278,10 +287,10 @@ export class Minimap {
 			orientationEdges.add(edge);
 
 			// Add outline
-			const edgeOutline = new THREE.EdgesGeometry(edgeGeometry);
-			const edgeOutlineMesh = new THREE.LineSegments(
+			const edgeOutline = new EdgesGeometry(edgeGeometry);
+			const edgeOutlineMesh = new LineSegments(
 				edgeOutline,
-				new THREE.LineBasicMaterial({ color: borderColor })
+				new LineBasicMaterial({ color: borderColor })
 			);
 			edgeOutlineMesh.position.copy(edge.position);
 			edgeOutlineMesh.scale.copy(edge.scale);
@@ -304,14 +313,14 @@ export class Minimap {
 		// 	new Vector2(triangleSideSize, 0)
 		// ];
 
-		// const triangleShape = new THREE.Shape(points);
-		// const triangleGeo = new THREE.ShapeGeometry(triangleShape);
+		// const triangleShape = new Shape(points);
+		// const triangleGeo = new ShapeGeometry(triangleShape);
 
-		// const triangleMaterial = new THREE.MeshBasicMaterial({
+		// const triangleMaterial = new MeshBasicMaterial({
 		// 	color: 0x0edfee,
-		// 	side: THREE.DoubleSide
+		// 	side: DoubleSide
 		// });
-		// const triangleMesh = new THREE.Mesh(triangleGeo, triangleMaterial);
+		// const triangleMesh = new Mesh(triangleGeo, triangleMaterial);
 
 		// this.scene.add(triangleMesh);
 	}
@@ -342,7 +351,7 @@ export class Minimap {
 		requestAnimationFrame(this.startAnimationLoop.bind(this));
 	}
 
-	public setCurrentCamera(camera: THREE.Camera) {
+	public setCurrentCamera(camera: Camera) {
 		this.trackedCamera = camera;
 	}
 
@@ -360,7 +369,7 @@ export class Minimap {
 		}
 
 		const object = intersections.find((el) => el.object.userData.index !== undefined)
-			?.object as THREE.Mesh;
+			?.object as Mesh;
 		if (!object) {
 			return false;
 		}
@@ -432,11 +441,11 @@ export class Minimap {
 	}
 
 	private clearSelection() {
-		this.applyColorToSelectedObject(new THREE.Color());
+		this.applyColorToSelectedObject(new Color());
 		this.selection = undefined;
 	}
 
-	private applyColorToSelectedObject(color: THREE.Color) {
+	private applyColorToSelectedObject(color: Color) {
 		if (!this.selection) {
 			return;
 		}
@@ -462,7 +471,7 @@ export class Minimap {
 
 				const mesh = this.orientationEdges.children.find(
 					(el) => el.userData.index === this.selection?.index
-				) as Mesh<THREE.ExtrudeGeometry, MeshBasicMaterial> | undefined;
+				) as Mesh<ExtrudeGeometry, MeshBasicMaterial> | undefined;
 				if (!mesh) {
 					break;
 				}
@@ -479,7 +488,7 @@ export class Minimap {
 	}
 
 	private renderSelection() {
-		const color = new THREE.Color(this.themeColors.selectionColor);
+		const color = new Color(this.themeColors.selectionColor);
 		this.applyColorToSelectedObject(color);
 	}
 
@@ -502,9 +511,9 @@ export class Minimap {
 		this.clearSelection();
 	}
 
-	private lookAtFaceDirection(cubeFaceIndex: number): THREE.Vector3 | null {
+	private lookAtFaceDirection(cubeFaceIndex: number): Vector3 | null {
 		// console.log('looking at side', cubeFaceIndex);
-		let lookDirection: THREE.Vector3 | null = null;
+		let lookDirection: Vector3 | null = null;
 		switch (cubeFaceIndex) {
 			case 0:
 				lookDirection = new Vector3(0, 0, 1);
@@ -586,7 +595,7 @@ export class Minimap {
 		}
 		const initialPosition = this.camera.position.clone();
 		const cameraTargetPosition = lookDirection.multiplyScalar(300);
-		// const cameraTargetOrientation = new THREE.Quaternion().setFromEuler(new THREE.Euler(0, 0.5, 0));
+		// const cameraTargetOrientation = new Quaternion().setFromEuler(new Euler(0, 0.5, 0));
 		// const initialOrientation = this.camera.quaternion.clone();
 
 		// Compute distance between current camera position and target to compute animation duration

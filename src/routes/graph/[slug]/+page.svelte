@@ -3,10 +3,7 @@
 
 <script lang="ts">
 	import type { PageServerData } from './$types';
-	import BasicGraph, {
-		type CameraState,
-		type GraphService
-	} from '$lib/components/BasicGraph.svelte';
+	import BasicGraph, { type CameraState } from '$lib/components/BasicGraph.svelte';
 	import LoadingOverlay from '$lib/components/LoadingOverlay.svelte';
 	import { dataStore } from '$lib/store/dataStore/DataStore';
 	import { browser } from '$app/environment';
@@ -20,37 +17,37 @@
 	import { PlaneGraphModel } from '$lib/store/filterStore/graphs/plane';
 	import { Euler, Vector3 } from 'three';
 	import type { GraphStateConfig } from '$lib/store/filterStore/types';
-	import Grid from '$lib/components/graph/Grid.svelte';
+	import Button from '$lib/components/button/Button.svelte';
+	import { ButtonVariant } from '$lib/components/button/type';
+	import { ArrowLeftCircleIcon } from 'svelte-feather-icons';
 
 	export let data: PageServerData;
+	let loadedGraph: GraphStateConfig | undefined = undefined;
 	let setCameraState: (state: CameraState) => void;
 	// Accessing the slug parameter
 	$: slug = $page.params.slug;
 
 	onMount(async () => {
 		if (!browser) return;
-		let selectedGraph: GraphStateConfig | undefined = undefined;
 		if (slug !== 'custom') {
-			selectedGraph = JSON.parse(await (await fetch(`/graphs/${slug}.json`)).text());
+			loadedGraph = JSON.parse(await (await fetch(`/graphs/${slug}.json`)).text());
 		}
 
-		//
-
 		// Pass possible db options to the filter sidebar
-		await filterStore.initWithPreloadedDatasets(data.dataset, selectedGraph);
+		await filterStore.initWithPreloadedDatasets(data.dataset, loadedGraph);
 
-		if (selectedGraph?.ui) {
-			if (selectedGraph.ui.position && selectedGraph.ui.rotation) {
+		if (loadedGraph?.ui) {
+			if (loadedGraph.ui.position && loadedGraph.ui.rotation) {
 				setCameraState({
 					position: new Vector3(
-						selectedGraph.ui.position.x,
-						selectedGraph.ui.position.y,
-						selectedGraph.ui.position.z
+						loadedGraph.ui.position.x,
+						loadedGraph.ui.position.y,
+						loadedGraph.ui.position.z
 					),
 					rotation: new Euler(
-						selectedGraph.ui.rotation.x,
-						selectedGraph.ui.rotation.y,
-						selectedGraph.ui.rotation.z
+						loadedGraph.ui.rotation.x,
+						loadedGraph.ui.rotation.y,
+						loadedGraph.ui.rotation.z
 					)
 				});
 			}
@@ -72,6 +69,13 @@
 		</svelte:fragment>
 		<FilterSidebar />
 	</BasicGraph>
+	<div class="absolute left-3 top-4 text-lg font-bold flex gap-2 items-center">
+		<a href="/"><Button variant={ButtonVariant.LINK}><ArrowLeftCircleIcon /></Button></a>
+		<div>
+			{loadedGraph?.name ?? 'Untitled Graph'}
+		</div>
+	</div>
+
 	{#if $filterStore.isLoading || $dataStore.isLoading}
 		<LoadingOverlay isLoading={true} />
 	{/if}

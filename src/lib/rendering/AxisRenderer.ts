@@ -1,4 +1,3 @@
-import type { DeepPartial } from '$lib/store/filterStore/types';
 import * as THREE from 'three';
 import { MeshLine, MeshLineMaterial } from 'three.meshline';
 import { TextTexture, type TextTextureOptions } from './textures/TextTexture';

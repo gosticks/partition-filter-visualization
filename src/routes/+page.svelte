@@ -11,7 +11,7 @@
 
 <div class="relative min-h-screen p-10 gap-14 flex flex-col items-center">
 	<GridBackground />
-	<div class="min-h-[50vh] max-w-6xl flex flex-col gap-10 justify-center">
+    <div class="min-h-[50vh] max-w-6xl flex flex-col gap-10 justify-center">
 		<h1
 			class="text-9xl font-bold max-w-[60vw] drop-shadow-[7px_6px_0px_rgba(100,10,100,0.5)] bg-gradient-to-r from-orange-600 to-purple-700 inline-block text-transparent bg-clip-text"
 		>

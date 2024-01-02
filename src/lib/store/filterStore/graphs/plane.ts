@@ -233,7 +233,7 @@ export class PlaneGraphModel extends GraphOptions<
 		this.filterOptionFields = {
 			groupBy: {
 				type: 'string',
-				options: stringTableColumns,
+				options: [...stringTableColumns, ...numberTableColumns],
 				label: 'Group By'
 			},
 			aggregation: {
@@ -417,7 +417,7 @@ export class PlaneGraphModel extends GraphOptions<
 
 		this._dataStore.update((state) => {
 			let l = state?.layers[layerIndex];
-			parentName = l?.nam;
+			parentName = l?.name ?? '';
 			if (subLayerIndex !== undefined) {
 				l = l?.layers?.at(subLayerIndex);
 				subLayerName = `-${l?.name}`;

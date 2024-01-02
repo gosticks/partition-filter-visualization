@@ -16,7 +16,7 @@ export class SparsePlaneGeometry extends THREE.BufferGeometry {
 		scaleX: (x: number) => number = identity,
 		scaleY: (y: number) => number = identity,
 		scaleZ: (z: number) => number = identity,
-		addsBoundPointsToDelaunay = false // if enabled bounding points are added to the delaunay triangulation. In most cases this removes strange rendering when gaps between points are large
+		addsBoundPointsToDelaunay = true // if enabled bounding points are added to the delaunay triangulation. In most cases this removes strange rendering when gaps between points are large
 	) {
 		super();
 
@@ -25,7 +25,7 @@ export class SparsePlaneGeometry extends THREE.BufferGeometry {
 			minZ = Number.MAX_VALUE,
 			maxZ = -1;
 		this.pointBuffer = new Float32Array(
-			(values.length + (addsBoundPointsToDelaunay ? 4 : 0)) * SparsePlaneGeometry.pointComponentSize
+			(values.length + (addsBoundPointsToDelaunay ? 8 : 0)) * SparsePlaneGeometry.pointComponentSize
 		);
 
 		values.forEach(([x, z, y], idx) => {
@@ -47,13 +47,22 @@ export class SparsePlaneGeometry extends THREE.BufferGeometry {
 			this.pointBuffer[idx * SparsePlaneGeometry.pointComponentSize + 1] = scaleY(Number(y));
 			this.pointBuffer[idx * SparsePlaneGeometry.pointComponentSize + 2] = scaleZ(z);
 		});
+
+		const mid = (a: number, b: number) => (a + b) / 2;
+
+		const midPoint = ([x, z]: Point2D, [x2, z2]: Point2D) => [mid(x, x2), mid(z, z2)] as Point2D;
+
 		if (addsBoundPointsToDelaunay) {
 			this.d = Delaunay.from([
 				...(values as unknown as Point2D[]),
 				[minX, minZ],
 				[minX, maxZ],
 				[maxX, minZ],
-				[maxX, maxZ]
+				[maxX, maxZ],
+				midPoint([minX, minZ], [maxX, minZ]),
+				midPoint([minX, maxZ], [maxX, maxZ]),
+				midPoint([minX, minZ], [minX, maxZ]),
+				midPoint([maxX, minZ], [maxX, maxZ])
 			]);
 		} else {
 			this.d = Delaunay.from(values as unknown as Point2D[]);

@@ -36,6 +36,7 @@
 	let xAxisTitle: d3.Selection<SVGTextElement, number[][], null, undefined>;
 	let yAxisTitle: d3.Selection<SVGTextElement, number[][], null, undefined>;
 	let curves: d3.Selection<SVGPathElement, number[][], null, undefined>[] | undefined = undefined;
+
 	function setupGraph() {
 		svg = d3
 			.select(graphElement)
@@ -74,16 +75,16 @@
 		if (!data || data.points.length === 0) {
 			return;
 		}
-		const [minX, maxX] = data.xRange;
-		const [minY, maxY] = data.yRange;
 
-		const xAxisScale = getScale([0, width], [0, maxX], xScale);
+		console.log(data);
+
+		const xAxisScale = getScale([0, width], data.xRange, xScale);
 		xAxis
 			.attr('transform', 'translate(0,' + (height - yAxisOffset) + ')')
 			.call(d3.axisBottom(xAxisScale));
 
 		// add the y Axis
-		const yAxisScale = getScale([height - yAxisOffset, 0], [0, maxY], yScale);
+		const yAxisScale = getScale([height - yAxisOffset, 0], data.yRange, yScale);
 		yAxis.call(d3.axisLeft(yAxisScale));
 
 		svg.selectAll('circle').remove();
@@ -117,8 +118,8 @@
 					'd',
 					d3
 						.line()
-						.x((d) => xAxisScale(d[0]))
-						.y((d) => yAxisScale(d[1]))
+						.x((d) => xAxisScale(Number(d[0])))
+						.y((d) => yAxisScale(Number(d[1])))
 						.curve(d3.curveLinear) as any
 				);
 
@@ -127,8 +128,8 @@
 				.data(container.data)
 				.enter()
 				.append('circle')
-				.attr('cx', (d) => xAxisScale(d[0]))
-				.attr('cy', (d) => yAxisScale(d[1]))
+				.attr('cx', (d) => xAxisScale(Number(d[0])))
+				.attr('cy', (d) => yAxisScale(Number(d[1])))
 				.transition()
 				.attr('r', 2) // Radius of the circle
 				.attr('fill', container.color ?? 'yellow'); // Color of the circle

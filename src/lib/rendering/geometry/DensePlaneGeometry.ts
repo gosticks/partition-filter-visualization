@@ -1,9 +1,9 @@
-import * as THREE from 'three';
+import { BufferAttribute, BufferGeometry, Uint32BufferAttribute } from 'three';
 import { identity } from './transformers';
 export type Point2D = [number, number];
 export type Point3D = [number, number, number];
 
-export class DensePlaneGeometry extends THREE.BufferGeometry {
+export class DensePlaneGeometry extends BufferGeometry {
 	static readonly pointComponentSize = 3;
 
 	private pointBuffer: Float32Array;
@@ -76,10 +76,10 @@ export class DensePlaneGeometry extends THREE.BufferGeometry {
 
 		this.setAttribute(
 			'position',
-			new THREE.BufferAttribute(this.pointBuffer, DensePlaneGeometry.pointComponentSize, true)
+			new BufferAttribute(this.pointBuffer, DensePlaneGeometry.pointComponentSize, true)
 		);
 		// Create buffers for rendering
-		this.setIndex(new THREE.Uint32BufferAttribute(triangleIndexBuffer, 1));
+		this.setIndex(new Uint32BufferAttribute(triangleIndexBuffer, 1));
 		this.computeVertexNormals();
 	}
 }

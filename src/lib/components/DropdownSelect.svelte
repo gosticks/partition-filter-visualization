@@ -44,7 +44,7 @@
 	export let meta: M | undefined = undefined;
 	export let values: R[] | undefined = undefined;
 	export let optionConstructor: OptionConstructor<R, T> | undefined = undefined;
-	export let itemRenderer: ComponentType;
+	export let itemRenderer: ComponentType | undefined = undefined;
 
 	const selectDispatch = createEventDispatcher();
 

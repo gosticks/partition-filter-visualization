@@ -1,16 +1,33 @@
 <script lang="ts" context="module">
-	import * as THREE from 'three';
-	class SliceSelectionRenderer extends THREE.Group {
-		private meshes = new Map<Axis, THREE.Mesh<THREE.PlaneGeometry, THREE.MeshBasicMaterial>>();
-		private colors: Record<Axis, THREE.ColorRepresentation> = {
+	import {
+		AmbientLight,
+		Camera,
+		DirectionalLight,
+		OrthographicCamera,
+		PerspectiveCamera,
+		Scene,
+		Vector2,
+		Mesh,
+		Group,
+		PlaneGeometry,
+		MeshBasicMaterial,
+		Vector3,
+		WebGLRenderer,
+		DoubleSide,
+		AddEquation,
+		type ColorRepresentation
+	} from 'three';
+	class SliceSelectionRenderer extends Group {
+		private meshes = new Map<Axis, Mesh<PlaneGeometry, MeshBasicMaterial>>();
+		private colors: Record<Axis, ColorRepresentation> = {
 			[Axis.X]: colorBrewer.Oranges[3][2],
 			[Axis.Y]: colorBrewer.Oranges[3][1],
 			[Axis.Z]: colorBrewer.Oranges[3][0]
 		};
-		private movementDirection: Record<Axis, THREE.Vector3> = {
-			[Axis.X]: new THREE.Vector3(1, 0, 0),
-			[Axis.Y]: new THREE.Vector3(0, 1, 0),
-			[Axis.Z]: new THREE.Vector3(0, 0, 1)
+		private movementDirection: Record<Axis, Vector3> = {
+			[Axis.X]: new Vector3(1, 0, 0),
+			[Axis.Y]: new Vector3(0, 1, 0),
+			[Axis.Z]: new Vector3(0, 0, 1)
 		};
 
 		constructor() {
@@ -23,23 +40,23 @@
 			}
 		}
 
-		private createPlane(color: THREE.ColorRepresentation, axis: Axis) {
-			const geometry = new THREE.PlaneGeometry(1, 1);
-			const material = new THREE.MeshBasicMaterial({
+		private createPlane(color: ColorRepresentation, axis: Axis) {
+			const geometry = new PlaneGeometry(1, 1);
+			const material = new MeshBasicMaterial({
 				transparent: true,
 				opacity: 0.5,
 				color: color,
-				blendEquation: THREE.AddEquation,
-				side: THREE.DoubleSide
+				blendEquation: AddEquation,
+				side: DoubleSide
 			});
-			const mesh = new THREE.Mesh(geometry, material);
+			const mesh = new Mesh(geometry, material);
 
 			switch (axis) {
 				case Axis.X:
-					mesh.rotateOnAxis(new THREE.Vector3(0, 1, 0), Math.PI / 2);
+					mesh.rotateOnAxis(new Vector3(0, 1, 0), Math.PI / 2);
 					break;
 				case Axis.Y:
-					mesh.rotateOnAxis(new THREE.Vector3(1, 0, 0), Math.PI / 2);
+					mesh.rotateOnAxis(new Vector3(1, 0, 0), Math.PI / 2);
 					break;
 				case Axis.Z:
 					break;
