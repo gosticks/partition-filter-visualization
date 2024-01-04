@@ -9,7 +9,6 @@ export default (node: HTMLElement, options: ActionClickOutsideOptions) => {
 	const detectClick = (event: MouseEvent) => {
 		const target = event.target as Node;
 		if (!node.contains(target) && !whitelist.some((el) => el.isSameNode(target))) {
-			event.preventDefault();
 			event.stopPropagation(); // make event opaque
 			onOutsideClick();
 		}
