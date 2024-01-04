@@ -1,25 +1,22 @@
-<script context="module">
-</script>
-
 <script lang="ts">
-	import type { PageServerData } from './$types';
-	import BasicGraph, { type CameraState } from '$lib/components/BasicGraph.svelte';
-	import LoadingOverlay from '$lib/components/LoadingOverlay.svelte';
-	import { dataStore } from '$lib/store/dataStore/DataStore';
 	import { browser } from '$app/environment';
-	import { onMount } from 'svelte';
 	import { page } from '$app/stores';
-	import FilterSidebar from '$lib/components/FilterSidebar.svelte';
+	import CoreGraph, { type CameraState } from '$lib/views/CoreGraph.svelte';
 	import GridBackground from '$lib/components/GridBackground.svelte';
-	import filterStore from '$lib/store/filterStore/FilterStore';
-	import Minimap from '$lib/components/graph/Minimap.svelte';
-	import PlaneGraph from '$lib/components/graph/PlaneGraph.svelte';
-	import { PlaneGraphModel } from '$lib/store/filterStore/graphs/plane';
-	import { Euler, Vector3 } from 'three';
-	import type { GraphStateConfig } from '$lib/store/filterStore/types';
+	import LoadingOverlay from '$lib/components/LoadingOverlay.svelte';
 	import Button from '$lib/components/button/Button.svelte';
 	import { ButtonVariant } from '$lib/components/button/type';
+	import Minimap from '$lib/components/graph/Minimap.svelte';
+	import PlaneGraph from '$lib/components/graph/PlaneGraph.svelte';
+	import { dataStore } from '$lib/store/dataStore/DataStore';
+	import filterStore from '$lib/store/filterStore/FilterStore';
+	import { PlaneGraphModel } from '$lib/store/filterStore/graphs/plane';
+	import type { GraphStateConfig } from '$lib/store/filterStore/types';
+	import FilterSidebar from '$lib/views/FilterSidebar.svelte';
+	import { onMount } from 'svelte';
 	import { ArrowLeftCircleIcon } from 'svelte-feather-icons';
+	import { Euler, Vector3 } from 'three';
+	import type { PageServerData } from './$types';
 
 	export let data: PageServerData;
 	let loadedGraph: GraphStateConfig | undefined = undefined;
@@ -56,7 +53,7 @@
 </script>
 
 <div class="h-screen w-full relative">
-	<BasicGraph>
+	<CoreGraph>
 		<svelte:fragment slot="inner">
 			{#if $filterStore.graphOptions}
 				{#if $filterStore.graphOptions instanceof PlaneGraphModel}
@@ -68,7 +65,7 @@
 			{/if}
 		</svelte:fragment>
 		<FilterSidebar />
-	</BasicGraph>
+	</CoreGraph>
 	<div class="absolute left-3 top-4 text-lg font-bold flex gap-2 items-center">
 		<a href="/"><Button variant={ButtonVariant.LINK}><ArrowLeftCircleIcon /></Button></a>
 		<div>

@@ -87,7 +87,11 @@
 <script lang="ts">
 	import { onDestroy, onMount } from 'svelte';
 	import { browser } from '$app/environment';
-	import { getGraphContext, type GraphService, type GraphUnsubscribe } from '../BasicGraph.svelte';
+	import {
+		getGraphContext,
+		type GraphService,
+		type GraphUnsubscribe
+	} from '$lib/views/CoreGraph.svelte';
 
 	export let scale = 1;
 	export let xDivisions: number = 10;

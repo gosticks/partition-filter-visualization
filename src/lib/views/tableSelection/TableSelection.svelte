@@ -16,16 +16,17 @@
 <script lang="ts">
 	import filterStore from '$lib/store/filterStore/FilterStore';
 	import { createEventDispatcher } from 'svelte';
-	import DropZone from '../DropZone.svelte';
+	import DropZone from '$lib/components/DropZone.svelte';
+	import Input from '$lib/components/Input.svelte';
 	import DropdownSelect, {
 		type DropdownSelectionEvent,
 		type Option,
 		type OptionConstructor
-	} from '../DropdownSelect.svelte';
-	import Divider from '../base/Divider.svelte';
-	import Button from '../button/Button.svelte';
+	} from '$lib/components/DropdownSelect.svelte';
+	import Divider from '$lib/components/base/Divider.svelte';
+	import Button from '$lib/components/button/Button.svelte';
+	// FIXME: add new alias for types
 	import type { Dataset, DatasetItem } from '../../../dataset/types';
-	import { get } from 'svelte/store';
 
 	interface $$Events {
 		selectDataset: DatasetSelectionEvent;
@@ -138,11 +139,6 @@
 </div>
 <p class="mb-2">a CSV dataset from url</p>
 <form class="flex gap-2" on:submit={onUrlLoad}>
-	<input
-		bind:value={urlInput}
-		type="url"
-		placeholder="URL"
-		class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500"
-	/>
+	<Input bind:value={urlInput} type="url" placeholder="URL" class="" />
 	<Button>Load</Button>
 </form>

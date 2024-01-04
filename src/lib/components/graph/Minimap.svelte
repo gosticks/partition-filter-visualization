@@ -2,8 +2,12 @@
 	import { onDestroy, onMount } from 'svelte';
 	import { Minimap as MinimapRenderer } from '$lib/rendering/Minimap';
 	import { browser } from '$app/environment';
-	import { getGraphContext, type CameraState, type GraphService } from '../BasicGraph.svelte';
-	import SettingsStore, { Theme } from '$lib/store/SettingsStore';
+	import {
+		getGraphContext,
+		type CameraState,
+		type GraphService
+	} from '$lib/views/CoreGraph.svelte';
+	import SettingsStore from '$lib/store/SettingsStore';
 
 	const graphService: GraphService = getGraphContext();
 	let minimalRenderer: MinimapRenderer | undefined;
@@ -36,8 +40,6 @@
 	onDestroy(() => {
 		minimalRenderer?.destroy();
 	});
-
-	export let setCameraState = (state: CameraState) => minimalRenderer?.setCameraState(state);
 </script>
 
 <div

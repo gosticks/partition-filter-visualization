@@ -1,7 +1,11 @@
 <script lang="ts">
 	import { onDestroy, onMount } from 'svelte';
 	import { browser } from '$app/environment';
-	import { getGraphContext, type GraphService, type GraphUnsubscribe } from '../BasicGraph.svelte';
+	import {
+		getGraphContext,
+		type GraphService,
+		type GraphUnsubscribe
+	} from '$lib/views/CoreGraph.svelte';
 	import { AxesRenderer } from '$lib/rendering/AxesRenderer';
 	import { Axis, type AxisLabelRenderer } from '$lib/rendering/AxisRenderer';
 

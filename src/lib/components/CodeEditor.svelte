@@ -22,7 +22,7 @@
 		if (!browser) return;
 
 		self.MonacoEnvironment = {
-			getWorker: async function (workerId, label) {
+			getWorker: async function (_, label) {
 				// We only support SQL for now
 				let worker: any;
 				switch (label) {

@@ -19,7 +19,7 @@
 		type LayerColorSelectionEvent,
 		type LayerSelectionEvent
 	} from '../layerLegend/LayerGroup.svelte';
-	import { getGraphContext, type GraphService } from '../BasicGraph.svelte';
+	import { getGraphContext, type GraphService } from '$lib/views/CoreGraph.svelte';
 	import SliceGraph from './SliceGraph.svelte';
 	import { LayersIcon, LockIcon } from 'svelte-feather-icons';
 

@@ -1,22 +1,15 @@
 <script lang="ts" context="module">
 	import {
-		AmbientLight,
-		Camera,
-		DirectionalLight,
-		OrthographicCamera,
-		PerspectiveCamera,
-		Scene,
-		Vector2,
-		Mesh,
-		Group,
-		PlaneGeometry,
-		MeshBasicMaterial,
-		Vector3,
-		WebGLRenderer,
-		DoubleSide,
 		AddEquation,
+		DoubleSide,
+		Group,
+		Mesh,
+		MeshBasicMaterial,
+		PlaneGeometry,
+		Vector3,
 		type ColorRepresentation
 	} from 'three';
+
 	class SliceSelectionRenderer extends Group {
 		private meshes = new Map<Axis, Mesh<PlaneGeometry, MeshBasicMaterial>>();
 		private colors: Record<Axis, ColorRepresentation> = {
@@ -84,12 +77,12 @@
 </script>
 
 <script lang="ts">
-	import { getContext, onDestroy, onMount } from 'svelte';
+	import { onDestroy, onMount } from 'svelte';
 
 	import { browser } from '$app/environment';
 	import { Axis } from '$lib/rendering/AxisRenderer';
 	import { colorBrewer } from '$lib/rendering/colors';
-	import { getGraphContext, type GraphService } from '../BasicGraph.svelte';
+	import { getGraphContext, type GraphService } from '$lib/views/CoreGraph.svelte';
 
 	const graphService: GraphService = getGraphContext();
 

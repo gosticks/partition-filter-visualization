@@ -2,20 +2,16 @@
 	import { dataStore } from '$lib/store/dataStore/DataStore';
 	import filterStore from '$lib/store/filterStore/FilterStore';
 	import settingsStore, { Theme } from '$lib/store/SettingsStore';
-	import { getContext, onMount } from 'svelte';
-	import Button from './button/Button.svelte';
-	import Card from './Card.svelte';
+	import Button from '$lib/components/button/Button.svelte';
+	import Card from '$lib/components/Card.svelte';
 	import { GraphOptions, GraphType } from '$lib/store/filterStore/types';
-	import OptionRenderer from './OptionRenderer.svelte';
-	import Divider from './base/Divider.svelte';
+	import OptionRenderer from '$lib/components/OptionRenderer.svelte';
+	import Divider from '$lib/components/base/Divider.svelte';
 	import {
 		CameraIcon,
-		CodeIcon,
-		CpuIcon,
 		DatabaseIcon,
-		InfoIcon,
+		Edit2Icon,
 		LayersIcon,
-		MehIcon,
 		MoonIcon,
 		PlusIcon,
 		RefreshCcwIcon,
@@ -24,18 +20,18 @@
 		SunIcon,
 		XIcon
 	} from 'svelte-feather-icons';
-	import { ButtonColor, ButtonSize, ButtonVariant } from './button/type';
-	import Dialog, { DialogSize, getDialogContext } from './dialog/Dialog.svelte';
+	import { ButtonColor, ButtonSize, ButtonVariant } from '$lib/components/button/type';
+	import Dialog, { DialogSize, getDialogContext } from '$lib/components/dialog/Dialog.svelte';
 	import TableSelection, {
-		type DatasetSelectionEvent,
 		type TableSelectionEvent
-	} from './tableSelection/TableSelection.svelte';
-	import QueryEditor from './QueryEditor.svelte';
+	} from '$lib/views/tableSelection/TableSelection.svelte';
+	import QueryEditor from '$lib/views/QueryEditor.svelte';
 	import { fadeSlide } from '$lib/transitions/fadeSlide';
 	import { get } from 'svelte/store';
 	import notificationStore from '$lib/store/notificationStore';
-	import { getGraphContext, type GraphService } from './BasicGraph.svelte';
+	import { getGraphContext, type GraphService } from '$lib/views/CoreGraph.svelte';
 	import { imageFromGlContext } from '$lib/rendering/screenshot';
+	import SchemaMatter from './SchemaMatter.svelte';
 
 	const graphService: GraphService = getGraphContext();
 	let optionsStore: GraphOptions['optionsStore'] | undefined;
@@ -179,7 +175,16 @@
 				<ul>
 					{#each Object.entries($dataStore.tables) as [tableName, table]}
 						<li class="flex py-1 justify-between items-center">
-							<div>{table.displayName ?? table.name}</div>
+							<div class="flex gap-2">
+								<span>{table.displayName}</span>
+								<Dialog>
+									<Button slot="trigger" variant={ButtonVariant.DEFAULT} size={ButtonSize.SM}>
+										<Edit2Icon size="15" />
+									</Button>
+
+									<SchemaMatter initiallySelectedTable={table} />
+								</Dialog>
+							</div>
 							<Button
 								on:click={() => filterStore.removeTable(tableName)}
 								variant={ButtonVariant.LINK}

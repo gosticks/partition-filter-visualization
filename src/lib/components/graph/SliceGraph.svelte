@@ -1,16 +1,14 @@
 <script lang="ts">
+	import { PortalPlacement } from '$lib/actions/portal';
+	import { Axis } from '$lib/rendering/AxisRenderer';
 	import type {
 		IPlaneChildData,
 		IPlaneData,
-		IPlaneRendererData,
-		PlaneRenderer
+		IPlaneRendererData
 	} from '$lib/rendering/PlaneRenderer';
-	import Slider, { type SliderInputEvent } from '../slider/Slider.svelte';
+	import { DataScaling } from '$lib/store/dataStore/types';
 	import type { PlaneGraphModel } from '$lib/store/filterStore/graphs/plane';
-	import SliceSelection from './SliceSelection.svelte';
-	import Dropdown, { getDropdownCtx } from '../Dropdown.svelte';
-	import Button from '../button/Button.svelte';
-	import { ButtonColor, ButtonSize, ButtonVariant } from '../button/type';
+	import { scaleDecoder } from '$lib/util';
 	import {
 		ChevronDownIcon,
 		ChevronUpIcon,
@@ -18,21 +16,18 @@
 		EyeOffIcon,
 		InfoIcon,
 		Maximize2Icon,
-		MehIcon,
 		MoveIcon
 	} from 'svelte-feather-icons';
-	import { PortalPlacement } from '$lib/actions/portal';
+	import Dropdown, { getDropdownCtx } from '../Dropdown.svelte';
+	import { type DropdownSelectionEvent } from '../DropdownSelect.svelte';
+	import Button from '../button/Button.svelte';
+	import { ButtonColor, ButtonSize, ButtonVariant } from '../button/type';
+	import Dialog, { DialogSize } from '../dialog/Dialog.svelte';
+	import type { LayerVisibilityList } from '../layerLegend/LayerGroup.svelte';
+	import Slider, { type SliderInputEvent } from '../slider/Slider.svelte';
 	import type { IGraph2dData } from './Graph2D.svelte';
 	import Graph2D from './Graph2D.svelte';
-	import type { LayerVisibilityList } from '../layerLegend/LayerGroup.svelte';
-	import { Axis } from '$lib/rendering/AxisRenderer';
-	import Dialog, { DialogSize } from '../dialog/Dialog.svelte';
-	import type { ITiledDataRow } from '$lib/store/dataStore/filterActions';
-	import DropdownSelect, { type DropdownSelectionEvent } from '../DropdownSelect.svelte';
-	import BasicGraph from '../BasicGraph.svelte';
-	import { DataScaling } from '$lib/store/dataStore/types';
-	import type { Point3D } from '$lib/rendering/geometry/SparsePlaneGeometry';
-	import { scaleDecoder } from '$lib/util';
+	import SliceSelection from './SliceSelection.svelte';
 
 	export let options: PlaneGraphModel;
 	export let layerVisibility: LayerVisibilityList;

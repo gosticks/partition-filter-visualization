@@ -12,7 +12,7 @@ export const toStateObject = (state: IFilterStore): GraphStateConfig => {
 			// build in only need one of the sources
 			// since a table in a dataset can be composed from multiple parts
 			refs:
-				table.refs.length > 0
+				(table.refs ?? []).length > 0
 					? [
 							{
 								source: table.refs[0].source,

@@ -1,5 +1,6 @@
 import { writable, get } from 'svelte/store';
 import { dataStoreLoadExtension } from './loadActions';
+import { dataStorePostProcessingExtension } from './postProcessing';
 import type { IDataStore, TableSchema } from './types';
 import { browser } from '$app/environment';
 import { dataStoreFilterExtension } from './filterActions';
@@ -17,8 +18,8 @@ const initialStore: IDataStore = {
 
 const _baseStore = () => {
 	console.log('Initializing data store');
-	// const store = withLogMiddleware(writable<IDataStore>(initialStore), 'DataStore');
-	const store = writable<IDataStore>(initialStore);
+	const store = withLogMiddleware(writable<IDataStore>(initialStore), 'DataStore');
+	// const store = writable<IDataStore>(initialStore);
 
 	const { set, update, subscribe } = store;
 
@@ -207,16 +208,22 @@ const _baseStore = () => {
 };
 
 export type BaseStoreType = ReturnType<typeof _baseStore>;
+export type DataStoreType = ReturnType<typeof _dataStore>;
 
 const _dataStore = () => {
 	const store = _baseStore();
 
 	// Execute extension
-	return {
+	const extendedStore = {
 		...store,
 		...dataStoreLoadExtension(store, store.rawStore),
 		...dataStoreFilterExtension(store)
+		// FIXME: due to tigh coupling between load and post processing this
+		// is loaded by the load module. Probably should be changed
+		//...dataStorePostProcessingExtension(store, store.rawStore)
 	};
+
+	return extendedStore;
 };
 
 export const dataStore = _dataStore();

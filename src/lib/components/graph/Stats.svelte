@@ -1,8 +1,12 @@
 <script lang="ts">
-	import { getContext, onDestroy, onMount } from 'svelte';
+	import { onDestroy, onMount } from 'svelte';
 	import { browser } from '$app/environment';
 	import Stats from 'stats.js';
-	import { getGraphContext, type GraphService, type GraphUnsubscribe } from '../BasicGraph.svelte';
+	import {
+		getGraphContext,
+		type GraphService,
+		type GraphUnsubscribe
+	} from '$lib/views/CoreGraph.svelte';
 	const graphService: GraphService = getGraphContext();
 
 	let stats: Stats;

@@ -130,7 +130,11 @@
 </script>
 
 <script lang="ts">
-	import { getGraphContext, type GraphService, type GraphUnsubscribe } from '../BasicGraph.svelte';
+	import {
+		getGraphContext,
+		type GraphService,
+		type GraphUnsubscribe
+	} from '$lib/views/CoreGraph.svelte';
 	import { browser } from '$app/environment';
 	import { onDestroy, onMount } from 'svelte';
 	import type { ThemeColors } from '$lib/store/SettingsStore';

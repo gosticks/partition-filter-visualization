@@ -1,17 +1,17 @@
 <script lang="ts">
 	import { onMount, onDestroy } from 'svelte';
 
-	import CodeEditor from './CodeEditor.svelte';
+	import CodeEditor from '$lib/components/CodeEditor.svelte';
 	import type { editor } from 'monaco-editor';
-	import Button from './button/Button.svelte';
+	import Button from '$lib/components/button/Button.svelte';
 	import { dataStore } from '$lib/store/dataStore/DataStore';
-	import { ButtonColor } from './button/type';
+	import { ButtonColor } from '$lib/components/button/type';
 	import DropdownSelect, {
 		type DropdownSelectionEvent,
 		type OptionConstructor
-	} from './DropdownSelect.svelte';
+	} from '$lib/components/DropdownSelect.svelte';
 	import type { DbQueryHistoryItem } from '$lib/store/dataStore/types';
-	import Tag from './base/Tag.svelte';
+	import Tag from '$lib/components/base/Tag.svelte';
 
 	let currentQuery: ReturnType<typeof dataStore.executeQuery> | undefined = undefined;
 
@@ -20,7 +20,7 @@
 	export let storageKey = 'query-editor';
 	export let initialQuery = '';
 
-	onMount(async () => {
+	onMount(() => {
 		// Reload query if it was saved in the store
 		initialQuery = sessionStorage.getItem(storageKey) || initialQuery;
 
@@ -78,7 +78,7 @@
 				<p class="flex gap-2 mb-2">
 					Tables:
 					{#each Object.values($dataStore.tables) as table}
-						<Tag>{table.name}</Tag>
+						<Tag>{table.tableName}</Tag>
 					{/each}
 				</p>
 			</div>

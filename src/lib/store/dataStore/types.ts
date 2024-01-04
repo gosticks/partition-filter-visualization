@@ -49,10 +49,38 @@ export type ITableReference = ITableBuildIn | ITableExternalFile | ITableExterna
 
 export type ITableRefList = ITableBuildIn[] | ITableExternalFile[] | ITableExternalUrl[];
 
-export interface ILoadedTable {
+export enum TransformationType {
+	SQL,
+	JS
+}
+
+export type BaseTableTransformation = {
 	name: string;
-	displayName?: string;
-	schema: TableSchema;
+	description: string;
+	type: TransformationType;
+	resultSchema?: TableSchema;
+	required?: boolean;
+};
+
+export type SqlTransformation = BaseTableTransformation & {
+	type: TransformationType.SQL;
+	query: string;
+};
+
+export type JsTransformation = BaseTableTransformation & {
+	type: TransformationType.JS;
+	method: (tableName: string, info: ILoadedTable) => Promise<boolean>;
+};
+
+export type TableTransformation = SqlTransformation | JsTransformation;
+
+export interface ILoadedTable {
+	tableName: string; // Table name that should be used for query operations with transformations applied
+	displayName: string; // Defaults to table name
+	schema: TableSchema; // Schema after all transformations were applied
+	sourceSchema: TableSchema; // Schema of raw/unmodified table
+	sourceTableName: Readonly<string>; // Unmodified table loaded by user
+	transformations: TableTransformation[];
 	refs: ITableReference[]; // can be multiple since a single table can be multiple files
 	filterOptions: FilterOptions;
 }

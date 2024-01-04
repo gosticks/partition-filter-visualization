@@ -67,7 +67,6 @@
 	let outlinePass: OutlinePass;
 	let composer: EffectComposer;
 	let isSetupComplete = false;
-	let stats: Stats;
 
 	function setupControls() {
 		controls = new OrbitControls(camera, renderer.domElement);
@@ -149,11 +148,9 @@
 		renderer = new WebGLRenderer({
 			alpha: false,
 			antialias: true,
-			// powerPreference: 'high-performance'
-			logarithmicDepthBuffer: true,
-			preserveDrawingBuffer: true
-			// failIfMajorPerformanceCaveat: true
-			// precision: 'lowp'
+			preserveDrawingBuffer: true,
+			// TODO: disable for production builds
+			failIfMajorPerformanceCaveat: true
 		});
 		renderer.domElement.setAttribute('id', 'basic-graph');
 		renderer.setPixelRatio(window.devicePixelRatio || 1);
