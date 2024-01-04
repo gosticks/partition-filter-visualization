@@ -12,7 +12,6 @@ export type NamedGraph = {
 };
 
 const graphPath = 'static/graphs';
-const graphPathAbs = `/${graphPath}`;
 
 export const load: Load = async ({ params }) => {
 	const items: NamedGraph[] = fs

@@ -19,6 +19,7 @@
 	import { onMount, onDestroy, setContext, getContext } from 'svelte';
 	import { fade, fly } from 'svelte/transition';
 	import { defaultPortalRootClass, portal } from '$lib/actions/portal';
+	import H2 from '../base/H2.svelte';
 
 	export let size: DialogSize = DialogSize.medium;
 	export let dialogOpen = false;
@@ -59,8 +60,12 @@
 	};
 </script>
 
-<span class={className} on:keypress={toggleDialog} on:click={toggleDialog}
-	><slot name="trigger" /></span
+<span
+	role="button"
+	tabindex="-1"
+	class={className}
+	on:keypress={toggleDialog}
+	on:click={toggleDialog}><slot name="trigger" /></span
 >
 
 {#if dialogOpen}
@@ -80,7 +85,7 @@
 			{#if $$slots.title}<div
 					class="pb-4 mb-2 border-b border-background-100 dark:border-background-800"
 				>
-					<h2 class="font-bold text-xl"><slot name="title" /></h2>
+					<H2><slot name="title" /></H2>
 				</div>{/if}
 			<slot />
 			{#if $$slots.footer}
