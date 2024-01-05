@@ -48,11 +48,11 @@
 
 	const onColorSelection =
 		(index: number, layer: ChildLayer | ParentLayer, subLayer?: number) =>
-		(evt: DropdownSelectionEvent<string>) => {
+		(evt: DropdownSelectionEvent<unknown>) => {
 			changeDispatch('color', {
 				index,
 				layer,
-				color: evt.detail.selected.at(0)?.value
+				color: evt.detail.selected.at(0)?.value as string | undefined
 			});
 		};
 </script>

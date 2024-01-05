@@ -43,6 +43,6 @@
 </script>
 
 <div
-	class="minimap absolute isolate z-10 right-0 bottom-0 w-[190px] h-[190px]"
+	class="minimap absolute isolate right-0 bottom-0 w-[190px] h-[190px]"
 	bind:this={renderTargetEl}
 />

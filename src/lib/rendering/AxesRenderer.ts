@@ -89,7 +89,7 @@ export class AxesRenderer extends THREE.Object3D {
 
 	onBeforeRender = (renderer: THREE.WebGLRenderer, scene: THREE.Scene, camera: THREE.Camera) => {
 		// hide axes that are in the background
-		// TODO: doulbe loop can be avoided
+		// TODO: double loop can be avoided
 		this.mapAxis.forEach((axisGroup, axisDirection) => {
 			const cameraMatrix = camera.matrixWorldInverse;
 			let axisByDistance = axisGroup;

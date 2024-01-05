@@ -56,8 +56,6 @@
 		threeDomContainer = domElement;
 		dataRenderer?.setup(domElement, scene, graphCamera, graphScale);
 
-		// Listen to mouse move events on the domElement
-
 		scene.add(dataRenderer);
 
 		// call render event of graph before scene render is done
@@ -130,7 +128,7 @@
 
 	const onColorSelected = (evt: CustomEvent<LayerColorSelectionEvent<IPlaneData, any>>) => {
 		if (evt.detail.color) {
-			options.setColorForLayer(evt.detail.color, evt.detail.layer, evt.detail.subIndex);
+			options.setColorForLayer(evt.detail.color, evt.detail.index, evt.detail.subIndex);
 		}
 	};
 
@@ -275,7 +273,7 @@
 	{#if selection && $dataStore}
 		<DbDataTooltip
 			absolutePosition={mouseClientPosition}
-			tableName={selection.layer.name}
+			tableName={selection.layer.table.tableName}
 			dbEntryId={selection.dbEntryId}
 			isLocked={$isSelectionDisplayLocked}
 		>
@@ -285,7 +283,10 @@
 						class="flex-shrink-0 rounded-full border border-slate-800"
 						style={`background-color: ${selection.layer.color}; width: 12px; height:12px; display: inline-block;`}
 					/>
-					<span class="font-bold">{selection.layer.name}</span>
+					<span class="font-bold"
+						>{selection.layer.table.displayName}{#if selection.layer.isChild}
+							- {selection.layer.groupByValue}{/if}</span
+					>
 				</div>
 				<div>
 					<Button

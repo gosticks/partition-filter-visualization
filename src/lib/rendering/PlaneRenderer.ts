@@ -1,38 +1,31 @@
-import { GraphRenderer } from './GraphRenderer';
-import { graphColors } from './colors';
-import { SparsePlaneGeometry, type Point3D } from './geometry/SparsePlaneGeometry';
-import { SelectablePointCloud } from './geometry/PointCloudGeometry';
-import { DensePlaneGeometry } from './geometry/DensePlaneGeometry';
 import type { ITiledDataRow } from '$lib/store/dataStore/filterActions';
+import type { ILoadedTable } from '$lib/store/dataStore/types';
 import {
+	Camera,
+	Color,
+	DoubleSide,
+	Group,
 	Mesh,
-	MeshBasicMaterial,
-	OrthographicCamera,
+	MeshStandardMaterial,
 	Raycaster,
 	Scene,
 	Vector2,
-	WebGLRenderer,
 	Vector3,
-	EdgesGeometry,
-	LineSegments,
-	LineBasicMaterial,
-	Color,
-	ExtrudeGeometry,
-	Camera,
-	Group,
-	PlaneGeometry,
-	Shape,
-	type ColorRepresentation,
-	DoubleSide,
-	MeshLambertMaterial,
-	MeshDepthMaterial,
-	MeshStandardMaterial
+	type ColorRepresentation
 } from 'three';
+import { GraphRenderer } from './GraphRenderer';
+import { graphColors } from './colors';
+import { DensePlaneGeometry } from './geometry/DensePlaneGeometry';
+import { SelectablePointCloud } from './geometry/PointCloudGeometry';
+import { SparsePlaneGeometry, type Point3D } from './geometry/SparsePlaneGeometry';
+
 export interface IPlaneData {
 	points: Point3D[];
 	min: number;
 	max: number;
 	name: string;
+	// reference back to the original table
+	table: Readonly<ILoadedTable>;
 	meta?: Record<string, unknown> & {
 		rows: ITiledDataRow[];
 	};
@@ -42,7 +35,10 @@ export interface IPlaneData {
 	layers?: IPlaneChildData[];
 }
 
-export type IPlaneChildData = Omit<IPlaneData, 'layers'> & { isChild: boolean };
+export type IPlaneChildData = Omit<IPlaneData, 'layers'> & {
+	groupByValue: string;
+	isChild: boolean;
+};
 
 export type IChildPlaneData = Omit<IPlaneData, 'layers'>[];
 
@@ -115,25 +111,6 @@ export class PlaneRenderer extends GraphRenderer<IPlaneRendererData, IPlaneSelec
 
 	private get planes() {
 		return this.planeGroup.children as Group[];
-	}
-
-	// Y axis min max over all layers and sublayers
-	private get globalYAxisRange(): [number, number] {
-		if (!this.data) {
-			return [0, 0];
-		}
-		let min = Infinity;
-		let max = -Infinity;
-		for (const l of this.data!.layers) {
-			const [childMin, childMax] = l.layers?.reduce(
-				([min, max], l) => [Math.min(min, l.min), Math.max(max, l.max)],
-				[min, max]
-			) ?? [min, max];
-			min = Math.min(l.min, childMin);
-			max = Math.max(l.max, childMax);
-		}
-
-		return [min, max];
 	}
 
 	constructor(private options: IPlaneRenderOptions = PlaneRenderer.defaultRenderOptions()) {

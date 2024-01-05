@@ -4,12 +4,18 @@ import {
 	type IPlaneRenderOptions,
 	type IPlaneRendererData,
 	PlaneTriangulation,
-	DataDisplayType
+	DataDisplayType,
+	type IPlaneData
 } from '$lib/rendering/PlaneRenderer';
 import { dataStore } from '$lib/store/dataStore/DataStore';
 import { get, readonly, writable, type Readable, type Writable } from 'svelte/store';
 import { GraphOptions, GraphType, type GraphFilterOptions } from '../types';
-import { DataAggregation, DataScaling } from '$lib/store/dataStore/types';
+import {
+	DataAggregation,
+	DataScaling,
+	type ILoadedTable,
+	type ITableReference
+} from '$lib/store/dataStore/types';
 import { colorBrewer } from '$lib/rendering/colors';
 import type { ITiledDataOptions, ValueRange } from '$lib/store/dataStore/filterActions';
 import { withLogMiddleware } from '$lib/store/logMiddleware';
@@ -352,15 +358,15 @@ export class PlaneGraphModel extends GraphOptions<
 
 		// Get available tables
 		const data = get(dataStore);
-		const tables = Object.keys(data.tables);
+		const tables = Object.entries(data.tables);
 		const hasGroupBy = state.groupBy !== null && state.groupBy !== undefined;
 
 		// Get all layers
 		try {
 			const promise = await Promise.all(
-				tables.map((table) =>
+				tables.map(([_, table]) =>
 					dataStore.getTiledData(
-						table,
+						table.tableName,
 						state as RequiredOptions,
 						xAxisRange,
 						yAxisRange,
@@ -372,21 +378,25 @@ export class PlaneGraphModel extends GraphOptions<
 			// If group by set also query groupBy data
 			const childLayers = hasGroupBy
 				? await Promise.all(
-						tables.map((table) => this.queryGroupedLayers(table, state.groupBy!, ranges))
+						tables.map(([_, table]) => this.queryGroupedLayers(table, state.groupBy!, ranges))
 				  )
 				: null;
 
-			const layers = promise.map((data, index) => ({
-				points: data.points,
-				layers: childLayers?.[index],
-				min: data.min,
-				max: data.max,
-				name: tables[index] as string,
-				color: colorBrewer.Paired[12][index % colorBrewer.Paired[12].length],
-				meta: {
-					rows: data.queryResult
-				}
-			}));
+			const layers = promise.map(
+				(data, index) =>
+					({
+						points: data.points,
+						layers: childLayers?.[index],
+						min: data.min,
+						max: data.max,
+						name: tables[index][1].displayName,
+						table: tables[index][1],
+						color: colorBrewer.Paired[12][index % colorBrewer.Paired[12].length],
+						meta: {
+							rows: data.queryResult
+						}
+					}) as IPlaneData
+			);
 
 			this._dataStore.set({
 				layers,
@@ -412,21 +422,24 @@ export class PlaneGraphModel extends GraphOptions<
 	}
 
 	public setColorForLayer(color: string, layerIndex: number, subLayerIndex?: number) {
+		// FIXME: color is not persisted correctly
+
 		let parentName = '';
 		let subLayerName = '';
 
 		this._dataStore.update((state) => {
 			let l = state?.layers[layerIndex];
-			parentName = l?.name ?? '';
+			parentName = l?.table.tableName ?? '';
 			if (subLayerIndex !== undefined) {
 				l = l?.layers?.at(subLayerIndex);
-				subLayerName = `-${l?.name}`;
+				subLayerName = `-${l?.table.tableName}`;
 			}
 			if (!l) {
 				return state;
 			}
 
 			l.color = color;
+			return state;
 		});
 
 		this._renderOptions.update((state) => {
@@ -481,8 +494,10 @@ export class PlaneGraphModel extends GraphOptions<
 		}
 	}
 
+	private subLayerDisplayName = (table: ILoadedTable, groupByValue: string) => groupByValue;
+
 	private async queryGroupedLayers(
-		tableName: string,
+		table: ILoadedTable,
 		groupColumn: string,
 		ranges: [ValueRange, ValueRange, ValueRange],
 		groupValueLimit: number = 40
@@ -492,7 +507,7 @@ export class PlaneGraphModel extends GraphOptions<
 			return [];
 		}
 
-		const values = await dataStore.getDistinctValues(tableName, groupColumn);
+		const values = (await dataStore.getDistinctValues(table.tableName, groupColumn)) as string[];
 		if (values.length > groupValueLimit) {
 			throw Error(
 				`Too many options for group by: col:${groupColumn} has ${values.length} distinct values`
@@ -503,7 +518,7 @@ export class PlaneGraphModel extends GraphOptions<
 			const data = await Promise.all(
 				values.map((value) =>
 					dataStore.getTiledData(
-						tableName,
+						table.tableName,
 						state as RequiredOptions,
 						ranges[0],
 						ranges[1],
@@ -516,18 +531,22 @@ export class PlaneGraphModel extends GraphOptions<
 				)
 			);
 
-			return data.map((value, index) => ({
-				points: value.points,
-				min: value.min,
-				max: value.max,
-
-				isChild: true,
-				name: values[index] as string,
-				color: colorBrewer.Set2[8][index % colorBrewer.Set2[8].length],
-				meta: {
-					rows: value.queryResult ?? []
-				}
-			}));
+			return data.map(
+				(value, index) =>
+					({
+						points: value.points,
+						min: value.min,
+						max: value.max,
+						isChild: true,
+						table,
+						name: this.subLayerDisplayName(table, values[index]),
+						groupByValue: values[index],
+						color: colorBrewer.Set2[8][index % colorBrewer.Set2[8].length],
+						meta: {
+							rows: value.queryResult ?? []
+						}
+					}) as IPlaneChildData
+			);
 		} catch (err) {
 			notificationStore.error({
 				message: `${err}`

@@ -102,7 +102,7 @@
 		display: flex;
 		align-items: center;
 		justify-content: center;
-		z-index: 10;
+		z-index: 20;
 	}
 	.modal {
 		padding: 20px;
@@ -121,7 +121,9 @@
 		}
 
 		@media (max-width: 768px) {
-			width: 90%;
+			&:not(.small) {
+				width: 100%;
+			}
 		}
 	}
 </style>

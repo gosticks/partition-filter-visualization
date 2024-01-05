@@ -31,7 +31,7 @@
 	import notificationStore from '$lib/store/notificationStore';
 	import { getGraphContext, type GraphService } from '$lib/views/CoreGraph.svelte';
 	import { imageFromGlContext } from '$lib/rendering/screenshot';
-	import SchemaMatter from './SchemaMatter.svelte';
+	import SchemaMapper from './SchemaMapper.svelte';
 
 	const graphService: GraphService = getGraphContext();
 	let optionsStore: GraphOptions['optionsStore'] | undefined;
@@ -161,8 +161,8 @@
 		</Button>
 	</div>
 	{#if isFilterBarOpen}
-		<div class="w-96" transition:fadeSlide={{ duration: 100 }}>
-			<Card class="max-h-[70vh] overflow-auto">
+		<div class="w-full md:w-96" transition:fadeSlide={{ duration: 100 }}>
+			<Card class="max-h-[80vh] md:max-h-[70vh] overflow-auto">
 				<div class="flex justify-between items-center">
 					<h3 class="font-semibold text-lg">Loaded table</h3>
 					<Button size={ButtonSize.SM} on:click={filterStore.reset}>
@@ -182,7 +182,7 @@
 										<Edit2Icon size="15" />
 									</Button>
 
-									<SchemaMatter initiallySelectedTable={table} />
+									<SchemaMapper initiallySelectedTable={table} />
 								</Dialog>
 							</div>
 							<Button

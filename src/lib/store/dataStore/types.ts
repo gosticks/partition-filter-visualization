@@ -45,6 +45,18 @@ export interface ITableExternalFile extends ITableRef {
 	file: File;
 }
 
+// TODO: move somewhere else
+export const tableSourceToString = (source: TableSource) => {
+	switch (source) {
+		case TableSource.BUILD_IN:
+			return 'build-in';
+		case TableSource.FILE:
+			return 'file';
+		case TableSource.URL:
+			return 'url';
+	}
+};
+
 export type ITableReference = ITableBuildIn | ITableExternalFile | ITableExternalUrl;
 
 export type ITableRefList = ITableBuildIn[] | ITableExternalFile[] | ITableExternalUrl[];
@@ -60,6 +72,7 @@ export type BaseTableTransformation = {
 	type: TransformationType;
 	resultSchema?: TableSchema;
 	required?: boolean;
+	lastError?: Error;
 };
 
 export type SqlTransformation = BaseTableTransformation & {

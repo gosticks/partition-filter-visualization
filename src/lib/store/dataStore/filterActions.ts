@@ -205,7 +205,7 @@ export const dataStoreFilterExtension = (store: BaseStoreType) => {
 	): Promise<IQueryResult> => {
 		const options = {
 			..._options
-		};
+		} as ITiledDataOptions;
 
 		try {
 			let rows = await getTiledRows(tableName, options, xRange, yRange, zRange, where);
@@ -222,43 +222,11 @@ export const dataStoreFilterExtension = (store: BaseStoreType) => {
 			let min = Number.MAX_VALUE;
 			let max = Number.MIN_VALUE;
 
-			points.forEach(([x, z, y]) => {
+			points.forEach(([_, __, y]) => {
 				// use ternary to support big int
 				min = min > y ? y : min;
 				max = max < y ? y : max;
 			});
-
-			// const rows = await getTiledRows(tableName, options, xRange, yRange, zRange, where);
-			// const points = rows.map((row) => [row.x, row.z, row.y] as Point3D);
-			// const zDim = options.zTileCount! + 1;
-			// const xDim = options.xTileCount! + 1;
-
-			// const valueType = typeof rows[0].y;
-			// console.log(valueType);
-
-			// const isBigInit = valueType === 'bigint';
-
-			// let min: number | bigint = Number.MAX_VALUE;
-			// let max: number | bigint = Number.MIN_VALUE;
-
-			// if (isBigInit) {
-			// 	min = BigInt(min);
-			// 	max = BigInt(max);
-			// }
-
-			// rows.forEach((r) => {
-			// 	if (r.x < 0 || r.z < 0 || Number.isNaN(r.y)) {
-			// 		return;
-			// 	}
-
-			// 	if (isBigInit) {
-			// 		min = bigIntMin(min as bigint, r.y as unknown as bigint);
-			// 		max = bigIntMax(min as bigint, r.y as unknown as bigint);
-			// 	} else {
-			// 		min = Math.min(min as number, r.y);
-			// 		max = Math.max(max as number, r.y);
-			// 	}
-			// });
 
 			return {
 				points,
