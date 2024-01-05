@@ -59,7 +59,7 @@
 				{#if $filterStore.graphOptions instanceof PlaneGraphModel}
 					<PlaneGraph options={$filterStore.graphOptions} graphScale={0.6} />
 				{/if}
-				<Minimap bind:setCameraState />
+				<Minimap />
 			{:else}
 				<GridBackground />
 			{/if}
