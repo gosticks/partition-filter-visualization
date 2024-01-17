@@ -108,7 +108,7 @@ export class SingleAxis extends THREE.Group {
 				transparent: true,
 				depthWrite: false,
 				// rotation: Math.PI / 2,
-				map: new TextTexture(text, {
+				map: new TextTexture(text ?? '', {
 					rotation: this.options.segmentLabelRotation,
 					...this.options.textOptions,
 					fontSize: (this.options.textOptions?.fontSize ?? SingleAxis.defaultSegmentSize) * 1
@@ -188,7 +188,7 @@ export class SingleAxis extends THREE.Group {
 			transparent: true,
 			depthWrite: false,
 			rotation: this.options.labelRotation,
-			map: new TextTexture(labelText, {
+			map: new TextTexture(labelText ?? '', {
 				...this.options.textOptions
 			})
 		});
