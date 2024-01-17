@@ -77,7 +77,7 @@ export type BaseTableTransformation = {
 
 export type SqlTransformation = BaseTableTransformation & {
 	type: TransformationType.SQL;
-	query: string;
+	query: string | (() => Promise<string>);
 };
 
 export type JsTransformation = BaseTableTransformation & {
@@ -115,4 +115,5 @@ export interface IDataStore {
 
 	// FIXME: hide behind debug flag
 	previousQueries: DbQueryHistoryItem[];
+	sqlTransformations: string[];
 }

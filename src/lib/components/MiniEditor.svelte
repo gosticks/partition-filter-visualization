@@ -20,19 +20,25 @@
 	export { className as class };
 
 	const eventDispatcher = createEventDispatcher();
-	let editor: editor.IStandaloneCodeEditor;
+	export let editor: editor.IStandaloneCodeEditor;
 
-	const onContentChanged = (evt: editor.IModelContentChangedEvent) =>
+	const onContentChanged = (evt: editor.IModelContentChangedEvent) => {
+		initialValue = editor!.getValue();
 		eventDispatcher('change', {
 			editorEvent: evt,
-			content: editor.getValue()
+			content: initialValue
 		});
+	};
+
+	const initEditor = () => {
+		editor!.layout();
+		editor!.setValue(initialValue);
+
+		editor!.onDidChangeModelContent(onContentChanged);
+	};
 
 	$: if (editor) {
-		editor.layout();
-		editor.setValue(initialValue);
-
-		editor.onDidChangeModelContent(onContentChanged);
+		initEditor();
 	}
 </script>
 

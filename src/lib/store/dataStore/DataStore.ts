@@ -13,7 +13,8 @@ const initialStore: IDataStore = {
 	sharedConnection: null,
 	tables: {},
 	combinedSchema: {},
-	previousQueries: []
+	previousQueries: [],
+	sqlTransformations: []
 };
 
 const _baseStore = () => {

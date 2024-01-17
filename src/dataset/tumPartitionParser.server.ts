@@ -10,7 +10,10 @@ import {
 	type Dataset
 } from './types';
 
-const parseDirectory = (dir: string, stripPrefix: string | undefined = undefined): FSItem[] => {
+export const parseDirectory = (
+	dir: string,
+	stripPrefix: string | undefined = undefined
+): FSItem[] => {
 	const walkDir = (dir: string): FSItem[] =>
 		fs.readdirSync(dir).map((f) => {
 			const dirPath = path.join(dir, f);

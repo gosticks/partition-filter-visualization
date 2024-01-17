@@ -15,9 +15,10 @@
 		type ILoadedTable,
 		type TableTransformation,
 		TableSource,
-		type ITableReference
+		type ITableReference,
+		TransformationType
 	} from '$lib/store/dataStore/types';
-	import { AlertTriangleIcon, PlusIcon, XIcon } from 'svelte-feather-icons';
+	import { AlertTriangleIcon, EditIcon, PenToolIcon, PlusIcon, XIcon } from 'svelte-feather-icons';
 	import TransformerEditor, { type TransformerCreated } from './TransformerEditor.svelte';
 	export let initiallySelectedTable: ILoadedTable;
 
@@ -37,11 +38,18 @@
 	const isColumnNew = (columnName: string) =>
 		table.schema[columnName] != table.sourceSchema[columnName];
 
+	const updateTransformation = (evt: TransformerCreated) => {
+		// NOTE: hack to force rerender
+		dataStore.updatePostProcessingTransformer(table, evt.detail.transformation).finally(() => {
+			table = table;
+		});
+	};
+
 	const addTransformer = (evt: TransformerCreated) => {
 		// NOTE: hack to force rerender
-		dataStore
-			.addPostProcessingTransformer(table, evt.detail.transformation)
-			.finally(() => (table = table));
+		dataStore.addPostProcessingTransformer(table, evt.detail.transformation).finally(() => {
+			table = table;
+		});
 	};
 
 	const removeTransformer = (transformer: TableTransformation) => {
@@ -90,20 +98,23 @@
 		on:select={onTableSelected}
 	/>
 </div>
+<div class="w-full overflow-x-scroll mb-2 border-t border-b">
+	<div class="flex gap-2 py-2">
+		{#each table.refs as ref}<div class="flex gap-2">
+				<Card>
+					<div>
+						<b>Source type:</b>
+						<span>{tableSourceToString(ref.source)}</span>
+					</div>
 
-<div class="flex gap-2 py-2 mb-2 border-t border-b">
-	{#each table.refs as ref}<div class="flex gap-2">
-			<span
-				><b>Source type:</b>
-				<span>{tableSourceToString(ref.source)}</span>
-			</span>
-
-			<span
-				><b>URL:</b>
-				<span>{pathForSource(ref)}</span>
-			</span>
-		</div>
-	{/each}
+					<div class="whitespace-nowrap">
+						<b>URL:</b>
+						<span>{pathForSource(ref)}</span>
+					</div>
+				</Card>
+			</div>
+		{/each}
+	</div>
 </div>
 <div class="grid md:grid-cols-3 gap-4">
 	<div>
@@ -130,7 +141,15 @@
 					</h3>
 
 					<p>{transformation.description}</p>
-					<div class="absolute right-0 top-2">
+					<div class="absolute flex right-0 top-2">
+						{#if !transformation.required && TransformationType.SQL == transformation.type}<TransformerEditor
+								existingTransformation={transformation}
+								on:updated={updateTransformation}
+							>
+								<Button slot="trigger" size={ButtonSize.SM} variant={ButtonVariant.LINK}>
+									<EditIcon size="20" /></Button
+								>
+							</TransformerEditor>{/if}
 						<Button
 							disabled={transformation.required}
 							on:click={() => removeTransformer(transformation)}

@@ -248,7 +248,7 @@ const _filterStore = () => {
 		loadBuildInTables,
 		loadTableFromURL,
 		loadTablesFromFiles,
-
+		reload: reloadCurrentGraph,
 		removeTable: async (tableName: string) => {
 			try {
 				await dataStore.removeTable(tableName);
@@ -303,6 +303,15 @@ const _filterStore = () => {
 
 			setIsLoading(false);
 			return;
+		},
+
+		setTitle: (title: string) => {
+			update((state) => {
+				if (state.config) {
+					state.config.name = title;
+				}
+				return state;
+			});
 		},
 
 		selectGraphType: async (graphType: GraphType) => {
