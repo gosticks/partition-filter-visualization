@@ -1,17 +1,19 @@
-import * as THREE from 'three';
+import { BufferAttribute, BufferGeometry, Uint32BufferAttribute } from 'three';
 
 type Data = number[][];
-export class DataPlaneShapeGeometry extends THREE.BufferGeometry {
+export class DataPlaneShapeGeometry extends BufferGeometry {
 	static readonly pointComponentSize = 3;
 
 	private normalizedData: Data;
 	private previousNormalizedData: Data | undefined = undefined;
-	private width: number;
-	private depth: number;
+	private dataWidth: number;
+	private dataDepth: number;
+	public width: number;
+	public depth: number;
 
 	// tesselation used to interpolate between data points
-	// e.g. is set to 2  num polygonPoints = (2 * width - 1) * (2 * height - 1)
-	private tesselationFactor = 1;
+	// number of points to insert between two points in input data range
+	private tesselationFactor = 0;
 
 	private indexBuffer: Uint32Array | undefined = undefined;
 	private pointBuffer: Float32Array | undefined = undefined;
@@ -68,12 +70,13 @@ export class DataPlaneShapeGeometry extends THREE.BufferGeometry {
 				this.previousNormalizedData = previousData;
 			}
 		}
-
-		this.depth = this.normalizedData[0].length;
-		this.width = this.normalizedData.length;
+		this.width = 0;
+		this.depth = 0;
+		this.dataDepth = this.normalizedData[0].length;
+		this.dataWidth = this.normalizedData.length;
 
 		if (previousData) {
-			if (previousData.length !== this.depth || previousData[0].length !== this.width) {
+			if (previousData.length !== this.dataDepth || previousData[0].length !== this.dataWidth) {
 				throw new Error('Previous data has different dimensions');
 			}
 		}
@@ -184,8 +187,61 @@ export class DataPlaneShapeGeometry extends THREE.BufferGeometry {
 		}
 	}
 
+	private interpolate2DArray(
+		originalArray: number[][],
+		pointsX: number,
+		pointsY: number
+	): number[][] {
+		if (pointsX == 0 && pointsY == 0) {
+			return originalArray;
+		}
+
+		const originalHeight = originalArray.length;
+		const originalWidth = originalArray[0].length;
+
+		const interpolatedHeight = originalHeight + (originalHeight - 1) * pointsY;
+		const interpolatedWidth = originalWidth + (originalWidth - 1) * pointsX;
+
+		// Initialize the interpolated array with predefined size
+		const interpolatedArray: number[][] = new Array(interpolatedHeight)
+			.fill(null)
+			.map(() => new Array(interpolatedWidth).fill(0));
+
+		// Function to linearly interpolate between two values
+		function linearInterpolate(value1: number, value2: number, factor: number): number {
+			return value1 + (value2 - value1) * factor;
+		}
+
+		for (let y = 0; y < originalHeight - 1; y++) {
+			for (let x = 0; x < originalWidth - 1; x++) {
+				for (let dy = 0; dy <= pointsY; dy++) {
+					for (let dx = 0; dx <= pointsX; dx++) {
+						const interpolatedValue = linearInterpolate(
+							linearInterpolate(originalArray[y][x], originalArray[y][x + 1], dx / pointsX),
+							linearInterpolate(originalArray[y + 1][x], originalArray[y + 1][x + 1], dx / pointsX),
+							dy / pointsY
+						);
+
+						if (!interpolatedArray[y * (pointsY + 1) + dy]) {
+							interpolatedArray[y * (pointsY + 1) + dy] = [];
+						}
+
+						interpolatedArray[y * (pointsY + 1) + dy][x * (pointsX + 1) + dx] = interpolatedValue;
+					}
+				}
+			}
+		}
+
+		return interpolatedArray;
+	}
+
 	private computeGeometry() {
-		const { normalizedData, width, depth, pointsPerPlane } = this;
+		const { normalizedData: origData, width: origWidth, depth: origDepth } = this;
+
+		const tesselationFactor = Math.max(Math.round(this.tesselationFactor), 0);
+		const normalizedData = this.interpolate2DArray(origData, tesselationFactor, tesselationFactor);
+		this.width = normalizedData.length;
+		this.depth = normalizedData[0].length;
 
 		this.setupBuffers();
 
@@ -194,15 +250,14 @@ export class DataPlaneShapeGeometry extends THREE.BufferGeometry {
 			throw new Error('Buffers not initialized');
 		}
 
+		const width = this.width;
+		const depth = this.depth;
+		const pointsPerPlane = width * depth;
 		const vertices = this.pointBuffer;
 		const indices = this.indexBuffer;
 
 		const bufferElementSize = 3;
-		const tesselationFactor = Math.max(Math.round(this.tesselationFactor), 1);
-		const numPolygons =
-			(width * tesselationFactor - 1) *
-			(depth * tesselationFactor - 1) *
-			(this.drawsBottom ? 2 : 1);
+		const numPolygons = (width - 1) * (depth - 1) * (this.drawsBottom ? 2 : 1);
 
 		const hasBottomLayer = this.previousNormalizedData !== undefined;
 
@@ -317,9 +372,9 @@ export class DataPlaneShapeGeometry extends THREE.BufferGeometry {
 		}
 		this.setAttribute(
 			'position',
-			new THREE.BufferAttribute(vertices, DataPlaneShapeGeometry.pointComponentSize)
+			new BufferAttribute(vertices, DataPlaneShapeGeometry.pointComponentSize)
 		);
-		this.setIndex(new THREE.Uint32BufferAttribute(indices, 1));
+		this.setIndex(new Uint32BufferAttribute(indices, 1));
 		this.computeVertexNormals();
 	}
 }

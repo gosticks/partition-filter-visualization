@@ -1,5 +1,4 @@
 import type { AsyncDuckDB, AsyncDuckDBConnection } from '@duckdb/duckdb-wasm';
-import type { ITableReference } from '../filterStore/types';
 
 export type FilterOptions = Record<string, { options: unknown[]; label?: string; type: string }>;
 export type TableSchema = Record<string, 'number' | 'string'>;
@@ -16,21 +15,105 @@ export enum DataAggregation {
 	SUM = 'sum'
 }
 
-export interface ITableEntry {
-	name: string;
+export enum TableSource {
+	BUILD_IN,
+	URL,
+	FILE
+}
+
+interface ITableRef {
+	tableName: string;
 	displayName?: string;
-	schema: TableSchema;
-	ref: ITableReference;
+}
+
+export interface ITableBuildIn extends ITableRef {
+	source: TableSource.BUILD_IN;
+	url: string;
+	// build in tables are ordered in folders
+	// we call these folders datasets since they indicate
+	// comparable table structure
+	datasetName: string;
+}
+
+export interface ITableExternalUrl extends ITableRef {
+	source: TableSource.URL;
+	url: string;
+}
+
+export interface ITableExternalFile extends ITableRef {
+	source: TableSource.FILE;
+	file: File;
+}
+
+// TODO: move somewhere else
+export const tableSourceToString = (source: TableSource) => {
+	switch (source) {
+		case TableSource.BUILD_IN:
+			return 'build-in';
+		case TableSource.FILE:
+			return 'file';
+		case TableSource.URL:
+			return 'url';
+	}
+};
+
+export type ITableReference = ITableBuildIn | ITableExternalFile | ITableExternalUrl;
+
+export type ITableRefList = ITableBuildIn[] | ITableExternalFile[] | ITableExternalUrl[];
+
+export enum TransformationType {
+	SQL,
+	JS
+}
+
+export type BaseTableTransformation = {
+	name: string;
+	description: string;
+	type: TransformationType;
+	resultSchema?: TableSchema;
+	required?: boolean;
+	lastError?: Error;
+};
+
+export type SqlTransformation = BaseTableTransformation & {
+	type: TransformationType.SQL;
+	query: string | (() => Promise<string>);
+};
+
+export type JsTransformation = BaseTableTransformation & {
+	type: TransformationType.JS;
+	method: (tableName: string, info: ILoadedTable) => Promise<boolean>;
+};
+
+export type TableTransformation = SqlTransformation | JsTransformation;
+
+export interface ILoadedTable {
+	tableName: string; // Table name that should be used for query operations with transformations applied
+	displayName: string; // Defaults to table name
+	schema: TableSchema; // Schema after all transformations were applied
+	sourceSchema: TableSchema; // Schema of raw/unmodified table
+	sourceTableName: Readonly<string>; // Unmodified table loaded by user
+	transformations: TableTransformation[];
+	refs: ITableReference[]; // can be multiple since a single table can be multiple files
 	filterOptions: FilterOptions;
 }
+
+export type DbQueryHistoryItem = {
+	query: string;
+	success: boolean;
+	executionTime: number;
+};
 
 export interface IDataStore {
 	db: AsyncDuckDB | null;
 	isLoading: boolean;
 	sharedConnection: AsyncDuckDBConnection | null;
-	// Property to keep track of which tables have been loaded
-	tables: Record<string, ITableEntry>;
+	// stores currently loaded tables and sources
+	tables: Record<string, ILoadedTable>;
 	// Table schema shared across all tables
 	combinedSchema: TableSchema;
-	previousQueries: { query: string; success: boolean; executionTime: number }[];
+
+	// FIXME: hide behind debug flag
+	previousQueries: DbQueryHistoryItem[];
+	sqlTransformations: string[];
 }

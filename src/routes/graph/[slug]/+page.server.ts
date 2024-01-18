@@ -2,7 +2,7 @@
 
 import { base } from '$app/paths';
 import type { Load } from '@sveltejs/kit';
-import parseDataset from '../../../dataset/tumPartitionParser.server';
+import parseDataset, { parseDirectory } from '../../../dataset/tumPartitionParser.server';
 
 export type DataEntry = {
 	name: string;
@@ -50,8 +50,12 @@ const datasetPath = '/static/dataset';
 export const load: Load = async ({ params }) => {
 	const dataset = parseDataset(`.${datasetPath}`);
 
+	// load all available transformers
+	const items = parseDirectory(`./static/transformations`);
+
 	return {
-		dataset
+		dataset,
+		sqlTransformations: items.map((item) => item.name)
 		// data: dataEntries,
 		// filters: filters
 	};

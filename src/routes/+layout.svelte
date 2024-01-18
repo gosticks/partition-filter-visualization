@@ -4,9 +4,6 @@
 	import '../app.css';
 	import settingsStore, { Theme } from '$lib/store/SettingsStore';
 	import notificationStore, { NotificationType } from '$lib/store/notificationStore';
-	import Button from '$lib/components/button/Button.svelte';
-	import { XIcon } from 'svelte-feather-icons';
-	import { ButtonColor, ButtonSize, ButtonVariant } from '$lib/components/button/type';
 	import { browser } from '$app/environment';
 	import Notification from '$lib/components/Notification.svelte';
 
@@ -37,14 +34,13 @@
 </script>
 
 <div
-	class="min-h-screen relative isolate max-h-screen max-w-full bg-slate-100 dark:bg-background-950 dark:text-slate-200"
+	class="min-h-screen relative isolate max-h-screen max-w-full bg-white dark:bg-background-950 dark:text-slate-200"
 >
-	<div class="absolute top-5 flex flex-col gap-2 max-h-96 left-5 z-50">
+	<div class="absolute top-5 flex flex-col gap-2 max-h-96 left-5 max-sm:right-5 md z-50">
 		{#each $notificationStore as notification}
 			<Notification {notification} />
 		{/each}
 	</div>
-
 	<main>
 		<slot />
 	</main>

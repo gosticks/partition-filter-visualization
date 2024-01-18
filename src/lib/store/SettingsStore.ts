@@ -12,10 +12,46 @@ export enum Theme {
  */
 interface AppSettings {
 	theme: Theme;
+	colors: ThemeColors;
 }
 
+export interface ThemeColors {
+	surfaceColor: string;
+	surfaceSecondaryColor: string;
+	border: string;
+	textColor: string;
+	textSecondaryColor: string;
+	selectionColor: string;
+}
+
+const lightColors: ThemeColors = {
+	surfaceColor: 'rgb(209, 210, 211)',
+	surfaceSecondaryColor: 'rgb(199, 200, 201)',
+	border: '#aaaaaa',
+	textColor: '#000000',
+	textSecondaryColor: '#333333',
+	selectionColor: 'rgb(253,174,97)'
+};
+const darkColors: ThemeColors = {
+	surfaceColor: 'rgb(17, 24, 39)',
+	surfaceSecondaryColor: 'rgb(27, 34, 49)',
+	border: 'rgba(55, 60, 65)',
+	textColor: '#ffffff',
+	textSecondaryColor: '#cecece',
+	selectionColor: 'rgb(255,174,97)'
+};
+
 const initialAppSettings: AppSettings = {
-	theme: Theme.Light
+	theme: Theme.Light,
+	colors: lightColors
+};
+
+const colorsForTheme = (theme: Theme): ThemeColors => {
+	if (theme === Theme.Dark) {
+		return darkColors;
+	} else {
+		return lightColors;
+	}
 };
 
 const settingsStore = () => {
@@ -30,7 +66,11 @@ const settingsStore = () => {
 			initialTheme = storedTheme === Theme.Dark ? Theme.Dark : Theme.Light;
 		}
 
-		initialState = { ...initialAppSettings, theme: initialTheme };
+		initialState = {
+			...initialAppSettings,
+			theme: initialTheme,
+			colors: colorsForTheme(initialTheme)
+		};
 	}
 
 	const store = withLogMiddleware(writable<AppSettings>(initialState), 'SettingsStore');
@@ -38,6 +78,7 @@ const settingsStore = () => {
 	const updateTheme = (theme: Theme) => {
 		store.update((settings) => {
 			settings.theme = theme;
+			settings.colors = colorsForTheme(theme);
 			return settings;
 		});
 

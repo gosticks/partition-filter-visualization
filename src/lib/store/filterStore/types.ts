@@ -1,6 +1,8 @@
-import type { FilterEntry } from '$routes/graph/[slug]/+page.server';
 import type { Readable } from 'svelte/store';
 import type { Dataset } from '../../../dataset/types';
+import type { TableSource } from '../dataStore/types';
+import type { IPlaneRenderOptions } from '$lib/rendering/PlaneRenderer';
+import type { IPlaneGraphState } from './graphs/plane';
 
 export enum GraphType {
 	PLANE = 'plane'
@@ -10,28 +12,79 @@ export type DeepPartial<T> = {
 	[P in keyof T]?: DeepPartial<T[P]>;
 };
 
-export type SimpleGraphFilterOption =
-	| (
-			| {
-					type: 'string';
-					options: string[];
-					label: string;
-					default?: string;
-			  }
-			| {
-					type: 'number';
-					options: number[];
-					label: string;
-					default?: number;
-			  }
-			| {
-					type: 'boolean';
-					label: string;
-					default?: boolean;
-			  }
-	  ) & {
-			required?: boolean;
-	  };
+// Minimal definition of a loaded table
+// omits full file paths
+// should be matched agains preloaded dataset at
+// init time
+export type IMinimalTableRef = {
+	refs: {
+		source: TableSource;
+		// name: string;
+		url?: string;
+		datasetName?: string; // Only set for source == build_in
+	}[];
+	tableName: string;
+};
+
+export type GraphStateConfig = {
+	name?: string;
+	description?: string;
+	selectedTables: IMinimalTableRef[];
+	graphOption?: {
+		type: GraphType.PLANE;
+		data: IPlaneGraphState;
+		render: IPlaneRenderOptions;
+	};
+	ui?: {
+		rotation?: {
+			x: number;
+			y: number;
+			z: number;
+		};
+		position?: {
+			x: number;
+			y: number;
+			z: number;
+		};
+	};
+};
+
+// Filter options used to render UI components for dynamic configuration
+export type SimpleGraphFilterOption = (
+	| {
+			type: 'string';
+			options: string[];
+			label: string;
+			default?: string;
+	  }
+	| {
+			type: 'number';
+			options: [number, number];
+			step?: number;
+			label: string;
+			default?: number;
+	  }
+	| {
+			type: 'number?';
+			options: [number, number];
+			label: string;
+			toggleLabel: string;
+			step?: number;
+			default?: number;
+	  }
+	| {
+			type: 'boolean';
+			label: string;
+			default?: boolean;
+	  }
+	| {
+			type: 'color';
+			label: string;
+			default?: string;
+	  }
+) & {
+	required?: boolean;
+};
 
 export type GraphFilterOption<T> =
 	| SimpleGraphFilterOption
@@ -46,32 +99,35 @@ export type GraphFilterOptions<T> = Partial<Record<keyof T, GraphFilterOption<T>
 
 export abstract class GraphOptions<
 	Options extends Record<string, unknown> = Record<string, unknown>,
+	RenderOptions extends Record<string, unknown> = Record<string, unknown>,
 	Data = unknown,
-	K extends keyof Options = keyof Options
+	K extends keyof Options = keyof Options,
+	RenderKey extends keyof RenderOptions = keyof RenderOptions
 > {
-	public active = false;
-	public filterOptions: GraphFilterOptions<Options>;
+	public filterOptionFields: GraphFilterOptions<Options>;
 
-	constructor(filterOptions: GraphFilterOptions<Options>) {
-		this.filterOptions = filterOptions;
+	constructor(filterOptionFields: GraphFilterOptions<Options>) {
+		this.filterOptionFields = filterOptionFields;
 	}
 
 	public abstract getType(): GraphType;
 	public abstract applyOptionsIfValid(): Promise<void>;
 	public abstract reloadFilterOptions(): void;
-	public abstract setFilterOption(key: K, value: Options[K]): void;
 
+	public abstract getRenderOptionFields(): GraphFilterOptions<RenderOptions>;
+	public abstract setFilterOption(key: K, value: Options[K]): void;
+	public abstract setRenderOption(key: RenderKey, value: RenderOptions[RenderKey]): void;
+
+	// store for currently loaded data
 	public abstract dataStore: Readable<Data | undefined>;
+
+	// store for currently set rendering options
+	public abstract renderStore: Readable<RenderOptions | undefined>;
+
+	// store for currently set filter options
 	public abstract optionsStore: Readable<Options | undefined>;
 
-	public abstract toString(): string;
-	public abstract toStateObject(): {
-		type: GraphType;
-		state: any;
-	};
-	public static fromString(str: string): GraphOptions | null {
-		return null;
-	}
+	public abstract toStateObject(): { data: Options; render: RenderOptions };
 
 	public abstract description(): string | null;
 }
@@ -79,38 +135,8 @@ export abstract class GraphOptions<
 export interface IFilterStore {
 	isLoading: boolean;
 	preloadedDatasets: Dataset[];
-	selectedDataset?: Dataset;
-	selectedTables: ITableReference[];
 	graphOptions?: GraphOptions;
+	// reference to base config
+	// used for intelligent diff URL encoding
+	config?: GraphStateConfig;
 }
-
-export enum TableSource {
-	BUILD_IN,
-	URL,
-	FILE
-}
-
-interface ITableRef {
-	tableName: string;
-	displayName?: string;
-}
-
-export interface ITableBuildIn extends ITableRef {
-	source: TableSource.BUILD_IN;
-	url: string;
-	dataset: Dataset;
-}
-
-export interface ITableExternalUrl extends ITableRef {
-	source: TableSource.URL;
-	url: string;
-}
-
-export interface ITableExternalFile extends ITableRef {
-	source: TableSource.FILE;
-	file: File;
-}
-
-export type ITableReference = ITableBuildIn | ITableExternalFile | ITableExternalUrl;
-
-export type ITableRefList = ITableBuildIn[] | ITableExternalFile[] | ITableExternalUrl[];

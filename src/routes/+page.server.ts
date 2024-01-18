@@ -1,7 +1,7 @@
 // Fetch all available data entries
 import fs from 'fs';
 import path from 'path';
-import base from '$app/paths';
+import { base } from '$app/paths';
 import type { Load } from '@sveltejs/kit';
 
 export type NamedGraph = {
@@ -12,7 +12,6 @@ export type NamedGraph = {
 };
 
 const graphPath = 'static/graphs';
-const graphPathAbs = `/${graphPath}`;
 
 export const load: Load = async ({ params }) => {
 	const items: NamedGraph[] = fs

@@ -1,16 +1,14 @@
 <script lang="ts">
+	import { PortalPlacement } from '$lib/actions/portal';
+	import { Axis } from '$lib/rendering/AxisRenderer';
 	import type {
 		IPlaneChildData,
 		IPlaneData,
-		IPlaneRendererData,
-		PlaneRenderer
+		IPlaneRendererData
 	} from '$lib/rendering/PlaneRenderer';
-	import Slider, { type SliderInputEvent } from '../slider/Slider.svelte';
-	import type { PlaneGraphOptions } from '$lib/store/filterStore/graphs/plane';
-	import SliceSelection from './SliceSelection.svelte';
-	import Dropdown, { getDropdownCtx } from '../Dropdown.svelte';
-	import Button from '../button/Button.svelte';
-	import { ButtonColor, ButtonSize, ButtonVariant } from '../button/type';
+	import { DataScaling } from '$lib/store/dataStore/types';
+	import type { PlaneGraphModel } from '$lib/store/filterStore/graphs/plane';
+	import { scaleDecoder } from '$lib/util';
 	import {
 		ChevronDownIcon,
 		ChevronUpIcon,
@@ -18,22 +16,20 @@
 		EyeOffIcon,
 		InfoIcon,
 		Maximize2Icon,
-		MehIcon,
 		MoveIcon
 	} from 'svelte-feather-icons';
-	import { PortalPlacement } from '$lib/actions/portal';
+	import Dropdown, { getDropdownCtx } from '../Dropdown.svelte';
+	import Button from '../button/Button.svelte';
+	import { ButtonColor, ButtonSize, ButtonVariant } from '../button/type';
+	import Dialog, { DialogSize } from '../dialog/Dialog.svelte';
+	import type { LayerVisibilityList } from '../layerLegend/LayerGroup.svelte';
+	import Slider, { type SliderInputEvent } from '../slider/Slider.svelte';
 	import type { IGraph2dData } from './Graph2D.svelte';
 	import Graph2D from './Graph2D.svelte';
-	import type { LayerVisibilityList } from '../layerLegend/LayerGroup.svelte';
-	import { Axis } from '$lib/rendering/AxisRenderer';
-	import Dialog, { DialogSize } from '../dialog/Dialog.svelte';
-	import type { ITableReference } from '$lib/store/filterStore/types';
-	import type { ITiledDataRow } from '$lib/store/dataStore/filterActions';
-	import DropdownSelect, { type DropdownSelectionEvent } from '../DropdownSelect.svelte';
-	import BasicGraph from '../BasicGraph.svelte';
-	import { DataScaling } from '$lib/store/dataStore/types';
+	import SliceSelection from './SliceSelection.svelte';
+	import type { DropdownSelectionEvent } from '../DropdownSelect.svelte';
 
-	export let options: PlaneGraphOptions;
+	export let options: PlaneGraphModel;
 	export let layerVisibility: LayerVisibilityList;
 	export let axis: Axis = Axis.X;
 	// If enabled adds an expand button that rerenders the slice graph into a dialog
@@ -43,15 +39,16 @@
 	export let xAxisOffset = 30;
 	export let yAxisOffset = 20;
 	export let slice = 0;
-	export let selected: number | undefined = undefined;
 
 	let data: IGraph2dData | undefined;
 	let dataStore = options.dataStore;
+	let graphOptionStore = options.optionsStore;
+
 	let visibleLayers: (IPlaneData | IPlaneChildData)[] = [];
 
 	let isSelectingSlice = false;
-	let isSliceShown = false;
-	let isCollapsed = false;
+	export let isSliceShown = false;
+	export let isCollapsed = false;
 	let scale: DataScaling = DataScaling.LINEAR;
 
 	function getVisibleLayers(data: IPlaneRendererData | undefined, visibility: LayerVisibilityList) {
@@ -72,27 +69,39 @@
 		});
 	}
 
-	function mapData(points: number[][], sliceIndex: number, axis: Axis): number[][] {
-		console.log(points);
+	const axisValueDecoder = (axis: Axis) => {
 		switch (axis) {
 			case Axis.X:
-				return points[sliceIndex].map((y: number, idx) => [idx, y]);
+				return scaleDecoder($graphOptionStore.scaleX ?? DataScaling.LINEAR);
 			case Axis.Y:
-				throw Error('Y slice rendering not supported');
+				return scaleDecoder($graphOptionStore.scaleY ?? DataScaling.LINEAR);
 			case Axis.Z:
-				const res = points.map((ys, idx) => [idx, ys[sliceIndex]]);
-				return res;
+				return scaleDecoder($graphOptionStore.scaleZ ?? DataScaling.LINEAR);
 		}
-	}
+	};
 
-	function mapRowData(rows: ITiledDataRow[], sliceIndex: number, axis: Axis): number[][] {
+	function mapRowData(
+		data: IPlaneData | IPlaneChildData,
+		sliceIndex: number,
+		axis: Axis
+	): number[][] {
 		switch (axis) {
-			case Axis.X:
-				return rows.filter((row) => row.z === sliceIndex).map((row) => [row.rawX, row.y]);
+			case Axis.X: {
+				return (
+					data.meta?.rows
+						.filter((row, i) => data.points[i][0] === sliceIndex)
+						.map((row) => [row.rawZ, row.rawY]) ?? []
+				);
+			}
 			case Axis.Y:
 				throw Error('Y slice rendering not supported');
-			case Axis.Z:
-				return rows.filter((row) => row.x === sliceIndex).map((row) => [row.rawZ, row.y]);
+			case Axis.Z: {
+				return (
+					data.meta?.rows
+						.filter((row, i) => data.points[i][1] === sliceIndex)
+						.map((row) => [row.rawX, row.rawY]) ?? []
+				);
+			}
 		}
 	}
 
@@ -106,9 +115,7 @@
 		const data = layers.map((layer) => ({
 			name: layer.name,
 			color: layer.color,
-			data: layer.meta?.rows
-				? mapRowData(layer.meta.rows as ITiledDataRow[], sliceIndex, axis)
-				: mapData(layer.points as number[][], sliceIndex, axis)
+			data: mapRowData(layer, sliceIndex, axis)
 		}));
 
 		if (!data || data.length === 0) {
@@ -119,25 +126,28 @@
 			return;
 		}
 
-		console.log($dataStore.ranges);
-
+		console.log($dataStore);
 		switch (axis) {
 			case Axis.X:
 				return {
-					xRange: $dataStore.ranges.x,
+					xRange: $dataStore.ranges.z,
 					yRange: $dataStore.ranges.y,
-					xAxisLabel: $dataStore.labels.x,
+					xAxisLabel: $dataStore.labels.z,
 					yAxisLabel: $dataStore.labels.y,
+					xScale: $dataStore.scales.z,
+					yScale: $dataStore.scales.y,
 					points: data
 				};
 			case Axis.Y:
 				throw new Error('Y axis not supported');
 			case Axis.Z:
 				return {
-					xRange: $dataStore.ranges.z,
+					xRange: $dataStore.ranges.x,
 					yRange: $dataStore.ranges.y,
-					xAxisLabel: $dataStore.labels.z,
+					xAxisLabel: $dataStore.labels.x,
 					yAxisLabel: $dataStore.labels.y,
+					xScale: $dataStore.scales.x,
+					yScale: $dataStore.scales.y,
 					points: data
 				};
 		}
@@ -210,7 +220,7 @@
 				</Dialog>
 			{/if}
 
-			<DropdownSelect
+			<!-- <DropdownSelect
 				values={Object.values(DataScaling)}
 				singular
 				expand={false}
@@ -224,7 +234,7 @@
 						id: index
 					};
 				}}
-			/>
+			/> -->
 			<Dropdown placement={PortalPlacement.TOP}>
 				<svelte:fragment slot="trigger">
 					{@const dropCtx = getDropdownCtx()}
@@ -255,7 +265,7 @@
 		<div>
 			{#if data}
 				<div class="pr-2">
-					<Graph2D {width} {height} {xAxisOffset} {yAxisOffset} {data} xScale={scale} />
+					<Graph2D {width} {height} {xAxisOffset} {yAxisOffset} {data} />
 				</div>
 			{:else}
 				<div class="w-52 h-52 flex flex-col gap-2 justify-center items-center">

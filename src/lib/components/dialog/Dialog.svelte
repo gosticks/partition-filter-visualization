@@ -19,6 +19,7 @@
 	import { onMount, onDestroy, setContext, getContext } from 'svelte';
 	import { fade, fly } from 'svelte/transition';
 	import { defaultPortalRootClass, portal } from '$lib/actions/portal';
+	import H2 from '../base/H2.svelte';
 
 	export let size: DialogSize = DialogSize.medium;
 	export let dialogOpen = false;
@@ -26,7 +27,7 @@
 	export { className as class };
 
 	const preventBodyScroll = (event: Event) => {
-		if (dialogOpen) {
+		if (dialogOpen && event.target === document.body) {
 			event.preventDefault();
 		}
 	};
@@ -59,12 +60,17 @@
 	};
 </script>
 
-<span class={className} on:keypress={toggleDialog} on:click={toggleDialog}
-	><slot name="trigger" /></span
+<span
+	role="button"
+	tabindex="-1"
+	class={className}
+	on:keypress={toggleDialog}
+	on:click={toggleDialog}><slot name="trigger" /></span
 >
 
 {#if dialogOpen}
 	<!-- svelte-ignore a11y-click-events-have-key-events -->
+	<!-- svelte-ignore a11y-no-noninteractive-element-interactions -->
 	<div
 		role="dialog"
 		use:portal
@@ -79,7 +85,7 @@
 			{#if $$slots.title}<div
 					class="pb-4 mb-2 border-b border-background-100 dark:border-background-800"
 				>
-					<h2 class="font-bold text-xl"><slot name="title" /></h2>
+					<H2><slot name="title" /></H2>
 				</div>{/if}
 			<slot />
 			{#if $$slots.footer}
@@ -96,7 +102,7 @@
 		display: flex;
 		align-items: center;
 		justify-content: center;
-		z-index: 10;
+		z-index: 20;
 	}
 	.modal {
 		padding: 20px;
@@ -115,7 +121,9 @@
 		}
 
 		@media (max-width: 768px) {
-			width: 90%;
+			&:not(.small) {
+				width: 100%;
+			}
 		}
 	}
 </style>

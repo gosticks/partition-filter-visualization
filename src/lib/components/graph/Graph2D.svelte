@@ -8,6 +8,8 @@
 		yAxisLabel?: string;
 		xRange: ValueRange;
 		yRange: ValueRange;
+		xScale: DataScaling;
+		yScale: DataScaling;
 		points: {
 			color?: string;
 			name?: string;
@@ -23,8 +25,6 @@
 	export let data: IGraph2dData;
 	export let height = 200;
 	export let width = 300;
-	export let xScale: DataScaling = DataScaling.LINEAR;
-	export let yScale: DataScaling = DataScaling.LINEAR;
 	export let xAxisOffset = 30;
 	export let yAxisOffset = 20;
 
@@ -36,6 +36,8 @@
 	let xAxisTitle: d3.Selection<SVGTextElement, number[][], null, undefined>;
 	let yAxisTitle: d3.Selection<SVGTextElement, number[][], null, undefined>;
 	let curves: d3.Selection<SVGPathElement, number[][], null, undefined>[] | undefined = undefined;
+	let points: d3.Selection<SVGCircleElement, number[][], null, undefined>[] | undefined = undefined;
+
 	function setupGraph() {
 		svg = d3
 			.select(graphElement)
@@ -66,25 +68,30 @@
 			case DataScaling.LINEAR:
 				return d3.scaleLinear().range(range).domain(domain);
 			case DataScaling.LOG:
-				return d3.scaleLog().range(range).domain(domain);
+				const d = [
+					scale === DataScaling.LOG ? Math.exp(domain[0]) : domain[0],
+					scale === DataScaling.LOG ? Math.exp(domain[1]) : domain[1]
+				];
+				return d3.scaleLog().range(range).domain(d);
 		}
 	}
 
-	function renderData(data: IGraph2dData, xScale: DataScaling, yScale: DataScaling) {
+	const onMouseOver = (index: number) => (evt: MouseEvent) => {
+		console.log({ evt, idx: index });
+	};
+
+	function renderData(data: IGraph2dData) {
 		if (!data || data.points.length === 0) {
 			return;
 		}
-		const [minX, maxX] = data.xRange;
-		const [minY, maxY] = data.yRange;
-
-		const xAxisScale = getScale([0, width], [0, maxX], xScale);
+		const xAxisScale = getScale([0, width], data.xRange, data.xScale);
 		xAxis
 			.attr('transform', 'translate(0,' + (height - yAxisOffset) + ')')
 			.call(d3.axisBottom(xAxisScale));
 
 		// add the y Axis
-		const yAxisScale = getScale([height - yAxisOffset, 0], [0, maxY], yScale);
-		yAxis.call(d3.axisLeft(yAxisScale));
+		const yAxisScale = getScale([height - yAxisOffset, 0], data.yRange, data.yScale);
+		yAxis.call(d3.axisLeft(yAxisScale).tickFormat(d3.format('~s')));
 
 		svg.selectAll('circle').remove();
 		// remove all curves if number changes
@@ -96,13 +103,23 @@
 		if (!curves) {
 			curves = data.points.map(() => svg.append('path'));
 		}
+		if (points && points.length !== data.points.length) {
+			points.forEach((point) => point.remove());
+			points = undefined;
+		}
 
+		if (!points) {
+			points = data.points.map(() => svg.append('circle'));
+		}
 		xAxisTitle.text(data.xAxisLabel ?? 'X');
 		yAxisTitle.text(data.yAxisLabel ?? 'Y');
 
 		// Update curves
 		data.points.forEach((container, idx) => {
-			(curves?.[idx] as any)
+			if (!curves?.at(idx) || !points?.at(idx)) {
+				return;
+			}
+			(curves![idx] as any)
 				.datum(container.data)
 				.attr('class', 'line')
 				.attr('fill', container.color ?? '#69b3a2')
@@ -117,26 +134,25 @@
 					'd',
 					d3
 						.line()
-						.x((d) => xAxisScale(d[0]))
-						.y((d) => yAxisScale(d[1]))
+						.x((d) => xAxisScale(Number(d[0])))
+						.y((d) => yAxisScale(Number(d[1])))
 						.curve(d3.curveLinear) as any
 				);
 
-			svg
-				.selectAll('circle')
-				.data(container.data)
-				.enter()
-				.append('circle')
-				.attr('cx', (d) => xAxisScale(d[0]))
-				.attr('cy', (d) => yAxisScale(d[1]))
+			points![idx]
+				.datum(container.data)
+				.attr('idx', idx)
+				.attr('cx', (d) => xAxisScale(Number(d[0])))
+				.attr('cy', (d) => yAxisScale(Number(d[1])))
+				.on('mouseover', onMouseOver(idx))
 				.transition()
-				.attr('r', 2) // Radius of the circle
+				.attr('r', 4) // Radius of the circle
 				.attr('fill', container.color ?? 'yellow'); // Color of the circle
 		});
 	}
 
 	$: if (svg) {
-		renderData(data, xScale, yScale);
+		renderData(data);
 	}
 
 	onMount(async () => {

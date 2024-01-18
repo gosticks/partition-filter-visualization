@@ -26,7 +26,7 @@
 
 <div
 	transition:fadeSlide={{ duration: 70 }}
-	class="px-3 py-2 shadow-xl w-72 rounded-xl max-w-full break-words border"
+	class="px-3 py-2 shadow-xl max-w-xl rounded-xl max-w-full break-words border"
 	class:bg-red-500={notification.type === NotificationType.error}
 	class:border-red-600={notification.type === NotificationType.error}
 	class:text-red-200={notification.type === NotificationType.error}

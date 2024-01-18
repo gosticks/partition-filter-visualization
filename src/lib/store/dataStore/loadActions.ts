@@ -1,18 +1,14 @@
 import { get, type Writable } from 'svelte/store';
-import type { BaseStoreType } from './DataStore';
-import type { IDataStore, ITableEntry, TableSchema } from './types';
-import {
-	TableSource,
-	type ITableReference,
-	type ITableRefList,
-	type ITableExternalUrl,
-	type ITableExternalFile
-} from '../filterStore/types';
 import notificationStore from '../notificationStore';
-import { flatGroup } from 'd3';
+import type { BaseStoreType } from './DataStore';
+import { dataStorePostProcessingExtension } from './postProcessing';
+import type { IDataStore, ILoadedTable, ITableExternalFile, TableSchema } from './types';
+import { TableSource, type ITableReference, type ITableRefList } from './types';
 
 // Store extension containing actions to load data, transform & drop data
 export const dataStoreLoadExtension = (store: BaseStoreType, dataStore: Writable<IDataStore>) => {
+	const postProcessingExtension = dataStorePostProcessingExtension(store, dataStore);
+
 	// Wrapper utility to set loading state
 	const withLoading = async <T>(fn: () => Promise<T>) => {
 		store.setIsLoading(true);
@@ -21,57 +17,6 @@ export const dataStoreLoadExtension = (store: BaseStoreType, dataStore: Writable
 		} finally {
 			store.setIsLoading(false);
 		}
-	};
-
-	const rewriteExperimentsEntries = async (tableName: string) => {
-		console.log('Rewriting entries for table:', tableName);
-		const rewriteQuery = `
-	ALTER TABLE "${tableName}" ADD COLUMN family TEXT;
-	ALTER TABLE "${tableName}" ADD COLUMN mode TEXT;
-	ALTER TABLE "${tableName}" ADD COLUMN vectorization TEXT;
-	ALTER TABLE "${tableName}" ADD COLUMN fixture TEXT;
-	ALTER TABLE "${tableName}" ADD COLUMN s FLOAT;
-	ALTER TABLE "${tableName}" ADD COLUMN n_threads INTEGER;
-	ALTER TABLE "${tableName}" ADD COLUMN n_partitions INTEGER;
-	ALTER TABLE "${tableName}" ADD COLUMN n_elements_build INTEGER;
-	ALTER TABLE "${tableName}" ADD COLUMN n_elements_lookup INTEGER;
-	ALTER TABLE "${tableName}" ADD COLUMN shared_elements FLOAT;
-
-	WITH SplitValues AS (
-		SELECT
-		name,
-		SPLIT_PART(name, '_', 1) AS family,
-		SPLIT_PART(name, '_', 2) AS mode,
-		SPLIT_PART(name, '_', 4) AS vectorization,
-		SPLIT_PART(name, '/', 2) AS fixture,
-		CAST(SPLIT_PART(name, '/', 3) AS FLOAT) / 100 AS s,
-		CAST(SPLIT_PART(name, '/', 4) AS INTEGER) AS n_threads,
-		CAST(SPLIT_PART(name, '/', 5) AS INTEGER) AS n_partitions,
-		CAST(SPLIT_PART(name, '/', 6) AS INTEGER) AS n_elements_build,
-		CAST(SPLIT_PART(name, '/', 7) AS INTEGER) AS n_elements_lookup,
-		CAST(SPLIT_PART(name, '/', 8) AS FLOAT) / 100 AS shared_elements
-		FROM "${tableName}")
-	UPDATE "${tableName}" AS t
-		SET
-			family = sv.family,
-			mode = sv.mode,
-			vectorization = sv.vectorization,
-			fixture = sv.fixture,
-			s = sv.s,
-			n_threads = sv.n_threads,
-			n_partitions = sv.n_partitions,
-			n_elements_build = sv.n_elements_build,
-			n_elements_lookup = sv.n_elements_lookup,
-	shared_elements = sv.shared_elements
-	FROM SplitValues AS sv
-	WHERE t.name = sv.name;
-
-	UPDATE "${tableName}" as t
-		SET fpr = 'NaN'
-		WHERE fpr = -1;
-		`;
-
-		return store.executeQuery(rewriteQuery);
 	};
 
 	const bindFileToDuckDB = async (dbPath: string, file: File) => {
@@ -87,17 +32,21 @@ export const dataStoreLoadExtension = (store: BaseStoreType, dataStore: Writable
 		await db.registerFileHandle(dbPath, file, DuckDBDataProtocol.BROWSER_FILEREADER, true);
 	};
 
+	const getTableDisplayName = (rawTableName: string) => {
+		// NOTE: inefficient string replacement with multiple loops, deemed acceptable due to
+		// low call frequency. At most once per table creation.
+		return rawTableName.replaceAll('_', ' ').replaceAll('-', ' ').trim();
+	};
+
 	const loadCsvFromRef = async (
 		ref: ITableReference,
 		shouldSetLoading = true,
-		createTable = true,
-		shouldUpdateTableList = true
-	): Promise<ITableEntry | undefined> => {
+		createTable = true
+	): Promise<ITableReference | undefined> => {
 		const conn = await store.getConnection();
 
 		if (!conn) {
-			// TODO: add error handling
-			return;
+			throw new Error('no database connection');
 		}
 
 		if (shouldSetLoading) {
@@ -119,30 +68,18 @@ export const dataStoreLoadExtension = (store: BaseStoreType, dataStore: Writable
 					break;
 			}
 
+			if (createTable) {
+				// remove old table with this name
+				await removeTable(ref.tableName);
+			}
+
 			await conn.insertCSVFromPath(url, {
 				name: ref.tableName,
 				detect: true,
 				create: createTable
 			});
 
-			const schema = await store.getTableSchema(ref.tableName);
-			const tableEntry: ITableEntry = {
-				name: ref.tableName,
-				displayName: ref.displayName,
-				schema,
-				filterOptions: {},
-				ref: ref
-			};
-
-			if (shouldUpdateTableList) {
-				// Update or replace table entry
-				dataStore.update((store) => {
-					store.tables[ref.tableName] = tableEntry;
-					return store;
-				});
-			}
-
-			return tableEntry;
+			return ref;
 		} catch (e) {
 			const msg = `Failed to load table ${ref.tableName} from path ${url}`;
 			console.error(msg, e);
@@ -155,36 +92,6 @@ export const dataStoreLoadExtension = (store: BaseStoreType, dataStore: Writable
 			if (shouldSetLoading) {
 				store.setIsLoading(false);
 			}
-		}
-	};
-
-	const postProcessTable = async (
-		tableName: string,
-		refs: ITableRefList
-	): Promise<ITableEntry | undefined> => {
-		console.debug('Post process', { tableName, refs });
-		if (refs.length === 0) {
-			return;
-		}
-		// get list type
-		const refType = refs[0].source;
-		try {
-			switch (refType) {
-				case TableSource.BUILD_IN: {
-					switch (refs[0].dataset.name) {
-						case 'experiments':
-							await rewriteExperimentsEntries(tableName);
-					}
-				}
-			}
-			// await addIndexColumn(tableName);
-			const schema = await store.getTableSchema(tableName);
-			const filterOptions = {}; //await getFiltersOptions(tableName, Object.keys(schema));
-			console.log('Rewrite response:', { schema, filterOptions, table: tableName });
-			return { schema, filterOptions, name: tableName, dataUrl: '' };
-		} catch (e) {
-			console.error(`Failed to rewrite entries for table ${tableName}:`, e);
-			return undefined;
 		}
 	};
 
@@ -208,7 +115,7 @@ export const dataStoreLoadExtension = (store: BaseStoreType, dataStore: Writable
 		const { tables } = get(dataStore);
 		return Object.entries(tables).reduce((acc, [_, value], idx) => {
 			if (idx === 0) {
-				acc = value.schema;
+				acc = JSON.parse(JSON.stringify(value.schema));
 				return acc;
 			}
 
@@ -235,11 +142,27 @@ export const dataStoreLoadExtension = (store: BaseStoreType, dataStore: Writable
 	};
 
 	/**
+	 * group table references by their table name
+	 */
+	const groupTableReferences = (refs: ITableReference[]): Record<string, ITableRefList> =>
+		refs.reduce(
+			(acc, ref) => {
+				if (!acc[ref.tableName]) {
+					acc[ref.tableName] = [];
+				}
+				// type
+				acc[ref.tableName].push(ref as any);
+				return acc;
+			},
+			{} as Record<string, ITableRefList>
+		);
+
+	/**
 	 * Loads all CSVs for the selected filters entries
 	 * @param selected
 	 * @returns
 	 */
-	const loadCsvsFromRefs = async (refs: ITableRefList): Promise<ITableEntry[]> =>
+	const loadCsvsFromRefs = async (refs: ITableReference[]): Promise<ILoadedTable[]> =>
 		withLoading(async () => {
 			if (refs.length === 0) {
 				return [];
@@ -248,43 +171,43 @@ export const dataStoreLoadExtension = (store: BaseStoreType, dataStore: Writable
 			console.debug('Loading table references:', refs);
 
 			// Group tables by name for later processing
-			const grouped = refs.reduce((acc, ref) => {
-				if (!acc[ref.tableName]) {
-					acc[ref.tableName] = [];
-				}
-				// type
-				acc[ref.tableName].push(ref as any);
-				return acc;
-			}, {} as Record<string, ITableRefList>);
-
+			const grouped = groupTableReferences(refs);
 			console.debug('Grouped table references:', grouped);
 
-			// Load multiple tables at once but all linked to the same tableName sequentially
-			// This is required since we need to rewrite the entries for each table
-			// and a table should only be created once
+			// Load multiple tables at once, with all references for one table loaded in sequentially
+			// Otherwise parts of one table would be loaded and processed incorrectly
 			const promise = Promise.all(
 				Object.entries(grouped).flatMap(async ([tableName, entries]) => {
 					if (entries.length === 0) {
-						return [];
+						return undefined;
 					}
-
-					const loadedTables: ITableEntry[] = [];
 
 					console.debug('loading table group:', { tableName, entries });
 					// Load grouped entries sequentially
 					for (const [i, entry] of entries.entries()) {
 						// Only create table for first entry
 						// do not update store table list, this will be done after post processing
-						const loadedTable = await loadCsvFromRef(entry, false, i === 0, false);
-						if (loadedTable) {
-							loadedTables.push(loadedTable);
-						}
+						await loadCsvFromRef(entry, false, i === 0);
 						console.debug('loaded:', { tableName, entry });
 					}
-					console.debug('applying post processing:', { tableName, entries });
+
+					const sourceSchema = await store.getTableSchema(tableName);
+
+					const loadedTableInfo: ILoadedTable = {
+						tableName: tableName, // when no transformations were applied use the default table
+						displayName: getTableDisplayName(tableName),
+						sourceTableName: tableName,
+						sourceSchema,
+						transformations: [],
+						schema: sourceSchema,
+						filterOptions: {},
+						refs: entries
+					};
 
 					// Post process tables
-					return postProcessTable(tableName, entries) ?? [];
+					await postProcessingExtension.applyPostProcessing(loadedTableInfo);
+
+					return loadedTableInfo;
 				})
 			);
 
@@ -292,14 +215,12 @@ export const dataStoreLoadExtension = (store: BaseStoreType, dataStore: Writable
 			try {
 				// Filter out undefined values
 				const promiseResult = await promise;
-				const tableDefinitions = promiseResult.filter(
-					(t) => t !== undefined
-				) as unknown as ITableEntry[];
+				const tableDefinitions = promiseResult.filter((t) => t !== undefined) as ILoadedTable[];
 				console.debug('loaded tables into db:', { tableDefinitions, promiseResult });
 				// Update data store
 				dataStore.update((store) => {
 					tableDefinitions.forEach((table) => {
-						store.tables[table.name] = table;
+						store.tables[table.sourceTableName] = table;
 					});
 					store.combinedSchema = computeCombinedTableSchema();
 					return store;
@@ -367,24 +288,23 @@ export const dataStoreLoadExtension = (store: BaseStoreType, dataStore: Writable
 	// Export public API
 
 	return {
+		...postProcessingExtension,
 		// Add modifiers
 		loadEntriesFromFileList: async (fileList: FileList) => {
-			const promises: Promise<ITableEntry | undefined>[] = [];
+			// TODO: handle non CSV files
+
+			let refs: ITableExternalFile[] = [];
 
 			for (const file of fileList) {
-				const tableName = file.name.replace('.csv', '');
-				promises.push(
-					loadCsvFromRef({
-						source: TableSource.FILE,
-						file: file,
-						tableName: tableName
-					})
-				);
+				refs.push({
+					source: TableSource.FILE,
+					file,
+					tableName: file.name.replace('.csv', '')
+				});
 			}
 
-			await Promise.all(promises);
+			await loadCsvsFromRefs(refs);
 		},
-		loadCsvFromRef,
 		loadCsvsFromRefs,
 		resetDatabase,
 		removeTable
