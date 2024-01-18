@@ -4,6 +4,7 @@ import type { BaseStoreType } from './DataStore';
 import { dataStorePostProcessingExtension } from './postProcessing';
 import type { IDataStore, ILoadedTable, ITableExternalFile, TableSchema } from './types';
 import { TableSource, type ITableReference, type ITableRefList } from './types';
+import { base } from '$app/paths';
 
 // Store extension containing actions to load data, transform & drop data
 export const dataStoreLoadExtension = (store: BaseStoreType, dataStore: Writable<IDataStore>) => {
@@ -57,7 +58,7 @@ export const dataStoreLoadExtension = (store: BaseStoreType, dataStore: Writable
 		try {
 			switch (ref.source) {
 				case TableSource.BUILD_IN:
-					url = new URL(ref.url, location.href).href;
+					url = new URL(`${base}${ref.url}`, location.href).href;
 					break;
 				case TableSource.FILE:
 					await bindFileToDuckDB(ref.file.name, ref.file);

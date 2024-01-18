@@ -31,7 +31,7 @@
 		if (!browser) return;
 		if (slug !== 'custom') {
 			try {
-				loadedGraph = JSON.parse(await (await fetch(`/graphs/${slug}.json`)).text());
+				loadedGraph = JSON.parse(await (await fetch(`${base}/graphs/${slug}.json`)).text());
 			} catch (err) {
 				console.error('Config file invalid', err);
 				notificationStore.error({
@@ -87,12 +87,14 @@
 	</CoreGraph>
 	<div class="absolute left-3 top-4 text-lg font-bold flex gap-2 items-center">
 		<a href="{base}/"><Button variant={ButtonVariant.LINK}><ArrowLeftCircleIcon /></Button></a>
-		{#if $filterStore.config}
-			<EditableText
-				value={graphName}
-				on:change={(evt) => filterStore.setTitle(evt.detail.change)}
-			/>
-		{/if}
+		<div class="hidden md:inline-block">
+			{#if $filterStore.config}
+				<EditableText
+					value={graphName}
+					on:change={(evt) => filterStore.setTitle(evt.detail.change)}
+				/>
+			{/if}
+		</div>
 	</div>
 
 	{#if $filterStore.isLoading || $dataStore.isLoading}

@@ -45,7 +45,7 @@
 	</div>
 	<div class="max-w-6xl w-full">
 		<h2 class="text-3xl font-bold mb-4">Featured comparisons</h2>
-		<div class="-mx-6 grid gap-10 grid-cols-2 md:grid-cols-3">
+		<div class="-mx-6 grid gap-10 grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
 			{#each data.items as item}
 				<a href="{base}/graph/{item.href}"
 					><MessageCard class="hover:shadow-2xl transition-shadow">
@@ -63,7 +63,7 @@
 	</div>
 	<div class="max-w-6xl w-full">
 		<h2 class="text-3xl font-bold mb-4">Filters</h2>
-		<div class="-mx-6 grid gap-10 grid-cols-2 md:grid-cols-3">
+		<div class="-mx-6 grid gap-10 grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
 			{#each filters as filter}
 				<MessageCard>
 					<h3 class="text-2xl font-bold mb-4">{filter.name}</h3>

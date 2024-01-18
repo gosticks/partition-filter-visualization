@@ -72,7 +72,6 @@ const _filterStore = () => {
 				tableName: item.name,
 				displayName: file.name,
 				source: TableSource.BUILD_IN,
-				// FIXME: create correct path on server
 				url: '/' + file.dataURL,
 				datasetName: dataset.name
 			}));
