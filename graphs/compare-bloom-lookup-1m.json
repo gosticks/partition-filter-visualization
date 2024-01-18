@@ -1,0 +1,44 @@
+{
+	"name": "Bloom Throughput 1M",
+
+	"description": "Compares different Bloom varations in respect to lookup thoughput",
+	"selectedTables": [
+		{ "tableName": "bloom-count-1m", "refs": [{ "source": 0, "datasetName": "experiments" }] }
+	],
+	"graphOption": {
+		"type": "plane",
+		"data": {
+			"isRendered": false,
+			"isValid": true,
+			"aggregation": "max",
+			"xColumnName": "fpr",
+			"scaleX": "log",
+			"yColumnName": "lookup_throughput",
+			"scaleY": "linear",
+			"zColumnName": "size",
+			"scaleZ": "linear",
+			"xTileCount": 28,
+			"zTileCount": 28,
+			"lockTileCounts": true,
+			"groupBy": "mode"
+		},
+		"render": {
+			"pointCloudSize": 0.005,
+			"triangulation": "delaunay",
+			"showSelection": true,
+			"pointCloudColor": 15658734,
+			"color-bloom-count-1m-output-": "rgb(244,109,67)",
+			"color-cuckoo-count-1m-output-": "rgb(94,79,162)",
+			"color-morton-count-1m-output-": "rgb(158,1,66)",
+			"color-xor-count-1m-output-": "rgb(171,221,164)"
+		}
+	},
+	"ui": {
+		"rotation": { "x": -1.5707962929299748, "y": -9.994708936590934e-7, "z": -1.5369264350084104 },
+		"position": {
+			"x": -0.00029984126815695223,
+			"y": 299.9999999998495,
+			"z": 0.000010159476483488965
+		}
+	}
+}
