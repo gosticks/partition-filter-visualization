@@ -53,6 +53,7 @@
 	}
 
 	function onSelectTable(evt: DropdownSelectionEvent<DatasetItem>) {
+		console.log('Table selected', evt, selectedDataset);
 		dispatch('selectTable', {
 			buildInTables: {
 				dataset: selectedDataset!,

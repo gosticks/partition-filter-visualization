@@ -1,0 +1,45 @@
+{
+	"name": "Construct Throughput 1M",
+	"description": "Comparing 1M lookups for Cuckoo, Morton, Xor and Bloom.",
+	"selectedTables": [
+		{ "tableName": "bloom-count-1m", "refs": [{ "source": 0, "datasetName": "experiments" }] },
+		{ "tableName": "cuckoo-count-1m", "refs": [{ "source": 0, "datasetName": "experiments" }] },
+		{ "tableName": "morton-count-1m", "refs": [{ "source": 0, "datasetName": "experiments" }] },
+		{ "tableName": "xor-count-1m", "refs": [{ "source": 0, "datasetName": "experiments" }] }
+	],
+	"graphOption": {
+		"type": "plane",
+		"data": {
+			"isRendered": false,
+			"isValid": true,
+			"aggregation": "max",
+			"xColumnName": "fpr",
+			"scaleX": "log",
+			"yColumnName": "construction_throughput",
+			"scaleY": "linear",
+			"zColumnName": "size",
+			"scaleZ": "linear",
+			"xTileCount": 28,
+			"zTileCount": 28,
+			"lockTileCounts": true
+		},
+		"render": {
+			"pointCloudSize": 0.005,
+			"triangulation": "delaunay",
+			"showSelection": true,
+			"pointCloudColor": 15658734,
+			"color-bloom-count-1m-output-": "rgb(244,109,67)",
+			"color-cuckoo-count-1m-output-": "rgb(94,79,162)",
+			"color-morton-count-1m-output-": "rgb(158,1,66)",
+			"color-xor-count-1m-output-": "rgb(171,221,164)"
+		}
+	},
+	"ui": {
+		"rotation": { "x": -1.570796342932043, "y": -9.99914242627742e-7, "z": -1.5869334562163329 },
+		"position": {
+			"x": -0.0002999742727708546,
+			"y": 299.999999999849,
+			"z": -0.000004841143892596219
+		}
+	}
+}

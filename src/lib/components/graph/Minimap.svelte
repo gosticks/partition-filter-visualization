@@ -15,6 +15,10 @@
 
 	$: $SettingsStore, updateColor();
 
+	export const setCameraState = (state: CameraState) => {
+		minimalRenderer?.setCameraState(state);
+	};
+
 	const updateColor = () => {
 		if (!minimalRenderer) {
 			return;

@@ -33,6 +33,7 @@
 	import { imageFromGlContext } from '$lib/rendering/screenshot';
 	import SchemaMapper from './SchemaMapper.svelte';
 	import H3 from '$lib/components/base/H3.svelte';
+	import EditableText from '$lib/components/EditableText.svelte';
 
 	const graphService: GraphService = getGraphContext();
 	let optionsStore: GraphOptions['optionsStore'] | undefined;
@@ -177,7 +178,7 @@
 					{#each Object.entries($dataStore.tables) as [tableName, table]}
 						<li class="flex py-1 justify-between items-center">
 							<div class="flex gap-2">
-								<span>{table.displayName}</span>
+								<span><EditableText value={table.displayName} /></span>
 								<Dialog>
 									<Button slot="trigger" variant={ButtonVariant.DEFAULT} size={ButtonSize.SM}>
 										<Edit2Icon size="15" />

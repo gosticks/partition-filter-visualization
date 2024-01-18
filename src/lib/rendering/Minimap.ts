@@ -21,7 +21,7 @@ import {
 
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { Easing, Tween } from '@tweenjs/tween.js';
-import type { CameraState } from '$lib/views/CoreGraph.svelte';
+import type { CameraState } from '$lib/views/CoreGraph';
 import { TextTexture } from './textures/TextTexture';
 import type { ThemeColors } from '$lib/store/SettingsStore';
 

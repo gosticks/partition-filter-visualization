@@ -12,6 +12,7 @@ import {
 } from './types';
 import notificationStore from '../notificationStore';
 import { PostProeccingError } from './errors';
+import { base } from '$app/paths';
 
 export const dataStorePostProcessingExtension = (
 	store: BaseStoreType,
@@ -83,11 +84,19 @@ export const dataStorePostProcessingExtension = (
 		required: true
 	};
 
-	const experimentTransformation: SqlTransformation = {
+	const constructTransformation: SqlTransformation = {
+		name: 'Gtest parser (Construct)',
+		type: TransformationType.SQL,
+		description: 'Splits Gtest name column into relevant values',
+		query: () => fetch(base + '/transformations/construct.sql').then((resp) => resp.text()),
+		required: true
+	};
+
+	const countTransformation: SqlTransformation = {
 		name: 'Gtest parser (Count)',
 		type: TransformationType.SQL,
 		description: 'Splits Gtest name column into relevant values',
-		query: () => fetch('/transformations/count.sql').then((resp) => resp.text()),
+		query: () => fetch(base + '/transformations/count.sql').then((resp) => resp.text()),
 		required: true
 	};
 
@@ -99,6 +108,11 @@ export const dataStorePostProcessingExtension = (
 		return queryTemplate
 			.replaceAll(/\${tableName}/g, tableName)
 			.replaceAll(/\${sourceTableName}/g, info.sourceTableName);
+	};
+
+	const getAnyValue = async (table: ILoadedTable) => {
+		const query = `SELECT name FROM "${table.sourceTableName}" LIMIT 1`;
+		return store.executeQuery(query);
 	};
 
 	const applyPostProcessing = async (table: ILoadedTable) => {
@@ -116,14 +130,26 @@ export const dataStorePostProcessingExtension = (
 			table.transformations.push(idTransformation);
 		}
 
+		console.log('Applying post processing', table);
+
 		// handle internal database rewrites
-		// TODO: we should probably add a mixed or pure type to ILoadedTable to check if refs have same sourcetype
 		if (
 			table.refs[0].source === TableSource.BUILD_IN &&
-			table.transformations.indexOf(experimentTransformation) === -1
+			table.transformations.indexOf(countTransformation) === -1 &&
+			table.transformations.indexOf(constructTransformation) === -1
 		) {
-			if (table.sourceTableName.indexOf('count') !== -1) {
-				table.transformations.push(experimentTransformation);
+			// Check for fixture in name
+			const someValue = await getAnyValue(table);
+			if (someValue) {
+				const value = someValue.toArray().at(0);
+				if (value && value['name']) {
+					const name = (value['name'] as string).toLowerCase();
+					if (name.includes('construct')) {
+						table.transformations.push(constructTransformation);
+					} else if (name.includes('count')) {
+						table.transformations.push(countTransformation);
+					}
+				}
 			}
 		}
 

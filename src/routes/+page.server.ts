@@ -1,7 +1,7 @@
 // Fetch all available data entries
 import fs from 'fs';
 import path from 'path';
-import base from '$app/paths';
+import { base } from '$app/paths';
 import type { Load } from '@sveltejs/kit';
 
 export type NamedGraph = {

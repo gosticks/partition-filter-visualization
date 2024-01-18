@@ -115,7 +115,7 @@ export const dataStoreLoadExtension = (store: BaseStoreType, dataStore: Writable
 		const { tables } = get(dataStore);
 		return Object.entries(tables).reduce((acc, [_, value], idx) => {
 			if (idx === 0) {
-				acc = value.schema;
+				acc = JSON.parse(JSON.stringify(value.schema));
 				return acc;
 			}
 

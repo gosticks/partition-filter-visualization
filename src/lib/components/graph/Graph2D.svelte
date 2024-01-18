@@ -36,6 +36,7 @@
 	let xAxisTitle: d3.Selection<SVGTextElement, number[][], null, undefined>;
 	let yAxisTitle: d3.Selection<SVGTextElement, number[][], null, undefined>;
 	let curves: d3.Selection<SVGPathElement, number[][], null, undefined>[] | undefined = undefined;
+	let points: d3.Selection<SVGCircleElement, number[][], null, undefined>[] | undefined = undefined;
 
 	function setupGraph() {
 		svg = d3
@@ -75,6 +76,10 @@
 		}
 	}
 
+	const onMouseOver = (index: number) => (evt: MouseEvent) => {
+		console.log({ evt, idx: index });
+	};
+
 	function renderData(data: IGraph2dData) {
 		if (!data || data.points.length === 0) {
 			return;
@@ -98,13 +103,23 @@
 		if (!curves) {
 			curves = data.points.map(() => svg.append('path'));
 		}
+		if (points && points.length !== data.points.length) {
+			points.forEach((point) => point.remove());
+			points = undefined;
+		}
 
+		if (!points) {
+			points = data.points.map(() => svg.append('circle'));
+		}
 		xAxisTitle.text(data.xAxisLabel ?? 'X');
 		yAxisTitle.text(data.yAxisLabel ?? 'Y');
 
 		// Update curves
 		data.points.forEach((container, idx) => {
-			(curves?.[idx] as any)
+			if (!curves?.at(idx) || !points?.at(idx)) {
+				return;
+			}
+			(curves![idx] as any)
 				.datum(container.data)
 				.attr('class', 'line')
 				.attr('fill', container.color ?? '#69b3a2')
@@ -124,15 +139,14 @@
 						.curve(d3.curveLinear) as any
 				);
 
-			svg
-				.selectAll('circle')
-				.data(container.data)
-				.enter()
-				.append('circle')
+			points![idx]
+				.datum(container.data)
+				.attr('idx', idx)
 				.attr('cx', (d) => xAxisScale(Number(d[0])))
 				.attr('cy', (d) => yAxisScale(Number(d[1])))
+				.on('mouseover', onMouseOver(idx))
 				.transition()
-				.attr('r', 2) // Radius of the circle
+				.attr('r', 4) // Radius of the circle
 				.attr('fill', container.color ?? 'yellow'); // Color of the circle
 		});
 	}

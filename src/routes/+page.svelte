@@ -6,6 +6,7 @@
 	import { ChevronRightIcon } from 'svelte-feather-icons';
 	import type { PageServerData } from './$types';
 	import { ButtonColor, ButtonSize, ButtonVariant } from '$lib/components/button/type';
+	import { base } from '$app/paths';
 
 	export let data: PageServerData;
 
@@ -35,7 +36,7 @@
 		</h1>
 		<p class="text-4xl max-w-[60vw]">visualization tool for comapring multidemsional data</p>
 		<p class="text-4xl max-w-[60vw]">
-			<a href="/graph/custom"
+			<a href="{base}/graph/custom"
 				><Button variant={ButtonVariant.DEFAULT} size={ButtonSize.LG} color={ButtonColor.PRIMARY}
 					>New Comparisson</Button
 				></a
@@ -46,7 +47,7 @@
 		<h2 class="text-3xl font-bold mb-4">Featured comparisons</h2>
 		<div class="-mx-6 grid gap-10 grid-cols-2 md:grid-cols-3">
 			{#each data.items as item}
-				<a href="/graph/{item.href}"
+				<a href="{base}/graph/{item.href}"
 					><MessageCard class="hover:shadow-2xl transition-shadow">
 						<div class="flex place-content-between items-center">
 							<div>

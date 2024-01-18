@@ -1,7 +1,9 @@
 	ALTER TABLE "${tableName}" ADD COLUMN family TEXT;
 	ALTER TABLE "${tableName}" ADD COLUMN mode TEXT;
+	ALTER TABLE "${tableName}" ADD COLUMN memory TEXT;
 	ALTER TABLE "${tableName}" ADD COLUMN vectorization TEXT;
 	ALTER TABLE "${tableName}" ADD COLUMN fixture TEXT;
+	ALTER TABLE "${tableName}" ADD COLUMN k INTEGER;
 	ALTER TABLE "${tableName}" ADD COLUMN s FLOAT;
 	ALTER TABLE "${tableName}" ADD COLUMN n_threads INTEGER;
 	ALTER TABLE "${tableName}" ADD COLUMN n_partitions INTEGER;
@@ -15,8 +17,10 @@
 		SELECT
 		name,
 		SPLIT_PART(name, '_', 1) AS family,
-		SPLIT_PART(name, '_', 2) AS mode,
+		SPLIT_PART(name, '_', 2) AS memory,
+		SPLIT_PART(name, '_', 3) AS mode,
 		SPLIT_PART(name, '_', 4) AS vectorization,
+		SPLIT_PART(name, '_', 5) AS k,
 		SPLIT_PART(name, '/', 2) AS fixture,
 		CAST(SPLIT_PART(name, '/', 3) AS FLOAT) / 100 AS s,
 		CAST(SPLIT_PART(name, '/', 4) AS INTEGER) AS n_threads,
@@ -39,17 +43,9 @@
 	shared_elements = sv.shared_elements
 	FROM SplitValues AS sv
 	WHERE t.name = sv.name;
-	
-  UPDATE "${tableName}"
-	SET "lookup_throughput" = (n_elements_lookup * 1000.0) / real_time
-	WHERE real_time IS NOT NULL AND real_time != 0;
+  
+  DELETE from "${tableName}" where "task-clock" == 'NaN';
 
 	UPDATE "${tableName}"
 	SET "construction_throughput" = (n_elements_build * 1000.0) / real_time
 	WHERE real_time IS NOT NULL AND real_time != 0;
-
-  DELETE from "${tableName}" where "task-clock" == 'NaN';
-
-	UPDATE "${tableName}" as t
-		SET fpr = 'NaN'
-		WHERE fpr = -1;

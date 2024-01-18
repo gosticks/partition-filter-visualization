@@ -459,11 +459,11 @@ export class PlaneGraphModel extends GraphOptions<
 		scaling: DataScaling
 	): Promise<ValueRange | null> {
 		const data = get(dataStore);
-		const tables = Object.keys(data.tables);
+		const tables = Object.values(data.tables);
 
 		try {
 			const result = await Promise.all(
-				tables.map((table) => dataStore.getMinMax(table, columnName, scaling))
+				tables.map((table) => dataStore.getMinMax(table.tableName, columnName, scaling))
 			);
 			return result.reduce(
 				(acc, [min, max]) => [Math.min(acc[0], min), Math.max(acc[1], max)],
@@ -495,7 +495,7 @@ export class PlaneGraphModel extends GraphOptions<
 				message: `Could not compute data range: ${err}`,
 				description: 'Verify databases are loaded correctly and contain the selected columns'
 			});
-			console.error({ msg: 'getGlobalRanges:', state });
+			console.error({ msg: 'getGlobalRanges:', state, err });
 			return null;
 		}
 	}

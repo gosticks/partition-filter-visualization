@@ -29,6 +29,7 @@
 	import notificationStore from '$lib/store/notificationStore';
 	import type { editor } from 'monaco-editor';
 	import CodeEditor from '$lib/components/CodeEditor.svelte';
+	import { base } from '$app/paths';
 
 	interface $$Events {
 		created: TransformerCreated;
@@ -124,7 +125,7 @@
 
 	const loadTransformation = async (fileName: string) => {
 		try {
-			currentTransformation = await fetch('/transformations/' + fileName).then((resp) =>
+			currentTransformation = await fetch(base + '/transformations/' + fileName).then((resp) =>
 				resp.text()
 			);
 			editor.setValue(currentTransformation);

@@ -117,6 +117,7 @@ export const dataStoreFilterExtension = (store: BaseStoreType) => {
 		if (rows.length !== 1 || rows[0].min === null || rows[0].max === null) {
 			resp = await store.executeQuery(baseQuery);
 			if (!resp) {
+				console.error('could not query min max range', { tableName, columnName, scale });
 				throw new Error('Failed to get min/max');
 			}
 			rows = resp.toArray();
@@ -192,9 +193,6 @@ export const dataStoreFilterExtension = (store: BaseStoreType) => {
 		}
 	};
 
-	// const bigIntMax = (...args: bigint[]) => args.reduce((m, e) => (e > m ? e : m));
-	// const bigIntMin = (...args: bigint[]) => args.reduce((m, e) => (e < m ? e : m));
-
 	const getTiledData = async (
 		tableName: string,
 		_options: Partial<ITiledDataOptions> = {},
@@ -206,7 +204,6 @@ export const dataStoreFilterExtension = (store: BaseStoreType) => {
 		const options = {
 			..._options
 		} as ITiledDataOptions;
-
 		try {
 			let rows = await getTiledRows(tableName, options, xRange, yRange, zRange, where);
 

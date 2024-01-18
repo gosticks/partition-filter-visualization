@@ -294,8 +294,9 @@
 						size={ButtonSize.SM}
 						on:click={() => {
 							if (selection) {
+								console.log(selection);
 								xSlice = selection.point[0];
-								ySlice = selection.point[2];
+								ySlice = selection.point[1];
 							}
 						}}><LayersIcon slot="leading" size="10" />Show</Button
 					>

@@ -19,6 +19,7 @@
 	import type { PageServerData } from './$types';
 	import notificationStore from '$lib/store/notificationStore';
 	import EditableText from '$lib/components/EditableText.svelte';
+	import { base } from '$app/paths';
 
 	export let data: PageServerData;
 	let loadedGraph: GraphStateConfig | undefined = undefined;
@@ -71,13 +72,13 @@
 </script>
 
 <div class="h-screen w-full relative">
-	<CoreGraph bind:setCameraState>
+	<CoreGraph>
 		<svelte:fragment slot="inner">
 			{#if $filterStore.graphOptions}
 				{#if $filterStore.graphOptions instanceof PlaneGraphModel}
 					<PlaneGraph options={$filterStore.graphOptions} graphScale={0.6} />
 				{/if}
-				<Minimap />
+				<Minimap bind:setCameraState />
 			{:else}
 				<GridBackground />
 			{/if}
@@ -85,7 +86,7 @@
 		<FilterSidebar />
 	</CoreGraph>
 	<div class="absolute left-3 top-4 text-lg font-bold flex gap-2 items-center">
-		<a href="/"><Button variant={ButtonVariant.LINK}><ArrowLeftCircleIcon /></Button></a>
+		<a href="{base}/"><Button variant={ButtonVariant.LINK}><ArrowLeftCircleIcon /></Button></a>
 		{#if $filterStore.config}
 			<EditableText
 				value={graphName}

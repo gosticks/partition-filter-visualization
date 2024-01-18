@@ -14,8 +14,8 @@ import {
 } from '../dataStore/types';
 import { toStateObject, urlEncodeFilterState } from './restore';
 import type { IPlaneRenderOptions } from '$lib/rendering/PlaneRenderer';
-import { local } from 'd3';
 import { goto } from '$app/navigation';
+import { base } from '$app/paths';
 
 const initialStore: IFilterStore = {
 	isLoading: true,
@@ -273,7 +273,7 @@ const _filterStore = () => {
 			newInitialState.isLoading = false;
 			set(newInitialState);
 
-			goto('/graph/custom');
+			goto(`${base}/graph/custom`);
 		},
 
 		// Actions

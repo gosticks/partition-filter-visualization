@@ -71,7 +71,7 @@
 	function setupControls() {
 		controls = new OrbitControls(camera, renderer.domElement);
 		controls.rotateSpeed = 1;
-		controls.zoomSpeed = 1;
+		controls.zoomSpeed = 0.75;
 		controls.panSpeed = 1;
 
 		controls.enablePan = false;
@@ -230,7 +230,8 @@
 	const getScreenshot = () => renderer.domElement.toDataURL('image/png');
 
 	const getCameraState = () => ({ rotation: camera.rotation, position: camera.position });
-	export const setCameraState = (state: CameraState) => {
+
+	export let setCameraState = (state: CameraState) => {
 		camera.rotation.copy(state.rotation);
 		camera.position.copy(state.position);
 		controls.update();

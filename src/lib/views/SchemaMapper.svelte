@@ -20,6 +20,7 @@
 	} from '$lib/store/dataStore/types';
 	import { AlertTriangleIcon, EditIcon, PenToolIcon, PlusIcon, XIcon } from 'svelte-feather-icons';
 	import TransformerEditor, { type TransformerCreated } from './TransformerEditor.svelte';
+	import FilterStore from '$lib/store/filterStore/FilterStore';
 	export let initiallySelectedTable: ILoadedTable;
 
 	let table = initiallySelectedTable;
@@ -42,6 +43,7 @@
 		// NOTE: hack to force rerender
 		dataStore.updatePostProcessingTransformer(table, evt.detail.transformation).finally(() => {
 			table = table;
+			FilterStore.reload();
 		});
 	};
 
@@ -49,6 +51,7 @@
 		// NOTE: hack to force rerender
 		dataStore.addPostProcessingTransformer(table, evt.detail.transformation).finally(() => {
 			table = table;
+			FilterStore.reload();
 		});
 	};
 

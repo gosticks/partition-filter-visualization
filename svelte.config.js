@@ -9,6 +9,7 @@ const config = {
 	// Consult https://kit.svelte.dev/docs/integrations#preprocessors
 	// for more information about preprocessors
 	preprocess: vitePreprocess({
+		fallback: '404.html',
 		postcss: {
 			plugins: [tailwind, autoprefixer]
 		}
@@ -21,7 +22,8 @@ const config = {
 		adapter: adapter(),
 		// Adapt paths for GitHub Pages
 		paths: {
-			base: process.env.NODE_ENV === 'production' ? '/partition-filter-visualization' : ''
+			base: process.argv.includes('dev') ? '' : '/partition-filter-visualization'
+			//base: process.env.NODE_ENV === 'production' ? '/partition-filter-visualization' : ''
 		},
 		alias: {
 			$lib: './src/lib',
