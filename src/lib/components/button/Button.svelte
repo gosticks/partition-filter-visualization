@@ -52,7 +52,7 @@
 				switch (color) {
 					case ButtonColor.PRIMARY:
 						return 'text-primary-600 border-[3px] border-primary-600 hover:bg-primary-600 hover:text-white dark:hover:text-white dark:border-primary-600 dark:hover:bg-primary-600 dark:hover:border-primary-600';
-					case ButtonColor.SECONDARY:
+					default:
 						return 'text-secondary-600 border-secondary-600 hover:bg-secondary-600 hover:text-white dark:hover:text-white dark:border-secondary-800 dark:hover:bg-secondary-600 dark:hover:border-secondary-600';
 				}
 			case ButtonVariant.DEFAULT:
@@ -62,7 +62,7 @@
 					case ButtonColor.PRIMARY:
 						return 'text-primary-600 shadow-none hover:text-primary-700 dark:text-primary-100 dark:hover:text-primary-300 border-0';
 					case ButtonColor.SECONDARY:
-						return 'text-secondary-600 shadow-none hover:text-secondary-700 dark:text-secondary-100 dark:hover:text-secondary-300 border-0';
+						return 'text-secondary-600 shadow-none hover:text-secondary-800 dark:text-secondary-100 dark:hover:text-secondary-300 border-0';
 					case ButtonColor.INVERTED:
 						return 'text-background-200 hover:text-background-300 dark:text-background-200 dark:hover:text-background-500 border-0';
 					case ButtonColor.SUCCESS:
@@ -83,7 +83,7 @@
 	class:gap-2={hasLeadingSlot || hasTrailingSlot}
 	class:justify-center={!hasLeadingSlot && !hasTrailingSlot}
 	class:justify-between={hasLeadingSlot || hasTrailingSlot}
-	class="inline-flex items-center {sizeClasses}  {colorClasses}  font-medium focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 {className ??
+	class="inline-flex items-center {sizeClasses}  {colorClasses}  font-semibold focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 {className ??
 		''}"
 >
 	<slot name="leading" />

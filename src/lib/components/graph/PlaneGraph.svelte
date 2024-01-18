@@ -203,12 +203,12 @@
 	$: $dataStore, $graphOptionStore, (zLabelRenderer = labelRenderer(Axis.Z));
 </script>
 
-<div class="absolute flex flex-col items-start bottom-0 left-2">
+<div class="absolute flex flex-col items-stretch md:min-w-132 bottom-0 left-2">
 	{#if $dataStore?.layers}
 		<Card noPad>
-			<details>
+			<details open class="md:min-w-132">
 				<summary class="px-4 pt-2 mb-2">
-					<div class="inline-block min-w-56 font-bold">
+					<div class="inline-block font-bold">
 						<h2>Layers</h2>
 					</div>
 				</summary>
@@ -246,10 +246,11 @@
 			</details>
 		</Card>
 	{/if}
-	<Card noPad class="py-2 px-4"><SliceGraph bind:slice={xSlice} {options} {layerVisibility} /></Card
+	<Card noPad class="py-2 px-4"
+		><SliceGraph bind:slice={xSlice} isCollapsed {options} {layerVisibility} /></Card
 	>
 	<Card noPad class="py-2 px-4"
-		><SliceGraph bind:slice={ySlice} axis={Axis.Z} {options} {layerVisibility} /></Card
+		><SliceGraph bind:slice={ySlice} axis={Axis.Z} isCollapsed {options} {layerVisibility} /></Card
 	>
 </div>
 
@@ -291,7 +292,6 @@
 				<div>
 					<Button
 						size={ButtonSize.SM}
-						color={ButtonColor.INVERTED}
 						on:click={() => {
 							if (selection) {
 								xSlice = selection.point[0];
@@ -301,7 +301,7 @@
 					>
 					<Button
 						size={ButtonSize.SM}
-						color={!$isSelectionDisplayLocked ? ButtonColor.INVERTED : ButtonColor.SECONDARY}
+						color={!$isSelectionDisplayLocked ? ButtonColor.SECONDARY : ButtonColor.PRIMARY}
 						on:click={() => ($isSelectionDisplayLocked = !$isSelectionDisplayLocked)}
 						><LockIcon slot="leading" size="10" />x:{selection.point[0]} z:{selection
 							.point[1]}</Button

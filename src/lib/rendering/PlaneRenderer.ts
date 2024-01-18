@@ -1,5 +1,5 @@
 import type { ITiledDataRow } from '$lib/store/dataStore/filterActions';
-import type { ILoadedTable } from '$lib/store/dataStore/types';
+import type { DataScaling, ILoadedTable } from '$lib/store/dataStore/types';
 import {
 	Camera,
 	Color,
@@ -62,6 +62,11 @@ export interface IPlaneRendererData {
 		y: [number, number];
 		z: [number, number];
 	};
+	scales: {
+		x: DataScaling;
+		y: DataScaling;
+		z: DataScaling;
+	};
 }
 
 export enum PlaneTriangulation {
@@ -71,7 +76,7 @@ export enum PlaneTriangulation {
 
 export enum DataDisplayType {
 	memory = 'memory',
-	cycled = 'cycled',
+	cycled = 'cycles',
 	time = 'time',
 	percentage = 'percentage',
 	number = 'number'
@@ -98,9 +103,10 @@ export interface IPlaneSelection {
 export class PlaneRenderer extends GraphRenderer<IPlaneRendererData, IPlaneSelection> {
 	public static defaultRenderOptions(): IPlaneRenderOptions {
 		return {
+			pointCloudSize: 0.005,
 			triangulation: PlaneTriangulation.delaunay,
 			showSelection: true,
-			pointCloudColor: 0x00ffff
+			pointCloudColor: 0xeeeeee
 		};
 	}
 

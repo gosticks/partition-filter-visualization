@@ -1,13 +1,7 @@
 import { get, writable } from 'svelte/store';
 import { dataStore } from '../dataStore/DataStore';
 import { urlDecodeObject, withSingleKeyUrlStorage } from '../urlStorage';
-import {
-	type IFilterStore,
-	GraphOptions,
-	GraphType,
-	type GraphStateConfig,
-	type DeepPartial
-} from './types';
+import { type IFilterStore, GraphType, type GraphStateConfig, type DeepPartial } from './types';
 import { PlaneGraphModel } from './graphs/plane';
 import { defaultLogOptions, withLogMiddleware } from '../logMiddleware';
 import notificationStore from '../notificationStore';
@@ -19,6 +13,9 @@ import {
 	type ITableBuildIn
 } from '../dataStore/types';
 import { toStateObject, urlEncodeFilterState } from './restore';
+import type { IPlaneRenderOptions } from '$lib/rendering/PlaneRenderer';
+import { local } from 'd3';
+import { goto } from '$app/navigation';
 
 const initialStore: IFilterStore = {
 	isLoading: true,
@@ -169,7 +166,10 @@ const _filterStore = () => {
 
 			switch (type) {
 				case GraphType.PLANE:
-					state.graphOptions = new PlaneGraphModel(graphState?.data, graphState?.render);
+					state.graphOptions = new PlaneGraphModel(
+						graphState?.data,
+						(graphState?.render as Partial<IPlaneRenderOptions>) ?? {}
+					);
 					// FIXME: hack to trigger URL persistance
 					state.graphOptions.dataStore.subscribe(storeToUrl);
 			}
@@ -272,6 +272,8 @@ const _filterStore = () => {
 			newInitialState.preloadedDatasets = get(store).preloadedDatasets;
 			newInitialState.isLoading = false;
 			set(newInitialState);
+
+			goto('/graph/custom');
 		},
 
 		// Actions

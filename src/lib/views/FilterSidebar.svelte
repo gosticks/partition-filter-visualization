@@ -32,6 +32,7 @@
 	import { getGraphContext, type GraphService } from '$lib/views/CoreGraph.svelte';
 	import { imageFromGlContext } from '$lib/rendering/screenshot';
 	import SchemaMapper from './SchemaMapper.svelte';
+	import H3 from '$lib/components/base/H3.svelte';
 
 	const graphService: GraphService = getGraphContext();
 	let optionsStore: GraphOptions['optionsStore'] | undefined;
@@ -164,7 +165,7 @@
 		<div class="w-full md:w-96" transition:fadeSlide={{ duration: 100 }}>
 			<Card class="max-h-[80vh] md:max-h-[70vh] overflow-auto">
 				<div class="flex justify-between items-center">
-					<h3 class="font-semibold text-lg">Loaded table</h3>
+					<H3 class="select-none cursor-pointer">Loaded datasets</H3>
 					<Button size={ButtonSize.SM} on:click={filterStore.reset}>
 						<svelte:fragment slot="trailing">
 							<RefreshCcwIcon size="12" />
@@ -211,7 +212,7 @@
 				{#if Object.keys($dataStore.tables).length > 0}
 					<Divider />
 					<details open={!$filterStore.graphOptions?.getType()}>
-						<summary><h3 class="inline font-semibold text-lg mb-2">Graph Type</h3></summary>
+						<summary><H3 class="inline-block select-none cursor-pointer">Graph Type</H3></summary>
 						{#each Object.values(GraphType) as graphType}
 							<Button
 								color={graphType === $filterStore.graphOptions?.getType()
@@ -229,7 +230,7 @@
 					{#if optionsStore && $filterStore.graphOptions}
 						<Divider />
 						<details open>
-							<summary><h3 class="font-semibold inline-block text-lg">Data Query</h3></summary>
+							<summary><H3 class="inline-block select-none cursor-pointer">Data Query</H3></summary>
 							<div class="flex flex-col gap-2">
 								{#each Object.entries($filterStore.graphOptions.filterOptionFields ?? {}) as [key, value]}
 									{#if typeof value !== 'undefined'}
@@ -245,7 +246,9 @@
 						</details>
 						<Divider />
 						<details>
-							<summary><h3 class="font-semibold inline text-lg">Display options</h3></summary>
+							<summary
+								><H3 class="inline-block select-none cursor-pointer">Display options</H3></summary
+							>
 							<div class="flex flex-col gap">
 								{#each Object.entries($filterStore.graphOptions.getRenderOptionFields()) as [key, value]}
 									{#if typeof value !== 'undefined'}

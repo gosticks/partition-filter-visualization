@@ -19,7 +19,6 @@
 		MoveIcon
 	} from 'svelte-feather-icons';
 	import Dropdown, { getDropdownCtx } from '../Dropdown.svelte';
-	import { type DropdownSelectionEvent } from '../DropdownSelect.svelte';
 	import Button from '../button/Button.svelte';
 	import { ButtonColor, ButtonSize, ButtonVariant } from '../button/type';
 	import Dialog, { DialogSize } from '../dialog/Dialog.svelte';
@@ -28,6 +27,7 @@
 	import type { IGraph2dData } from './Graph2D.svelte';
 	import Graph2D from './Graph2D.svelte';
 	import SliceSelection from './SliceSelection.svelte';
+	import type { DropdownSelectionEvent } from '../DropdownSelect.svelte';
 
 	export let options: PlaneGraphModel;
 	export let layerVisibility: LayerVisibilityList;
@@ -47,8 +47,8 @@
 	let visibleLayers: (IPlaneData | IPlaneChildData)[] = [];
 
 	let isSelectingSlice = false;
-	let isSliceShown = false;
-	let isCollapsed = false;
+	export let isSliceShown = false;
+	export let isCollapsed = false;
 	let scale: DataScaling = DataScaling.LINEAR;
 
 	function getVisibleLayers(data: IPlaneRendererData | undefined, visibility: LayerVisibilityList) {
@@ -126,6 +126,7 @@
 			return;
 		}
 
+		console.log($dataStore);
 		switch (axis) {
 			case Axis.X:
 				return {
@@ -133,6 +134,8 @@
 					yRange: $dataStore.ranges.y,
 					xAxisLabel: $dataStore.labels.z,
 					yAxisLabel: $dataStore.labels.y,
+					xScale: $dataStore.scales.z,
+					yScale: $dataStore.scales.y,
 					points: data
 				};
 			case Axis.Y:
@@ -143,6 +146,8 @@
 					yRange: $dataStore.ranges.y,
 					xAxisLabel: $dataStore.labels.x,
 					yAxisLabel: $dataStore.labels.y,
+					xScale: $dataStore.scales.x,
+					yScale: $dataStore.scales.y,
 					points: data
 				};
 		}
@@ -260,7 +265,7 @@
 		<div>
 			{#if data}
 				<div class="pr-2">
-					<Graph2D {width} {height} {xAxisOffset} {yAxisOffset} {data} xScale={scale} />
+					<Graph2D {width} {height} {xAxisOffset} {yAxisOffset} {data} />
 				</div>
 			{:else}
 				<div class="w-52 h-52 flex flex-col gap-2 justify-center items-center">

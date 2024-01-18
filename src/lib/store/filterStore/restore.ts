@@ -33,6 +33,7 @@ export const toStateObject = (state: IFilterStore): GraphStateConfig => {
 	// 	} as UrlTableSelection)
 
 	return {
+		name: state.config?.name ?? 'Untitled Graph',
 		selectedTables: tables,
 		// Probably defer this?
 		graphOption: state.graphOptions && {

@@ -51,11 +51,11 @@
 	let editor: editor.IStandaloneCodeEditor;
 
 	const createTransformation = () => {
+		currentTransformation = editor.getValue();
 		if (existingTransformation) {
 			existingTransformation.description = description;
 			existingTransformation.name = transformerName;
 			existingTransformation.query = editor.getValue();
-			currentTransformation = editor.getValue();
 			eventDispatcher('updated', {
 				transformation: existingTransformation
 			});
@@ -149,7 +149,7 @@
 			>$&#123;tableName&#125;</span
 		>
 		<DropdownSelect
-			values={Object.values($dataStore.sqlTransformation)}
+			values={Object.values($dataStore.sqlTransformations)}
 			singular
 			required
 			optionConstructor={transformationSelectionOptionConstructor}

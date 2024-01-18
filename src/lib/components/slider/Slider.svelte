@@ -14,6 +14,7 @@
 	import { createEventDispatcher } from 'svelte';
 	import Label from '../base/Label.svelte';
 	import Tag from '../base/Tag.svelte';
+	import EditableText from '../EditableText.svelte';
 
 	export let disabled: boolean = false;
 	export let min: number = 0;
@@ -66,7 +67,18 @@
 				>{#if label !== undefined}{label}:
 				{/if}
 			</Label>
-			<Tag><span class="font-black">{displayFunction(value)}</span></Tag>
+			<EditableText
+				buttonWrap
+				on:change={(evt) => {
+					const v = parseInt(evt.detail.change);
+					if (Number.isNaN(v)) {
+						return;
+					}
+					value = Math.max(min, Math.min(max, v));
+					_onChange();
+				}}
+				value={displayFunction(value)}
+			/>
 		</div>
 	{/if}
 	<div class="flex items-center gap-1">

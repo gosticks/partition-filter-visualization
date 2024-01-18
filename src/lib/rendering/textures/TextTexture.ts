@@ -20,6 +20,8 @@ const defaultTextOptions: TextTextureOptions = {
 	rotation: 0
 };
 
+const renderScale = 2;
+
 export class TextTexture extends THREE.CanvasTexture {
 	private canvas?: HTMLCanvasElement;
 	private context?: CanvasRenderingContext2D;
@@ -28,8 +30,8 @@ export class TextTexture extends THREE.CanvasTexture {
 		const options = { ...defaultTextOptions, ..._options };
 		// Create a canvas element
 		const canvas = document.createElement('canvas');
-		canvas.width = options.width ?? text.length * options.fontSize;
-		canvas.height = options.height ?? options.fontSize * options.fontLineHeight;
+		canvas.width = (options.width ?? text.length * options.fontSize) * renderScale;
+		canvas.height = (options.height ?? options.fontSize * options.fontLineHeight) * renderScale;
 
 		// Get the 2D rendering context of the canvas
 		const context = canvas.getContext('2d');
@@ -39,7 +41,7 @@ export class TextTexture extends THREE.CanvasTexture {
 		}
 
 		// Set the font properties
-		context.font = `${options.fontSize}px ${options.font ?? ''}`;
+		context.font = `${options.fontSize * renderScale}px ${options.font ?? ''}`;
 
 		// Set the text alignment and baseline
 		context.textAlign = 'center';

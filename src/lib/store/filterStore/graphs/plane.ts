@@ -10,12 +10,7 @@ import {
 import { dataStore } from '$lib/store/dataStore/DataStore';
 import { get, readonly, writable, type Readable, type Writable } from 'svelte/store';
 import { GraphOptions, GraphType, type GraphFilterOptions } from '../types';
-import {
-	DataAggregation,
-	DataScaling,
-	type ILoadedTable,
-	type ITableReference
-} from '$lib/store/dataStore/types';
+import { DataAggregation, DataScaling, type ILoadedTable } from '$lib/store/dataStore/types';
 import { colorBrewer } from '$lib/rendering/colors';
 import type { ITiledDataOptions, ValueRange } from '$lib/store/dataStore/filterActions';
 import { withLogMiddleware } from '$lib/store/logMiddleware';
@@ -59,13 +54,13 @@ export class PlaneGraphModel extends GraphOptions<
 		},
 		yAxisDataType: {
 			type: 'string',
-			label: 'X Axis type',
+			label: 'Y Axis type',
 			default: DataDisplayType.number,
 			options: Object.values(DataDisplayType)
 		},
 		zAxisDataType: {
 			type: 'string',
-			label: 'X Axis type',
+			label: 'Z Axis type',
 			default: DataDisplayType.number,
 			options: Object.values(DataDisplayType)
 		},
@@ -78,13 +73,14 @@ export class PlaneGraphModel extends GraphOptions<
 		pointCloudColor: {
 			type: 'color',
 			label: 'Value point color',
-			default: '#ffeede'
+			default: '#ffffff'
 		},
 		pointCloudSize: {
 			type: 'number?',
 			label: 'Point cloud size',
 			toggleLabel: 'Custom point size',
 			options: [0.001, 0.03],
+			default: 0.01,
 			step: 0.001
 		},
 		triangulation: {
@@ -104,13 +100,16 @@ export class PlaneGraphModel extends GraphOptions<
 		renderSettings: Partial<IPlaneRenderOptions> = {}
 	) {
 		super({});
+
+		console.log({ initialState, renderSettings });
+
 		this._dataStore = writable(undefined);
 		this.dataStore = readonly(this._dataStore);
 
 		this._renderOptions = writable({
 			...PlaneRenderer.defaultRenderOptions(),
 			...renderSettings
-		});
+		} as IPlaneRenderOptions);
 		this.renderStore = readonly(this._renderOptions);
 
 		// Check if options are initially valid
@@ -128,7 +127,7 @@ export class PlaneGraphModel extends GraphOptions<
 		this.reloadFilterOptions();
 
 		// if no default init was passed in attempt to init with some data based defaults
-		if (initialState === defaultInitialState) {
+		if (initialState === defaultInitialState || Object.keys(initialState).length === 0) {
 			this.resetOptions();
 		} else {
 			// trigger re render of UI components
@@ -213,6 +212,7 @@ export class PlaneGraphModel extends GraphOptions<
 	private resetOptions() {
 		this._optionsStore.update((state) => {
 			for (const [k, v] of Object.entries(this.filterOptionFields)) {
+				console.log('setting', { k, v });
 				if (v.type === 'row') {
 					v.keys.forEach((key, index) => {
 						(state as any)[key as keyof RequiredOptions] = v.items[index].default;
@@ -236,6 +236,7 @@ export class PlaneGraphModel extends GraphOptions<
 		const numberTableColumns = Object.entries(data.combinedSchema)
 			.filter(([, type]) => type === 'number')
 			.map(([column]) => column);
+		console.log({ numberTableColumns });
 		this.filterOptionFields = {
 			groupBy: {
 				type: 'string',
@@ -246,8 +247,8 @@ export class PlaneGraphModel extends GraphOptions<
 				type: 'string',
 				label: 'Aggregation',
 				required: true,
-				options: Object.values(DataAggregation)
-				// default: DataAggregation.MIN
+				options: Object.values(DataAggregation),
+				default: DataAggregation.MIN
 			},
 			xColumnName: {
 				type: 'row',
@@ -258,15 +259,15 @@ export class PlaneGraphModel extends GraphOptions<
 						type: 'string',
 						options: numberTableColumns,
 						label: 'X Axis',
-						required: true
-						// default: numberTableColumns[Math.floor(Math.random() * numberTableColumns.length)]
+						required: true,
+						default: numberTableColumns.length > 1 ? numberTableColumns[1] : undefined
 					},
 					{
 						type: 'string',
 						options: Object.values(DataScaling),
 						label: 'X Scale',
-						required: true
-						// default: DataScaling.LINEAR
+						required: true,
+						default: DataScaling.LINEAR
 					}
 				]
 			},
@@ -279,15 +280,15 @@ export class PlaneGraphModel extends GraphOptions<
 						type: 'string',
 						options: numberTableColumns,
 						label: 'Y Axis',
-						required: true
-						// default: numberTableColumns[Math.floor(Math.random() * numberTableColumns.length)]
+						required: true,
+						default: numberTableColumns.length > 1 ? numberTableColumns[1] : undefined
 					},
 					{
 						type: 'string',
 						options: Object.values(DataScaling),
 						label: 'Y Scale',
-						required: true
-						// default: DataScaling.LINEAR
+						required: true,
+						default: DataScaling.LINEAR
 					}
 				]
 			},
@@ -300,37 +301,37 @@ export class PlaneGraphModel extends GraphOptions<
 						type: 'string',
 						options: numberTableColumns,
 						label: 'Z Axis',
-						required: true
-						// default: numberTableColumns[Math.floor(Math.random() * numberTableColumns.length)]
+						required: true,
+						default: numberTableColumns.length > 1 ? numberTableColumns[1] : undefined
 					},
 					{
 						type: 'string',
 						options: Object.values(DataScaling),
 						label: 'Z Scale',
-						required: true
-						// default: DataScaling.LINEAR
+						required: true,
+						default: DataScaling.LINEAR
 					}
 				]
 			},
 			xTileCount: {
 				type: 'number',
-				options: [2, 512],
+				options: [2, 256],
 				label: 'X Tile Count',
-				required: true
-				// default: 24
+				required: true,
+				default: 24
 			},
 			zTileCount: {
 				type: 'number',
-				options: [2, 512],
+				options: [2, 256],
 				label: 'Z Tile Count',
-				required: true
-				// default: 24
+				required: true,
+				default: 24
 			},
 			lockTileCounts: {
 				type: 'boolean',
 				label: 'Lock tile counts',
-				required: false
-				// default: true
+				required: false,
+				default: true
 			}
 		};
 	}
@@ -413,6 +414,11 @@ export class PlaneGraphModel extends GraphOptions<
 				tileRange: {
 					x: state.xTileCount,
 					z: state.zTileCount
+				},
+				scales: {
+					x: state.scaleX,
+					y: state.scaleY,
+					z: state.scaleZ
 				}
 			});
 		} catch (e) {

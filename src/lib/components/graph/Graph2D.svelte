@@ -8,6 +8,8 @@
 		yAxisLabel?: string;
 		xRange: ValueRange;
 		yRange: ValueRange;
+		xScale: DataScaling;
+		yScale: DataScaling;
 		points: {
 			color?: string;
 			name?: string;
@@ -23,8 +25,6 @@
 	export let data: IGraph2dData;
 	export let height = 200;
 	export let width = 300;
-	export let xScale: DataScaling = DataScaling.LINEAR;
-	export let yScale: DataScaling = DataScaling.LINEAR;
 	export let xAxisOffset = 30;
 	export let yAxisOffset = 20;
 
@@ -67,25 +67,26 @@
 			case DataScaling.LINEAR:
 				return d3.scaleLinear().range(range).domain(domain);
 			case DataScaling.LOG:
-				return d3.scaleLog().range(range).domain(domain);
+				const d = [
+					scale === DataScaling.LOG ? Math.exp(domain[0]) : domain[0],
+					scale === DataScaling.LOG ? Math.exp(domain[1]) : domain[1]
+				];
+				return d3.scaleLog().range(range).domain(d);
 		}
 	}
 
-	function renderData(data: IGraph2dData, xScale: DataScaling, yScale: DataScaling) {
+	function renderData(data: IGraph2dData) {
 		if (!data || data.points.length === 0) {
 			return;
 		}
-
-		console.log(data);
-
-		const xAxisScale = getScale([0, width], data.xRange, xScale);
+		const xAxisScale = getScale([0, width], data.xRange, data.xScale);
 		xAxis
 			.attr('transform', 'translate(0,' + (height - yAxisOffset) + ')')
 			.call(d3.axisBottom(xAxisScale));
 
 		// add the y Axis
-		const yAxisScale = getScale([height - yAxisOffset, 0], data.yRange, yScale);
-		yAxis.call(d3.axisLeft(yAxisScale));
+		const yAxisScale = getScale([height - yAxisOffset, 0], data.yRange, data.yScale);
+		yAxis.call(d3.axisLeft(yAxisScale).tickFormat(d3.format('~s')));
 
 		svg.selectAll('circle').remove();
 		// remove all curves if number changes
@@ -137,7 +138,7 @@
 	}
 
 	$: if (svg) {
-		renderData(data, xScale, yScale);
+		renderData(data);
 	}
 
 	onMount(async () => {
