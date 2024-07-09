@@ -1,0 +1,83 @@
+{
+	"name": "Count 10K",
+	"description": "bits vs cycles vs fpr",
+	"selectedTables": [
+		{
+			"tableName": "bloom-count-10k",
+			"refs": [
+				{
+					"source": 0,
+					"datasetName": "experiments"
+				}
+			]
+		},
+		{
+			"tableName": "cuckoo-count-10k",
+			"refs": [
+				{
+					"source": 0,
+					"datasetName": "experiments"
+				}
+			]
+		},
+		{
+			"tableName": "fuse-count-10k",
+			"refs": [
+				{
+					"source": 0,
+					"datasetName": "experiments"
+				}
+			]
+		},
+		{
+			"tableName": "xor-count-10k",
+			"refs": [
+				{
+					"source": 0,
+					"datasetName": "experiments"
+				}
+			]
+		},
+		{
+			"tableName": "morton-count-10k",
+			"refs": [
+				{
+					"source": 0,
+					"datasetName": "experiments"
+				}
+			]
+		}
+	],
+	"graphOption": {
+		"type": "plane",
+		"data": {
+			"isRendered": false,
+			"isValid": true,
+			"aggregation": "min",
+			"xColumnName": "bits",
+			"scaleX": "linear",
+			"yColumnName": "cycles",
+			"scaleY": "linear",
+			"zColumnName": "fpr",
+			"scaleZ": "log",
+			"xTileCount": 52,
+			"zTileCount": 52
+		},
+		"render": {
+			"triangulation": "delaunay",
+			"showSelection": true
+		}
+	},
+	"ui": {
+		"rotation": {
+			"x": -1.0926139668871153,
+			"y": 1.0387195367413942,
+			"z": 1.029311331379542
+		},
+		"position": {
+			"x": 258.52659719622056,
+			"y": 135.1256987130706,
+			"z": 70.03601994294195
+		}
+	}
+}

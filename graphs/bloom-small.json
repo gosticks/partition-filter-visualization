@@ -1,0 +1,46 @@
+{
+	"name": "Bloom Small",
+	"selectedTables": [
+		{
+			"tableName": "bloom-count-10k",
+			"refs": [
+				{
+					"source": 0,
+					"datasetName": "experiments"
+				}
+			]
+		}
+	],
+	"graphOption": {
+		"type": "plane",
+		"data": {
+			"isRendered": false,
+			"isValid": true,
+			"aggregation": "min",
+			"xColumnName": "bits",
+			"scaleX": "linear",
+			"yColumnName": "cycles",
+			"scaleY": "linear",
+			"zColumnName": "fpr",
+			"scaleZ": "log",
+			"xTileCount": 20,
+			"zTileCount": 52
+		},
+		"render": {
+			"triangulation": "delaunay",
+			"showSelection": true
+		}
+	},
+	"ui": {
+		"rotation": {
+			"x": -0.4980862583632911,
+			"y": 0.6753452584173357,
+			"z": 0.32771909313396225
+		},
+		"position": {
+			"x": 118.78169677351471,
+			"y": 70.84642074754247,
+			"z": 130.27545117506594
+		}
+	}
+}

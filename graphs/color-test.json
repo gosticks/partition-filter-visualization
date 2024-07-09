@@ -1,0 +1,29 @@
+{
+	"name": "Color Test",
+	"selectedTables": [
+		{ "tableName": "bloom-count-10k", "refs": [{ "source": 0, "datasetName": "experiments" }] }
+	],
+	"graphOption": {
+		"type": "plane",
+		"data": {
+			"isRendered": false,
+			"isValid": true,
+			"aggregation": "sum",
+			"xColumnName": "bits",
+			"scaleX": "linear",
+			"yColumnName": "cpu_time",
+			"scaleY": "linear",
+			"zColumnName": "cycles",
+			"scaleZ": "linear",
+			"xTileCount": 35,
+			"zTileCount": 35,
+			"groupBy": "vectorization",
+			"lockTileCounts": true
+		},
+		"render": { "triangulation": "delaunay", "showSelection": true, "pointCloudColor": "#ff3300" }
+	},
+	"ui": {
+		"rotation": { "x": -0.4964268691793674, "y": 0.6954611760103466, "z": 0.33406280309160513 },
+		"position": { "x": 121.74052007856505, "y": 69.47789166709317, "z": 128.26561636111285 }
+	}
+}
